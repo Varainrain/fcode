@@ -165,7 +165,7 @@ class Player:
                 ct.heal(myLoc)
         currentRound = ct.get_current_round()
         self.setUp(ct, myLoc)
-        if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 20) or currentRound > 80):
+        if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 20)):
             self.alwaysDefense = True
         if currentRound % 120 == 1 or self.justSpawned:
             self.assignRole(ct, currentRound)
@@ -175,7 +175,7 @@ class Player:
         if self.attackMode == True:
             self.attack(ct)
             return
-        if self.defenseMode or self.alwaysDefense:
+        if self.defenseMode:
             self.defender.defendInfrastructure(ct, self.teamCore, self.pf)
             healPos = self.defender.picHealingLoc(ct, self.teamCore, self.alwaysDefense)
             if healPos is not None:
@@ -545,13 +545,6 @@ class Player:
     def buildCloser(self, ct: Controller):
         myLoc = ct.get_position()
         endID = ct.get_tile_building_id(self.conveyorEnd)
-        isLauncher = False
-        for i in ct.get_nearby_buildings(2):
-            if ct.get_entity_type(i) == EntityType.LAUNCHER and ct.get_team(i) == ct.get_team():
-                if ct.get_position(i).distance_squared(self.conveyorEnd) <= 5:
-                    isLauncher = True
-        if not isLauncher:
-            self.defender.placeLauncher(ct, self.conveyorEnd)
         if endID is not None:
             endEntity = ct.get_entity_type(endID)
             if endEntity == EntityType.CONVEYOR and ct.get_team(endID) == ct.get_team():
@@ -562,7 +555,7 @@ class Player:
                 ct.destroy(self.conveyorEnd)
             if myLoc != self.conveyorEnd:
                 self.pf.moveTo(ct, self.conveyorEnd)
-            if self.defender.destroyTurns > 5 and not isLauncher:
+            if self.defender.destroyTurns > 5:
                 self.defender.placeLauncher(ct, self.conveyorEnd)
             if ct.can_fire(self.conveyorEnd):
                 ct.fire(self.conveyorEnd)
