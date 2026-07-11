@@ -208,10 +208,7 @@ class Player:
             self.pf.reset()
         self.oldPos = myLoc
 
-    def _computeCoreTiles(self, ct: Controller, corner: Position) -> list:
-        """Return the tiles making up the core footprint (now 2x2), found by
-        scanning for tiles that share the core's building id. Falls back to
-        [corner] if the id can't be read."""
+    def _computeCoreTiles(self, ct: Controller, corner: Position) -> list: # offsets bc it changed from 3x3 to 2x2
         cid = ct.get_tile_building_id(corner)
         tiles = []
         if cid is not None:
@@ -222,10 +219,7 @@ class Player:
                         tiles.append(q)
         return tiles if tiles else [corner]
 
-    def nearCore2(self, pos: Position) -> int:
-        """Squared distance from pos to the nearest tile of the core footprint.
-        Using the footprint (not a single corner) so conveyors register as
-        reaching the core from every side of the 2x2."""
+    def nearCore2(self, pos: Position) -> int: # offsets for different core shape
         tiles = self.teamCoreTiles if self.teamCoreTiles else [self.teamCore]
         return min(pos.distance_squared(t) for t in tiles)
 
@@ -561,14 +555,38 @@ class Player:
                 ct.fire(self.conveyorEnd)
                 self.defender.destroyTurns += 1
 
-        # Candidate cardinal conveyor extensions toward the core.
+        # Recursive lookahead used only to rank the candidate directions below -- otherwise
+        # identical filtering rules to cambc's single-hop version.
+        def getAllNearby(ct: Controller, curPos: Position, lastPos: Position, depth: int) -> int:
+            possibleMoves = []
+            if depth > 0:
+                for i in CardDirections:
+                    end = curPos.add(i)
+                    if self.isInBounds(ct, end) and ct.is_in_vision(end):
+                        if (ct.get_tile_env(end) == Environment.EMPTY or ct.get_tile_env(end) == Environment.ORE_TITANIUM):
+                            possibleMoves.append(i)
+            if self.nearCore2(curPos) == 0:
+                return -4096 + depth
+            elif len(possibleMoves) == 1 and curPos.add(possibleMoves[0]) == lastPos:
+                return 4096
+            if depth == 0 or len(possibleMoves) == 0:
+                return self.nearCore2(curPos)
+            else:
+                bestScore = 4096
+                for i in possibleMoves:
+                    curScore = getAllNearby(ct, curPos.add(i), curPos, depth - 1)
+                    if curScore < bestScore:
+                        bestScore = curScore
+                return bestScore
+
+        # Candidate cardinal conveyor extensions toward the core (identical to cambc).
         possibleConveyors = []
         for i in CardDirections:
             end = self.conveyorEnd.add(i)
             if self.isInBounds(ct, end):
                 if ct.can_build_conveyor(self.conveyorEnd, i) and (ct.get_tile_env(end) == Environment.EMPTY or ct.get_tile_env(end) == Environment.ORE_TITANIUM):
                     possibleConveyors.append(i)
-        possibleConveyors.sort(key=lambda c: self.nearCore2(self.conveyorEnd.add(c)))
+        possibleConveyors.sort(key=lambda c: getAllNearby(ct, self.conveyorEnd.add(c), self.conveyorEnd, 3))
 
         # Try to build a conveyor directly adjacent to the core
         for i in possibleConveyors:
@@ -597,19 +615,18 @@ class Player:
                             self.enemyType = -1
                             return
 
-        # Extend one step closer with the best available conveyor
+        # Extend one step closer with the best available (lookahead-ranked) conveyor
         for i in possibleConveyors:
             end = self.conveyorEnd.add(i)
             endID2 = ct.get_tile_building_id(end)
             if endID2 is None:
-                # if end.distance_squared(self.teamCore) < self.conveyorEnd.distance_squared(self.teamCore):
-                    if ct.can_build_conveyor(self.conveyorEnd, i):
-                        ct.build_conveyor(self.conveyorEnd, i)
-                        self.conveyorEnd = end
-                        self.turretTimeOut = 0
-                        self.enemyPos = None
-                        self.enemyType = -1
-                        return
+                if ct.can_build_conveyor(self.conveyorEnd, i):
+                    ct.build_conveyor(self.conveyorEnd, i)
+                    self.conveyorEnd = end
+                    self.turretTimeOut = 0
+                    self.enemyPos = None
+                    self.enemyType = -1
+                    return
 
     def isInBounds(self, ct: Controller, pos: Position) -> bool:
         W = ct.get_map_width() - 1
