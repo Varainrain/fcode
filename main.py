@@ -152,6 +152,8 @@ class Player:
         self.setUp(ct, myLoc)
         if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 24)):
             self.alwaysDefense = True
+            self.defenseMode = True
+            ct.draw_indicator_line((0, 0), myLoc, 100, 40, 200)
         if currentRound % 120 == 1 or self.justSpawned:
             self.assignRole(ct, currentRound)
         self.justSpawned = False
