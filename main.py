@@ -29,7 +29,6 @@ class Player:
         # Attacking
         self.attackPos = None
         self.spawnSentinelHere = None
-        self.attackTurns = 0
 
         # Cores
         self.teamCore = None        # reference corner tile of the (2x2) core
@@ -51,6 +50,7 @@ class Player:
         self.protectTurns = 0
         self.sentinelSpot = None
         self.isEnemyInfastructure = None
+        self.nextTurretCountDown = 0
 
         # Placing Gunner On Attack
         self.turretTimeOut = 0  # Starts when turret is placed
@@ -59,6 +59,7 @@ class Player:
         # Exploring
         self.explorePos = None
         self.exploreTime = 0
+        self.attackMoveTimeout = 0
 
     def run(self, ct: Controller) -> None:
         etype = ct.get_entity_type()
@@ -90,21 +91,13 @@ class Player:
     def sentinel(self, ct: Controller) -> None:
         for j in ct.get_attackable_tiles():
             if ct.get_tile_building_id(j) is not None:
-                ct.draw_indicator_dot(j, 100, 100, ct.get_id() // 5)
+                ct.draw_indicator_line(ct.get_position(), j, 255, 255, 255)
         if self.enemyCore is None:
             self.enemyCore = findEnemyCore(ct)
         if self.enemyCore is not None:
             if ct.can_fire(self.enemyCore):
                 ct.fire(self.enemyCore)
         else:
-            for j in ct.get_attackable_tiles():
-                if ct.get_tile_building_id(j) is not None:
-                    i = ct.get_tile_building_id(j)
-                    if ct.get_team(i) != ct.get_team():
-                        if ct.get_entity_type(i) == EntityType.HARVESTER and ct.get_position().distance_squared(ct.get_position(i)) > 1:
-                            if ct.can_fire(ct.get_position(i)):
-                                ct.fire(ct.get_position(i))
-                                return
             for j in ct.get_attackable_tiles():
                 if ct.get_tile_building_id(j) is not None:
                     i = ct.get_tile_building_id(j)
@@ -118,14 +111,6 @@ class Player:
                     i = ct.get_tile_building_id(j)
                     if ct.get_team(i) != ct.get_team():
                         if ct.get_entity_type(i) == EntityType.CONVEYOR:
-                            if ct.can_fire(ct.get_position(i)):
-                                ct.fire(ct.get_position(i))
-                                return
-            for j in ct.get_attackable_tiles():
-                if ct.get_tile_building_id(j) is not None:
-                    i = ct.get_tile_building_id(j)
-                    if ct.get_team(i) != ct.get_team():
-                        if ct.get_entity_type(i) == EntityType.BUILDER_BOT:
                             if ct.can_fire(ct.get_position(i)):
                                 ct.fire(ct.get_position(i))
                                 return
@@ -165,7 +150,7 @@ class Player:
                 ct.heal(myLoc)
         currentRound = ct.get_current_round()
         self.setUp(ct, myLoc)
-        if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 20)):
+        if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 24)):
             self.alwaysDefense = True
         if currentRound % 120 == 1 or self.justSpawned:
             self.assignRole(ct, currentRound)
@@ -209,9 +194,6 @@ class Player:
         self.oldPos = myLoc
 
     def _computeCoreTiles(self, ct: Controller, corner: Position) -> list:
-        """Return the tiles making up the core footprint (now 2x2), found by
-        scanning for tiles that share the core's building id. Falls back to
-        [corner] if the id can't be read."""
         cid = ct.get_tile_building_id(corner)
         tiles = []
         if cid is not None:
@@ -223,9 +205,6 @@ class Player:
         return tiles if tiles else [corner]
 
     def nearCore2(self, pos: Position) -> int:
-        """Squared distance from pos to the nearest tile of the core footprint.
-        Using the footprint (not a single corner) so conveyors register as
-        reaching the core from every side of the 2x2."""
         tiles = self.teamCoreTiles if self.teamCoreTiles else [self.teamCore]
         return min(pos.distance_squared(t) for t in tiles)
 
@@ -254,64 +233,84 @@ class Player:
 
         # Determine attack destination
         if self.attackPos is None:
-            if self.enemyCore is not None:
-                self.attackPos = self.enemyCore
-            else:
-                self.attackPos = Position(
-                    ct.get_map_width() - self.teamCore.x,
-                    ct.get_map_height() - self.teamCore.y
-                )
+            self.attackPos = Position(
+                ct.get_map_width() - self.teamCore.x,
+                ct.get_map_height() - self.teamCore.y
+            )
+            self.attackMoveTimeout = 0
         if self.enemyCore is not None:
             self.attackPos = self.enemyCore
-
-        # Jitter so we don't stand still on the target
-        if myLoc.distance_squared(self.attackPos) <= 4:
-            dx = random.randint(-5, 5)
-            dy = random.randint(-5, 5)
+            
+        def changeAttackPos (ct: Controller):
+            dx = 5 * random.randint(-1, 1) # more consistently farther away
+            dy = 5 * random.randint(-1, 1)
             new_x = max(0, min(self.attackPos.x + dx, ct.get_map_width() - 1))
             new_y = max(0, min(self.attackPos.y + dy, ct.get_map_height() - 1))
             self.attackPos = Position(new_x, new_y)
+            self.attackMoveTimeout = 0
+        
+        # Jitter so we don't stand still on the target
+        if myLoc.distance_squared(self.attackPos) < 8:
+            changeAttackPos(ct)
 
-        # Pick a sentinel placement spot near the attack target
-        if self.spawnSentinelHere is None:
+        
+        if self.spawnSentinelHere is None: # Pick a sentinel placement spot near the attack target
             nearbyEnemyStuff = []
+            isStuff = False
             for i in ct.get_nearby_buildings():
                 if ct.get_entity_type(i) == EntityType.CONVEYOR:
                     if ct.get_team(i) != ct.get_team() and ct.get_stored_resource(i) is not None:
-                        if ct.get_position(i).distance_squared(self.attackPos):
-                            nearbyEnemyStuff.append(ct.get_position(i))
-            nearbyEnemyStuff.sort(key=lambda p: p.distance_squared(myLoc))
-            if len(nearbyEnemyStuff) == 0:
+                        nearbyEnemyStuff.append(ct.get_position(i))
+                        isStuff = True
+            nearbyEnemyStuff.sort(key=lambda p: p.distance_squared(self.attackPos))
+            
+            if not isStuff: # no enemy infastructure was found
+                self.attackMoveTimeout += 1
                 self.pf.moveTo(ct, self.attackPos)
+                if self.attackMoveTimeout > 20: # While moving to attack pos, no enemy infastructure was found for 20 turns, change it
+                    changeAttackPos(ct)
                 return
-            else:
+            else: # stuff was found, now reuse attackMoveTimeout for sentinelSpot
                 self.spawnSentinelHere = nearbyEnemyStuff[0]
+                self.attackMoveTimeout = 0
 
-        ct.draw_indicator_dot(self.spawnSentinelHere, 180, 120, 240)
-
-        # Abort if a friendly sentinel is already covering the spot
+        # From now on there must be a sentinel Spot
+        
+        # first check if there is already another sentinel close by
         for b_id in ct.get_nearby_buildings():
             if ct.get_entity_type(b_id) == EntityType.SENTINEL and ct.get_team(b_id) == ct.get_team():
                 if ct.get_position(b_id).distance_squared(self.spawnSentinelHere) <= 8:
                     self.spawnSentinelHere = None
+                    self.attackMoveTimeout = 0
                     self.pf.moveTo(ct, self.attackPos)
                     return
 
-        # Tile is occupied — clear it, then optionally place a launcher, then fire
-        if ct.is_in_vision(self.spawnSentinelHere) and ct.get_tile_building_id(self.spawnSentinelHere) is not None:
-            if myLoc != self.spawnSentinelHere:
-                self.pf.moveTo(ct, self.spawnSentinelHere)
-            if ct.can_destroy(self.spawnSentinelHere):
-                ct.destroy(self.spawnSentinelHere)
-                self.attackTurns = 0
-            if self.attackTurns > 5:
+        if self.attackMoveTimeout > 25: # This spot is hard to get, switch to another one
+            self.spawnSentinelHere = None
+            self.attackMoveTimeout = 0
+            return
+       
+        if myLoc.distance_squared(self.spawnSentinelHere) < 1: # this means you are close enough to the sentinelSpot
+            self.attackMoveTimeout = 0
+        else:
+            self.pf.moveTo(ct, self.spawnSentinelHere)
+            self.attackMoveTimeout += 1
+            return
+
+
+        if ct.get_tile_building_id(self.spawnSentinelHere) is not None: # if there is something else there clear it
+            thingTeam = ct.get_team(ct.get_tile_building_id(self.spawnSentinelHere))
+            if thingTeam == ct.get_team():
+                if ct.can_destroy(self.spawnSentinelHere):
+                    ct.destroy(self.spawnSentinelHere)
+            else:
                 self.defender.placeLauncher(ct, self.spawnSentinelHere)
-            if ct.can_fire(self.spawnSentinelHere) and ct.get_global_resources() > 25:
-                ct.fire(self.spawnSentinelHere)
-                self.attackTurns += 1
+                self.pf.moveTo(ct, self.spawnSentinelHere)
+                if ct.can_fire(self.spawnSentinelHere) and ct.get_global_resources() > 25:
+                    ct.fire(self.spawnSentinelHere)
+
         
-        # Tile is clear — build sentinel facing the most valuable targets
-        elif ct.is_in_vision(self.spawnSentinelHere) and ct.get_tile_building_id(self.spawnSentinelHere) is None:
+        if ct.get_tile_building_id(self.spawnSentinelHere) is None: # Tile is clear — build sentinel facing the most valuable targets
             if myLoc == self.spawnSentinelHere:
                 self.pf.moveTo(ct, self.attackPos)
             directionChoices = {d: 0 for d in DIRECTIONS}
@@ -328,14 +327,9 @@ class Player:
             if ct.can_build_sentinel(self.spawnSentinelHere, directionChoice):
                 ct.build_sentinel(self.spawnSentinelHere, directionChoice)
                 self.spawnSentinelHere = None
-                self.attackTurns = 0
                 self.attackPos = None
-            else:
-                self.pf.moveTo(ct, self.spawnSentinelHere)
 
-        # Can't see the spot yet — navigate toward it
-        else:
-            self.pf.moveTo(ct, self.spawnSentinelHere)
+
 
     def pickExplore(self, ct: Controller, currentRound):
         w = ct.get_map_width()
@@ -392,11 +386,11 @@ class Player:
             possibleSpots = []
             for i in CardDirections:
                 pos = myLoc.add(i)
-                if self.isInBounds(ct, pos) and self.pf.canMove(ct, myLoc, i):
+                if self.isInBounds(ct, pos) and self.pf.canMove(ct, i):
                     possibleSpots.append((i, pos))
             possibleSpots.sort(key=lambda x: self.nearCore2(x[1]))
             if len(possibleSpots) > 0:
-                self.pf._move(ct, myLoc, possibleSpots[0][0])
+                self.pf._move(ct, possibleSpots[0][0])
             else:
                 self.usedHarvesters.append(self.foundHarvester)
                 self.foundHarvester = None
@@ -502,7 +496,7 @@ class Player:
 
         if myLoc.distance_squared(self.conveyorEnd) < 4:
             conveyorID = ct.get_tile_building_id(self.conveyorEnd)
-            if conveyorID is None:
+            if conveyorID is None and self.nextTurretCountDown <= 0:
                 if myLoc.distance_squared(self.conveyorEnd) > 0 and self.enemyPos is None and self.turretTimeOut == 0:
                     for i in ct.get_nearby_buildings():  # If a target exists it will find it
                         if ct.get_team(i) != ct.get_team():
@@ -525,6 +519,7 @@ class Player:
                 if ct.can_build_sentinel(self.conveyorEnd, self.conveyorEnd.direction_to(self.enemyPos)):
                     ct.build_sentinel(self.conveyorEnd, self.conveyorEnd.direction_to(self.enemyPos))
                     self.turretTimeOut += 1
+                    self.nextTurretCountDown = 3
                 else:
                     return
             if self.turretTimeOut > 0:
@@ -547,7 +542,7 @@ class Player:
         endID = ct.get_tile_building_id(self.conveyorEnd)
         if endID is not None:
             endEntity = ct.get_entity_type(endID)
-            if endEntity == EntityType.CONVEYOR and ct.get_team(endID) == ct.get_team():
+            if endEntity in [EntityType.CONVEYOR] and ct.get_team(endID) == ct.get_team():
                 self.conveyorEnd = None
                 self.currentHarvester = None
                 return
@@ -576,6 +571,7 @@ class Player:
             if self.nearCore2(end) == 0:
                 if ct.can_build_conveyor(self.conveyorEnd, i):
                     ct.build_conveyor(self.conveyorEnd, i)
+                    self.nextTurretCountDown = 0
                     self.currentHarvester = None
                     self.conveyorEnd = None
                     return
@@ -590,6 +586,7 @@ class Player:
                     if endEntity == EntityType.CONVEYOR and ct.get_team(endID) == ct.get_team():
                         if ct.can_build_conveyor(self.conveyorEnd, i) and ct.get_stored_resource(endID) is None:
                             ct.build_conveyor(self.conveyorEnd, i)
+                            self.nextTurretCountDown = 0
                             self.currentHarvester = None
                             self.conveyorEnd = None
                             self.turretTimeOut = 0
@@ -605,6 +602,7 @@ class Player:
                 # if end.distance_squared(self.teamCore) < self.conveyorEnd.distance_squared(self.teamCore):
                     if ct.can_build_conveyor(self.conveyorEnd, i):
                         ct.build_conveyor(self.conveyorEnd, i)
+                        self.nextTurretCountDown -= 1
                         self.conveyorEnd = end
                         self.turretTimeOut = 0
                         self.enemyPos = None
