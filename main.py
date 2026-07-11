@@ -598,16 +598,15 @@ class Player:
         for i in possibleConveyors:
             end = self.conveyorEnd.add(i)
             endID2 = ct.get_tile_building_id(end)
-            if endID2 is None:
-                # if end.distance_squared(self.teamCore) < self.conveyorEnd.distance_squared(self.teamCore):
-                    if ct.can_build_conveyor(self.conveyorEnd, i):
-                        ct.build_conveyor(self.conveyorEnd, i)
-                        self.nextTurretCountDown -= 1
-                        self.conveyorEnd = end
-                        self.turretTimeOut = 0
-                        self.enemyPos = None
-                        self.enemyType = -1
-                        return
+            if endID2 is None or (ct.get_entity_type(endID2) == EntityType.BARRIER and ct.get_team(endID2) == ct.get_team()):
+                if ct.can_build_conveyor(self.conveyorEnd, i):
+                    ct.build_conveyor(self.conveyorEnd, i)
+                    self.nextTurretCountDown -= 1
+                    self.conveyorEnd = end
+                    self.turretTimeOut = 0
+                    self.enemyPos = None
+                    self.enemyType = -1
+                    return
 
     def isInBounds(self, ct: Controller, pos: Position) -> bool:
         W = ct.get_map_width() - 1
