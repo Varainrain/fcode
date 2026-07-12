@@ -94,12 +94,14 @@ class Player:
 
         team = ct.get_team()
         priority = {
-            EntityType.CORE: 3,
-            EntityType.SENTINEL: 2,
-            EntityType.GUNNER: 2,
+            EntityType.CORE: 5,
+            EntityType.SENTINEL: 3,
+            EntityType.GUNNER: 3,
+            EntityType.BARRIER: 2,
+            EntityType.LAUNCHER: 2,
             EntityType.CONVEYOR: 1,
         }
-        targets = [EntityType.CORE, EntityType.GUNNER, EntityType.SENTINEL, EntityType.CONVEYOR]
+        targets = [EntityType.CORE, EntityType.GUNNER, EntityType.SENTINEL, EntityType.BARRIER, EntityType.LAUNCHER, EntityType.CONVEYOR]
         bestTile = None
         bestPriority = 0
         for tile in ct.get_attackable_tiles():
@@ -110,6 +112,8 @@ class Player:
                     tileTeam = ct.get_team(ct.get_tile_building_id(tile))
                     if tileTeam != team and tileType in targets:
                         tilePriority = priority.get(tileType, 1)
+                        if tileBB is not None and ct.get_team(tileBB) != team:
+                            tilePriority += 2
                         if tilePriority > bestPriority:
                             bestTile = tile
                             bestPriority = tilePriority
@@ -498,16 +502,16 @@ class Player:
                             ct.draw_indicator_dot(ct.get_position(i), 200, 20, 100)
                             eType = ct.get_entity_type(i)
                             pos = ct.get_position(i)
-                            if eType in [EntityType.SENTINEL, EntityType.GUNNER]:
+                            if eType == EntityType.CORE:
                                 self.enemyPos = pos
                                 self.enemyType = 3
-                            elif eType == EntityType.CORE and self.enemyType < 2:
+                            elif eType in [EntityType.SENTINEL, EntityType.GUNNER] and self.enemyType < 2:
                                 self.enemyPos = pos
                                 self.enemyType = 2
                             elif eType == EntityType.CONVEYOR and self.enemyType < 1:
                                 self.enemyPos = pos
                                 self.enemyType = 1
-                            elif (eType == EntityType.LAUNCHER or eType == EntityType.BARRIER) and self.enemyType < 0:
+                            elif eType in [EntityType.LAUNCHER, EntityType.BARRIER] and self.enemyType < 0:
                                 self.enemyPos = pos
                                 self.enemyType = 0
             if self.enemyPos is not None and self.turretTimeOut == 0:  # If it hasn't built a turret yet it waits until it can
@@ -519,13 +523,13 @@ class Player:
                     return
             if self.turretTimeOut > 0:
                 self.turretTimeOut += 1
-            if self.enemyType == 2 and self.turretTimeOut > 0:  # It's a core you're attacking, so leave the turret there
+            if self.enemyType == 3 and self.turretTimeOut > 0:  # It's a core you're attacking, so leave the turret there
                 self.currentHarvester = None
                 self.conveyorEnd = None
                 self.enemyPos = None
                 self.enemyType = -1
                 return
-            if self.turretTimeOut > 16:
+            if self.turretTimeOut > 24:
                 self.enemyPos = None
                 self.enemyType = -1
             elif self.turretTimeOut > 0:
@@ -593,7 +597,7 @@ class Player:
         for i in possibleConveyors:
             end = self.conveyorEnd.add(i)
             endID2 = ct.get_tile_building_id(end)
-            if endID2 is None or (ct.get_entity_type(endID2) == EntityType.BARRIER and ct.get_team(endID2) == ct.get_team()):
+            if endID2 is None or ((ct.get_entity_type(endID2) == EntityType.BARRIER or ct.get_entity_type(endID2) == EntityType.LAUNCHER) and ct.get_team(endID2) == ct.get_team()):
                 if ct.can_build_conveyor(self.conveyorEnd, i):
                     ct.build_conveyor(self.conveyorEnd, i)
                     self.nextTurretCountDown -= 1
