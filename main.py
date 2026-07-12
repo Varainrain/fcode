@@ -91,7 +91,7 @@ class Player:
     def sentinel(self, ct: Controller) -> None:
         if self.enemyCore is None:
             self.enemyCore = findEnemyCore(ct)
-            
+
         team = ct.get_team()
         priority = {
             EntityType.CORE: 3,
@@ -507,7 +507,7 @@ class Player:
                             elif eType == EntityType.CONVEYOR and self.enemyType < 1:
                                 self.enemyPos = pos
                                 self.enemyType = 1
-                            elif eType == EntityType.LAUNCHER and self.enemyType < 0:
+                            elif (eType == EntityType.LAUNCHER or eType == EntityType.BARRIER) and self.enemyType < 0:
                                 self.enemyPos = pos
                                 self.enemyType = 0
             if self.enemyPos is not None and self.turretTimeOut == 0:  # If it hasn't built a turret yet it waits until it can
