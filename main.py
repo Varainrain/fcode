@@ -89,38 +89,32 @@ class Player:
                 self.numSpawned += 1
 
     def sentinel(self, ct: Controller) -> None:
-        for j in ct.get_attackable_tiles():
-            if ct.get_tile_building_id(j) is not None:
-                ct.draw_indicator_line(ct.get_position(), j, 255, 255, 255)
         if self.enemyCore is None:
             self.enemyCore = findEnemyCore(ct)
-        if self.enemyCore is not None:
-            if ct.can_fire(self.enemyCore):
-                ct.fire(self.enemyCore)
-        else:
-            for j in ct.get_attackable_tiles():
-                if ct.get_tile_building_id(j) is not None:
-                    i = ct.get_tile_building_id(j)
-                    if ct.get_team(i) != ct.get_team():
-                        if ct.get_entity_type(i) == EntityType.SENTINEL or ct.get_entity_type(i) == EntityType.GUNNER:
-                            if ct.can_fire(ct.get_position(i)):
-                                ct.fire(ct.get_position(i))
-                                return
-            for j in ct.get_attackable_tiles():
-                if ct.get_tile_building_id(j) is not None:
-                    i = ct.get_tile_building_id(j)
-                    if ct.get_team(i) != ct.get_team():
-                        if ct.get_entity_type(i) == EntityType.CONVEYOR:
-                            if ct.can_fire(ct.get_position(i)):
-                                ct.fire(ct.get_position(i))
-                                return
-            for j in ct.get_attackable_tiles():
-                if ct.get_tile_building_id(j) is not None:
-                    i = ct.get_tile_building_id(j)
-                    if ct.get_team(i) != ct.get_team():
-                        if ct.can_fire(ct.get_position(i)):
-                            ct.fire(ct.get_position(i))
-                            return
+            
+        team = ct.get_team()
+        priority = {
+            EntityType.CORE: 3,
+            EntityType.SENTINEL: 2,
+            EntityType.GUNNER: 2,
+            EntityType.CONVEYOR: 1,
+        }
+        targets = [EntityType.CORE, EntityType.GUNNER, EntityType.SENTINEL, EntityType.CONVEYOR]
+        bestTile = None
+        bestPriority = 0
+        for tile in ct.get_attackable_tiles():
+            if  ct.get_tile_building_id(tile) is not None:
+                tileBB = ct.get_tile_builder_bot_id(tile)
+                if tileBB is None or ct.get_team(tileBB) != team:
+                    tileType = ct.get_entity_type(ct.get_tile_building_id(tile))
+                    tileTeam = ct.get_team(ct.get_tile_building_id(tile))
+                    if tileTeam != team and tileType in targets:
+                        tilePriority = priority.get(tileType, 1)
+                        if tilePriority > bestPriority:
+                            bestTile = tile
+                            bestPriority = tilePriority
+        if bestTile is not None and ct.can_fire(bestTile):
+            ct.fire(bestTile)
 
     def launcher(self, ct: Controller):
         myLoc = ct.get_position()
@@ -153,7 +147,6 @@ class Player:
         if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 24)):
             self.alwaysDefense = True
             self.defenseMode = True
-            ct.draw_indicator_line((0, 0), myLoc, 100, 40, 200)
         if currentRound % 120 == 1 or self.justSpawned:
             self.assignRole(ct, currentRound)
         self.justSpawned = False
@@ -202,7 +195,7 @@ class Player:
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
                     q = Position(corner.x + dx, corner.y + dy)
-                    if self.isInBounds(ct, q) and ct.get_tile_building_id(q) == cid:
+                    if ct.is_in_vision(q) and self.isInBounds(ct, q) and ct.get_tile_building_id(q) == cid:
                         tiles.append(q)
         return tiles if tiles else [corner]
 
@@ -521,7 +514,7 @@ class Player:
                 if ct.can_build_sentinel(self.conveyorEnd, self.conveyorEnd.direction_to(self.enemyPos)):
                     ct.build_sentinel(self.conveyorEnd, self.conveyorEnd.direction_to(self.enemyPos))
                     self.turretTimeOut += 1
-                    self.nextTurretCountDown = 3
+                    self.nextTurretCountDown = 5
                 else:
                     return
             if self.turretTimeOut > 0:
