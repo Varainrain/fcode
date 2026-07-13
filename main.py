@@ -73,23 +73,40 @@ class Player:
             self.launcher(ct)
 
     def core(self, ct: Controller) -> None:
-        if spawnBots(self.numSpawned, ct) == False:
-            return
+        
 
         threats = findThreats(ct)
-
-        for i in Directions:
-            isThreat = False
-            spawnPos = ct.get_position().add(i)
-            for j in threats:
-                if spawnPos.distance_squared(j) <= 2:
-                    isThreat = True
-            if ct.can_spawn(ct.get_position().add(i)) and isThreat == False:
-                ct.spawn_builder(ct.get_position().add(i))
+        curRound = ct.get_current_round()
+        if curRound > 4:
+            if spawnBots(self.numSpawned, ct) == False:
+                return
+            for i in Directions:
+                isThreat = False
+                spawnPos = ct.get_position().add(i)
+                for j in threats:
+                    if spawnPos.distance_squared(j) <= 2:
+                        isThreat = True
+                if ct.can_spawn(ct.get_position().add(i)) and isThreat == False:
+                    ct.spawn_builder(ct.get_position().add(i))
+                    self.numSpawned += 1
+        else:
+            pos = ct.get_position()
+            ct.draw_indicator_dot(Position(curRound, curRound), 140, 30, 100)
+            if curRound == 1:
+                pos =pos.add(Direction.NORTH)
+            elif curRound == 2:
+                pos =pos.add(Direction.EAST).add(Direction.EAST)
+            elif curRound == 3:
+                pos =pos.add(Direction.SOUTH).add(Direction.SOUTH).add(Direction.EAST)
+            elif curRound == 4:
+                pos =pos.add(Direction.WEST).add(Direction.SOUTH)
+            ct.draw_indicator_line(ct.get_position(), pos, 80, 120, 170)
+            if ct.can_spawn(pos):
+                ct.spawn_builder(pos)
                 self.numSpawned += 1
 
     def sentinel(self, ct: Controller) -> None:
-        if self.enemyCore is None:
+        if self.enemyCore is None: 
             self.enemyCore = findEnemyCore(ct)
 
         team = ct.get_team()

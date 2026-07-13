@@ -3,7 +3,7 @@ from fcode import *
 
 def spawnBots(numSpawned: int, ct: Controller) -> bool:
     currentTitanium = ct.get_global_resources()
-    if numSpawned < 6 and currentTitanium >= 280:
+    if numSpawned < 6 and currentTitanium >= 320:
         return True
     if numSpawned > 5 and currentTitanium >= 400 * ct.get_scale_percent() / 100:
         return True
@@ -12,6 +12,7 @@ def spawnBots(numSpawned: int, ct: Controller) -> bool:
 
 def findThreats(ct: Controller) -> list:
     threats = []
+    curRound = ct.get_current_round()
     for i in ct.get_nearby_buildings(8):
         if (ct.get_entity_type(i) == EntityType.LAUNCHER and
                 ct.get_team(i) != ct.get_team()):
