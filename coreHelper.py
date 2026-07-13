@@ -3,7 +3,7 @@ from fcode import *
 
 def spawnBots(numSpawned: int, ct: Controller) -> bool:
     currentTitanium = ct.get_global_resources()
-    if numSpawned < 6 and currentTitanium >= 320:
+    if numSpawned < 6 and currentTitanium >= 280:
         return True
     if numSpawned > 5 and currentTitanium >= 400 * ct.get_scale_percent() / 100:
         return True

@@ -334,9 +334,12 @@ class Player:
         w = ct.get_map_width()
         h = ct.get_map_height()
         myLoc = ct.get_position()
+        round = ct.get_current_round() 
         radius = (w + h) // 5
-
-        theta = random.random() * 2 * math.pi
+        if round > 5:
+            theta = random.random() * 2 * math.pi
+        else:
+            theta = (((3 * round) % 5) / 5) * 2 * math.pi
         tx = int(max(0, min(w - 1, myLoc.x + math.cos(theta) * radius)))
         ty = int(max(0, min(h - 1, myLoc.y + math.sin(theta) * radius)))
         self.explorePos = Position(tx, ty)
