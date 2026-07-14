@@ -73,40 +73,23 @@ class Player:
             self.launcher(ct)
 
     def core(self, ct: Controller) -> None:
-        
+        if spawnBots(self.numSpawned, ct) == False:
+            return
 
         threats = findThreats(ct)
-        curRound = ct.get_current_round()
-        if curRound > 4:
-            if spawnBots(self.numSpawned, ct) == False:
-                return
-            for i in Directions:
-                isThreat = False
-                spawnPos = ct.get_position().add(i)
-                for j in threats:
-                    if spawnPos.distance_squared(j) <= 2:
-                        isThreat = True
-                if ct.can_spawn(ct.get_position().add(i)) and isThreat == False:
-                    ct.spawn_builder(ct.get_position().add(i))
-                    self.numSpawned += 1
-        else:
-            pos = ct.get_position()
-            ct.draw_indicator_dot(Position(curRound, curRound), 140, 30, 100)
-            if curRound == 1:
-                pos =pos.add(Direction.NORTH)
-            elif curRound == 2:
-                pos =pos.add(Direction.EAST).add(Direction.EAST)
-            elif curRound == 3:
-                pos =pos.add(Direction.SOUTH).add(Direction.SOUTH).add(Direction.EAST)
-            elif curRound == 4:
-                pos =pos.add(Direction.WEST).add(Direction.SOUTH)
-            ct.draw_indicator_line(ct.get_position(), pos, 80, 120, 170)
-            if ct.can_spawn(pos):
-                ct.spawn_builder(pos)
+
+        for i in Directions:
+            isThreat = False
+            spawnPos = ct.get_position().add(i)
+            for j in threats:
+                if spawnPos.distance_squared(j) <= 2:
+                    isThreat = True
+            if ct.can_spawn(ct.get_position().add(i)) and isThreat == False:
+                ct.spawn_builder(ct.get_position().add(i))
                 self.numSpawned += 1
 
     def sentinel(self, ct: Controller) -> None:
-        if self.enemyCore is None: 
+        if self.enemyCore is None:
             self.enemyCore = findEnemyCore(ct)
 
         team = ct.get_team()
@@ -228,7 +211,7 @@ class Player:
 
         if currentRound <= 120:
             # 36% Offense, 64% Eco + 1 Defense Bot
-            if currentRound % 11 in [2, 5, 7, 0] and self.currentHarvester is None:
+            if currentRound % 11 in [3, 5, 7, 10] and self.currentHarvester is None:
                 self.attackMode = True
             else:
                 self.defenseMode = False
@@ -368,7 +351,7 @@ class Player:
                 if ct.is_in_vision(i):
                     if ct.get_tile_env(i) == Environment.ORE_TITANIUM:
                         nearbyOres.append(i)
-            nearbyOres.sort(key=lambda p: p.distance_squared(myLoc))
+            nearbyOres.sort(key=lambda p: p.distance_squared(myLoc) + self.nearCore2(p))
             found = False
             for t in nearbyOres:
                 tID = ct.get_tile_building_id(t)
@@ -386,7 +369,7 @@ class Player:
                     found = True
             if found == False:
                 return
-        if self.reachHarvesterTime >= 40:  # Limit time spend trying to reach the harvester
+        if self.reachHarvesterTime >= 20:  # Limit time spend trying to reach the harvester
             self.removeHarvester(ct)
             return
         if ct.is_in_vision(self.foundHarvester) and ct.get_tile_building_id(self.foundHarvester) is not None:  # Checks on current ore tile
@@ -513,9 +496,9 @@ class Player:
         if myLoc.distance_squared(self.conveyorEnd) > 2:
             self.pf.moveTo(ct, self.conveyorEnd)
 
-        if myLoc.distance_squared(self.conveyorEnd) < 4:
+        if myLoc.distance_squared(self.conveyorEnd) < 4 :
             conveyorID = ct.get_tile_building_id(self.conveyorEnd)
-            if conveyorID is None and self.nextTurretCountDown <= 0:
+            if conveyorID is None and self.nextTurretCountDown <= 0 and self.nearCore2(self.conveyorEnd) > 2:
                 if myLoc.distance_squared(self.conveyorEnd) > 0 and self.enemyPos is None and self.turretTimeOut == 0:
                     for i in ct.get_nearby_buildings():  # If a target exists it will find it
                         if ct.get_team(i) != ct.get_team():
