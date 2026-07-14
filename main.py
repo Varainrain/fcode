@@ -81,11 +81,12 @@ class Player:
         for i in Directions:
             isThreat = False
             spawnPos = ct.get_position().add(i)
+            ct.draw_indicator_dot(spawnPos, 255, 255, 255)
             for j in threats:
                 if spawnPos.distance_squared(j) <= 2:
                     isThreat = True
-            if ct.can_spawn(ct.get_position().add(i)) and isThreat == False:
-                ct.spawn_builder(ct.get_position().add(i))
+            if ct.can_spawn(spawnPos) and isThreat == False:
+                ct.spawn_builder(spawnPos)
                 self.numSpawned += 1
 
     def sentinel(self, ct: Controller) -> None:
@@ -148,7 +149,7 @@ class Player:
                 ct.heal(myLoc)
         currentRound = ct.get_current_round()
         self.setUp(ct, myLoc)
-        if ct.get_id() < 5 and ((self.currentHarvester is None and currentRound > 24)):
+        if ct.get_id() < 5 and ((self.currentHarvester is None and (currentRound > 20 or self.nearCore2(myLoc) < 4))):
             self.alwaysDefense = True
             self.defenseMode = True
         if currentRound % 120 == 1 or self.justSpawned:
@@ -162,6 +163,9 @@ class Player:
         if self.defenseMode:
             self.defender.defendInfrastructure(ct, self.teamCore, self.pf)
             healPos = self.defender.picHealingLoc(ct, self.teamCore, self.alwaysDefense)
+            if self.nearCore2(myLoc) < 4 and ct.get_global_resources() > 40:
+                    if ct.can_build_conveyor(myLoc, myLoc.direction_to(self.teamCore)):
+                        ct.build_conveyor(myLoc, myLoc.direction_to(self.teamCore))
             if healPos is not None:
                 self.pf.moveTo(ct, healPos)
             return

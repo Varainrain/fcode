@@ -79,7 +79,7 @@ class Defender:
                         candidates.append(i)
 
         if not candidates:
-            return Position(teamCore.x + random.randint(-1, 1), teamCore.y + random.randint(-1, 1))
+            return Position(teamCore.x + random.randint(-1, 2), teamCore.y + random.randint(-1, 2))
 
         buildingweights = []
         buildingpos = []
