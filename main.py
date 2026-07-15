@@ -488,7 +488,6 @@ class Player:
                 if ct.can_build_barrier(i):
                     ct.build_barrier(i)
                     return
-            return
 
     def buildConveyor(self, ct: Controller):
         ct.draw_indicator_dot(self.conveyorEnd, 255, 255, 255)
