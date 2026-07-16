@@ -77,10 +77,8 @@ class Player:
             return
 
         threats = findThreats(ct)
-
-        for i in Directions:
+        for spawnPos in ct.get_nearby_tiles():
             isThreat = False
-            spawnPos = ct.get_position().add(i)
             ct.draw_indicator_dot(spawnPos, 255, 255, 255)
             for j in threats:
                 if spawnPos.distance_squared(j) <= 2:
