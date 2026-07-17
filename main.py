@@ -60,6 +60,7 @@ class Player:
         self.explorePos = None
         self.exploreTime = 0
         self.attackMoveTimeout = 0
+        self.attackHypothesisIndex = 0 # opp core symmetry change
 
     def run(self, ct: Controller) -> None:
         etype = ct.get_entity_type()
@@ -73,25 +74,43 @@ class Player:
             self.launcher(ct)
 
     def core(self, ct: Controller) -> None:
-        if spawnBots(self.numSpawned, ct) == False:
+        if not spawnBots(self.numSpawned, ct):
             return
 
+        corePos = ct.get_position()  # Reference/top-left core tile
         threats = findThreats(ct)
-        for spawnPos in ct.get_nearby_tiles():
-            isThreat = False
-            ct.draw_indicator_dot(spawnPos, 255, 255, 255)
-            for j in threats:
-                if spawnPos.distance_squared(j) <= 2:
-                    isThreat = True
-            if ct.can_spawn(spawnPos) and isThreat == False:
+
+        for dx in (-1, 0, 1, 2):
+            for dy in (-1, 0, 1, 2):
+                # Skip the four tiles occupied by the 2x2 core.
+                if 0 <= dx <= 1 and 0 <= dy <= 1:
+                    continue
+
+                spawnPos = Position(
+                    corePos.x + dx,
+                    corePos.y + dy,
+                )
+
+                if not ct.can_spawn(spawnPos):
+                    continue
+
+                isThreat = any(
+                    spawnPos.distance_squared(threat) <= 2
+                    for threat in threats
+                )
+                if isThreat:
+                    continue
+
                 ct.spawn_builder(spawnPos)
                 self.numSpawned += 1
+                return
 
     def sentinel(self, ct: Controller) -> None:
         if self.enemyCore is None:
             self.enemyCore = findEnemyCore(ct)
 
         team = ct.get_team()
+
         priority = {
             EntityType.CORE: 5,
             EntityType.SENTINEL: 3,
@@ -100,22 +119,58 @@ class Player:
             EntityType.LAUNCHER: 2,
             EntityType.CONVEYOR: 1,
         }
-        targets = [EntityType.CORE, EntityType.GUNNER, EntityType.SENTINEL, EntityType.BARRIER, EntityType.LAUNCHER, EntityType.CONVEYOR]
+
+        # HARVESTER remains intentionally excluded.
+        targets = [
+            EntityType.CORE,
+            EntityType.GUNNER,
+            EntityType.SENTINEL,
+            EntityType.BARRIER,
+            EntityType.LAUNCHER,
+            EntityType.CONVEYOR,
+        ]
+
         bestTile = None
         bestPriority = 0
+
         for tile in ct.get_attackable_tiles():
-            if  ct.get_tile_building_id(tile) is not None:
-                tileBB = ct.get_tile_builder_bot_id(tile)
-                if tileBB is None or ct.get_team(tileBB) != team:
-                    tileType = ct.get_entity_type(ct.get_tile_building_id(tile))
-                    tileTeam = ct.get_team(ct.get_tile_building_id(tile))
-                    if tileTeam != team and tileType in targets:
-                        tilePriority = priority.get(tileType, 1)
-                        if tileBB is not None and ct.get_team(tileBB) != team:
-                            tilePriority += 2
-                        if tilePriority > bestPriority:
-                            bestTile = tile
-                            bestPriority = tilePriority
+            buildingID = ct.get_tile_building_id(tile)
+            builderID = ct.get_tile_builder_bot_id(tile)
+
+            # Do not attack a friendly builder.
+            if builderID is not None and ct.get_team(builderID) == team:
+                continue
+
+            # Do not fire into a friendly building, even when an enemy
+            # builder is standing on it.
+            if buildingID is not None and ct.get_team(buildingID) == team:
+                continue
+
+            tilePriority = 0
+
+            if buildingID is not None:
+                buildingType = ct.get_entity_type(buildingID)
+
+                # Preserves the intentional harvester exclusion.
+                if buildingType not in targets:
+                    continue
+
+                tilePriority = priority.get(buildingType, 1)
+
+                # Preserve the existing bonus for an enemy builder
+                # standing on a targetable enemy building.
+                if builderID is not None:
+                    tilePriority += 2
+
+            elif builderID is not None:
+                # the part that got cooked by increasing prio to 2
+                continue
+
+            if tilePriority > bestPriority:
+                bestPriority = tilePriority
+                bestTile = tile
+
+        # Fire only after examining every attackable tile.
         if bestTile is not None and ct.can_fire(bestTile):
             ct.fire(bestTile)
 
@@ -232,21 +287,46 @@ class Player:
     def attack(self, ct: Controller) -> None:
         myLoc = ct.get_position()
 
-        # Determine attack destination
-        if self.attackPos is None:
-            self.attackPos = Position(
-                ct.get_map_width() - self.teamCore.x,
-                ct.get_map_height() - self.teamCore.y
-            )
-            self.attackMoveTimeout = 0
+        coreHypothesis = [
+            #rotational sym
+            Position(
+                ct.get_map_width() - 2 - self.teamCore.x,
+                ct.get_map_height() - 2 - self.teamCore.y
+            ),
+
+            # vertical axis reflc
+            Position(
+                ct.get_map_width() - 2 - self.teamCore.x,
+                self.teamCore.y
+            ),
+
+            # horizontal axis reflc
+            Position(
+                self.teamCore.x,
+                ct.get_map_height() - 2 - self.teamCore.y
+            ),
+        ]
+        # an observed enemy core overrides the new hypotheses
         if self.enemyCore is not None:
             self.attackPos = self.enemyCore
+        # Determine attack destination
+        elif self.attackPos is None:
+            self.attackPos = coreHypothesis[self.attackHypothesisIndex]
+            self.attackMoveTimeout = 0
+
+        def nextAttackHypothesis():
+            self.attackHypothesisIndex = (
+                self.attackHypothesisIndex + 1
+            ) % len(coreHypothesis)
+            self.attackPos = coreHypothesis[self.attackHypothesisIndex]
+            self.attackMoveTimeout = 0
             
         def changeAttackPos (ct: Controller):
             dx = 5 * random.randint(-1, 1) # more consistently farther away
             dy = 5 * random.randint(-1, 1)
             new_x = max(0, min(self.attackPos.x + dx, ct.get_map_width() - 1))
             new_y = max(0, min(self.attackPos.y + dy, ct.get_map_height() - 1))
+
             self.attackPos = Position(new_x, new_y)
             self.attackMoveTimeout = 0
         
@@ -258,6 +338,7 @@ class Player:
         if self.spawnSentinelHere is None: # Pick a sentinel placement spot near the attack target
             nearbyEnemyStuff = []
             isStuff = False
+
             for i in ct.get_nearby_buildings():
                 if ct.get_entity_type(i) == EntityType.CONVEYOR:
                     if ct.get_team(i) != ct.get_team() and ct.get_stored_resource(i) is not None:
@@ -269,7 +350,10 @@ class Player:
                 self.attackMoveTimeout += 1
                 self.pf.moveTo(ct, self.attackPos)
                 if self.attackMoveTimeout > 20: # While moving to attack pos, no enemy infastructure was found for 20 turns, change it
-                    changeAttackPos(ct)
+                    if self.enemyCore is None:
+                        nextAttackHypothesis()
+                    else:
+                        changeAttackPos(ct)
                 return
             else: # stuff was found, now reuse attackMoveTimeout for sentinelSpot
                 self.spawnSentinelHere = nearbyEnemyStuff[0]
