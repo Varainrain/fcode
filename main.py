@@ -163,8 +163,8 @@ class Player:
                     tilePriority += 2
 
             elif builderID is not None:
-                # New case: enemy builder standing on an empty tile.
-                tilePriority = 2
+                # the part that got cooked by increasing prio to 2
+                continue
 
             if tilePriority > bestPriority:
                 bestPriority = tilePriority
