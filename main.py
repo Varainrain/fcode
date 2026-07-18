@@ -10,6 +10,8 @@ import random
 Directions = [d for d in Direction if d != Direction.CENTRE]
 DIRECTIONS = Directions  # alias used in attack()
 CardDirections = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
+# 20 ammo = 10 gunner shots or 2 sentinel shots.
+GLOBAL_AMMO_BUFFER = 20
 
 
 class Player:
@@ -72,38 +74,69 @@ class Player:
             self.sentinel(ct)
         elif etype == EntityType.LAUNCHER:
             self.launcher(ct)
+        elif etype == EntityType.GUNNER:
+            self.gunner(ct)
 
     def core(self, ct: Controller) -> None:
-        if not spawnBots(self.numSpawned, ct):
-            return
+        # spawn first so ammo conversion cannot prevent this turns spawn
+        if spawnBots(self.numSpawned, ct):
+            corePos = ct.get_position()
+            threats = findThreats(ct)
+            spawned = False
 
-        corePos = ct.get_position()  # Reference/top-left core tile
-        threats = findThreats(ct)
+            for dx in (-1, 0, 1, 2):
+                for dy in (-1, 0, 1, 2):
+                    # skip the four tiles occupied by the core
+                    if 0 <= dx <= 1 and 0 <= dy <= 1:
+                        continue
 
-        for dx in (-1, 0, 1, 2):
-            for dy in (-1, 0, 1, 2):
-                # Skip the four tiles occupied by the 2x2 core.
-                if 0 <= dx <= 1 and 0 <= dy <= 1:
-                    continue
+                    spawnPos = Position(
+                        corePos.x + dx,
+                        corePos.y + dy,
+                    )
 
-                spawnPos = Position(
-                    corePos.x + dx,
-                    corePos.y + dy,
-                )
+                    if not ct.can_spawn(spawnPos):
+                        continue
 
-                if not ct.can_spawn(spawnPos):
-                    continue
+                    isThreat = any(
+                        spawnPos.distance_squared(threat) <= 2
+                        for threat in threats
+                    )
+                    if isThreat:
+                        continue
 
-                isThreat = any(
-                    spawnPos.distance_squared(threat) <= 2
-                    for threat in threats
-                )
-                if isThreat:
-                    continue
+                    ct.spawn_builder(spawnPos)
+                    self.numSpawned += 1
+                    spawned = True
+                    break
 
-                ct.spawn_builder(spawnPos)
-                self.numSpawned += 1
-                return
+                if spawned:
+                    break
+
+        # Turrets from ammo pool instead
+        currentAmmo = ct.get_global_ammo()
+
+        if currentAmmo < GLOBAL_AMMO_BUFFER:
+            # preserve titn to afford another builder
+            spareTitanium = (
+                ct.get_global_resources()
+                - ct.get_builder_bot_cost()
+            )
+
+            amount = min(
+                GLOBAL_AMMO_BUFFER - currentAmmo,
+                spareTitanium,
+            )
+
+            if amount > 0 and ct.can_convert_ammo(amount):
+                ct.convert_ammo(amount)
+
+    # new for ts
+    def gunner(self, ct: Controller) -> None:
+        target = ct.get_gunner_target()
+
+        if target is not None and ct.can_fire(target):
+            ct.fire(target)
 
     def sentinel(self, ct: Controller) -> None:
         if self.enemyCore is None:

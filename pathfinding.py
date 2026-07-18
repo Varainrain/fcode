@@ -1,6 +1,11 @@
 from fcode import *
 
-DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
+DIRECTIONS = [
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+]
 
 
 class Pathfinder:
@@ -37,7 +42,7 @@ class Pathfinder:
 
     @staticmethod
     def _diagonalDist(a: Position, b: Position) -> int:
-        return max(abs(a.x - b.x), abs(a.y - b.y))
+        return abs(a.x - b.x) + abs(a.y - b.y) # cardinal update
 
     def _isKnownPassable(self, c: Controller, pos: Position) -> bool:
         # Only trust this if we currently have vision on the tile -- otherwise we can't
