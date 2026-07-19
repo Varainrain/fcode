@@ -11,6 +11,7 @@ from fcode import Controller, Direction, EntityType, Environment, Position
 
 from coreHelper import findEnemyCore, findTeamCore, findThreats, spawnBots
 from defend import Defender
+import homedefense
 import mapanalysis
 import turretplan
 
@@ -63,6 +64,7 @@ class Player:
         self.mapH = None
         self.stuckTurns = 0
         self.turretPlanner = None
+        self.homeDefense = homedefense.HomeDefense()
 
         self.randDir = Direction.NORTH
 
@@ -126,6 +128,8 @@ class Player:
             self.gunner(ct)
 
     def core(self, ct: Controller) -> None:
+        homeEmergency = self.homeDefense.observe_from_core(ct)
+
         # spawn first so the ammo topup doesnt eat the builder money
         if spawnBots(self.numSpawned, ct):
             corePos = ct.get_position()
@@ -155,13 +159,15 @@ class Player:
                 if spawned:
                     break
 
+        ammoBuffer = (homedefense.HOME_AMMO_BUFFER if homeEmergency
+                      else GLOBAL_AMMO_BUFFER)
         currentAmmo = ct.get_global_ammo()
-        if currentAmmo < GLOBAL_AMMO_BUFFER:
+        if currentAmmo < ammoBuffer:
             # keep enough for the next builder
             spareTitanium = (
                 ct.get_global_resources() - ct.get_builder_bot_cost()
             )
-            amount = min(GLOBAL_AMMO_BUFFER - currentAmmo, spareTitanium)
+            amount = min(ammoBuffer - currentAmmo, spareTitanium)
             if amount > 0 and ct.can_convert_ammo(amount):
                 ct.convert_ammo(amount)
 
@@ -281,30 +287,43 @@ class Player:
         if self.turretPlanner is not None:
             self.turretPlanner.sync_and_observe(ct)
 
-        self.runRoleBehavior(ct, currentRound)
+        responding, reactiveBuilt = self.homeDefense.respond(
+            ct, self.turretPlanner, self.myNum,
+            self.teamCoreTiles or ([self.teamCore] if self.teamCore else []),
+            self.fullMap, self.moveTo,
+        )
+        if reactiveBuilt is not None:
+            self.noteBuiltTile(reactiveBuilt)
 
-        # urgent turret proposal only if we didnt already move this turn
-        if (self.turretPlanner is not None
-                and self.turretPlanner.should_pursue_urgent(ct, self.myNum)):
-            proposal = self.turretPlanner.current_proposal
-            self.moveTo(ct, Position(proposal.x, proposal.y))
+        if not responding:
+            self.runRoleBehavior(ct, currentRound)
 
-        if self.turretPlanner is not None:
-            built = self.turretPlanner.try_passive_build(ct)
-            if built is not None:
-                built_pos = Position(built.x, built.y)
-                old_type = self.fullMap[built.x][built.y]
-                self.fullMap[built.x][built.y] = 3
-                self.seenTiles[built.x][built.y] = True
-                self.newTiles.append([built_pos, 3])
-                if old_type not in (2, 3):
-                    mapanalysis.note_structural_tile(
-                        built.x, built.y, True, self.mapW, self.mapH
-                    )
+            # urgent turret proposal only if we didnt already move this turn
+            if (self.turretPlanner is not None
+                    and self.turretPlanner.should_pursue_urgent(
+                        ct, self.myNum
+                    )):
+                proposal = self.turretPlanner.current_proposal
+                self.moveTo(ct, Position(proposal.x, proposal.y))
+
+            if self.turretPlanner is not None:
+                built = self.turretPlanner.try_passive_build(ct)
+                if built is not None:
+                    self.noteBuiltTile(Position(built.x, built.y))
         self.advanceMapAnalysis(ct)
         if self.turretPlanner is not None:
             self.turretPlanner.advance(ct, self.fullMap, self.myNum)
             self.turretPlanner.draw_debug(ct)
+
+    def noteBuiltTile(self, builtPos: Position):
+        oldType = self.fullMap[builtPos.x][builtPos.y]
+        self.fullMap[builtPos.x][builtPos.y] = 3
+        self.seenTiles[builtPos.x][builtPos.y] = True
+        self.newTiles.append([builtPos, 3])
+        if oldType not in (2, 3):
+            mapanalysis.note_structural_tile(
+                builtPos.x, builtPos.y, True, self.mapW, self.mapH
+            )
 
     def setUp(self, ct: Controller, myLoc: Position):
         if self.teamCore is None:

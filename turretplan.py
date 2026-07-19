@@ -150,6 +150,86 @@ def _replace_record(word, record_bits, index, value):
     return (word & ~mask) | ((value << (record_bits * index)) & mask)
 
 
+def read_enemy_infra_records(ct, width, height):
+    """Return the eight decoded enemy-infrastructure store records."""
+    records = []
+    for slot_offset in range(INFRA_SLOT_COUNT):
+        word = ct.read_store(INFRA_SLOT_FIRST + slot_offset)
+        for half in range(2):
+            records.append(
+                _unpack_infra(_record_at(word, 16, half), width, height)
+            )
+    return records
+
+
+def publish_enemy_infra_sighting(ct, width, height, pos, type_code):
+    """Publish one sighting by changing at most one word in slots 8..11."""
+    if type_code not in TARGET_VALUE:
+        return None
+    now_epoch = _epoch(ct.get_current_round())
+    words = [ct.read_store(INFRA_SLOT_FIRST + i)
+             for i in range(INFRA_SLOT_COUNT)]
+    records = []
+    for word in words:
+        for half in range(2):
+            records.append(
+                _unpack_infra(_record_at(word, 16, half), width, height)
+            )
+
+    matching = [i for i, record in enumerate(records)
+                if record is not None and record[:2] == (pos.x, pos.y)]
+    if matching:
+        index = matching[0]
+    else:
+        empty = [i for i, record in enumerate(records) if record is None]
+        if empty:
+            start = (pos.x * 31 + pos.y * 7 + type_code) & 7
+            index = min(empty, key=lambda i: (i - start) & 7)
+        else:
+            index = max(
+                range(8),
+                key=lambda i: (_age(now_epoch, records[i][3]),
+                               -TARGET_VALUE[records[i][2]], -i),
+            )
+
+    slot_offset, half = divmod(index, 2)
+    packed = _pack_infra(pos.x, pos.y, type_code, now_epoch)
+    word = _replace_record(words[slot_offset], 16, half, packed)
+    if word != words[slot_offset]:
+        slot = INFRA_SLOT_FIRST + slot_offset
+        ct.write_store(slot, word & 0xFFFFFFFF)
+        return slot
+    return None
+
+
+def clear_enemy_infra_sighting(ct, width, height, pos):
+    """Clear one matching sighting by changing at most one word."""
+    for slot_offset in range(INFRA_SLOT_COUNT):
+        slot = INFRA_SLOT_FIRST + slot_offset
+        word = ct.read_store(slot)
+        for half in range(2):
+            record = _unpack_infra(
+                _record_at(word, 16, half), width, height
+            )
+            if record is None or record[:2] != (pos.x, pos.y):
+                continue
+            ct.write_store(slot, _replace_record(word, 16, half, 0))
+            return slot
+    return None
+
+
+def infra_sighting_age_rounds(round_number, freshness):
+    """Return the lower-bound age represented by an infra freshness epoch."""
+    return _age(_epoch(round_number), freshness) * FRESHNESS_ROUNDS
+
+
+def in_turret_envelope(origin, target, type_code, facing):
+    """Return whether a turret facing covers a target under dev23 geometry."""
+    if facing not in FACINGS:
+        return False
+    return _in_envelope(origin, target, type_code, FACINGS.index(facing))
+
+
 def _pack_proposal(proposal):
     if proposal is None:
         return 0
@@ -270,6 +350,10 @@ class TurretPlanner:
         self._scan_complete = False
         self._top = []
         self.score_cache = {}
+
+    def shared_infra_records(self):
+        return tuple(record for record in self._infra_records
+                     if record is not None)
 
     # ------------------------------------------------------------------ store
 
