@@ -33,10 +33,17 @@ class Defender:
 
     def placeLauncher(self, ct: Controller, pos: Position):
         myLoc = ct.get_position()
+        # launchers still yeet the siege's support builders, but 13 of them
+        # was pure waste: cap how many we keep alive
+        team = ct.get_team()
+        launchers = 0
         for i in ct.get_nearby_buildings():
-            if ct.get_entity_type(i) == EntityType.LAUNCHER and ct.get_team(i) == ct.get_team():
+            if ct.get_team(i) == team and ct.get_entity_type(i) == EntityType.LAUNCHER:
+                launchers += 1
                 if ct.get_position(i).distance_squared(pos) <= 2:
                     return  # Launcher already built
+        if launchers >= 2:
+            return  # enough launchers alive, dont spam them
         topCands = []
         otherCands = []
         for k in ct.get_nearby_tiles(2):
