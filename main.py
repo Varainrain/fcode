@@ -21,6 +21,8 @@ CardDirections = CARDINALS
 
 # 20 ammo = 10 gunner shots or 2 sentinel shots.
 GLOBAL_AMMO_BUFFER = 20
+# rotate only with enough titanium left for follow-up work.
+GUNNER_ROTATE_MIN_TITANIUM = 25
 
 openCost = 1       
 barrierCost = 8 # to be implemented later
@@ -173,8 +175,58 @@ class Player:
 
     def gunner(self, ct: Controller) -> None:
         target = ct.get_gunner_target()
-        if target is not None and ct.can_fire(target):
-            ct.fire(target)
+        if target is not None:
+            builder_id = ct.get_tile_builder_bot_id(target)
+            building_id = ct.get_tile_building_id(target)
+            target_id = builder_id if builder_id is not None else building_id
+            if (target_id is not None
+                    and ct.get_team(target_id) != ct.get_team()):
+                if ct.can_fire(target):
+                    ct.fire(target)
+                return
+
+        if (ct.get_global_resources() < GUNNER_ROTATE_MIN_TITANIUM
+                or ct.get_action_cooldown() != 0):
+            return
+
+        my_pos = ct.get_position()
+        current_facing = ct.get_direction()
+        candidates = []
+        for entity_id in ct.get_nearby_entities(13):
+            entity_type = ct.get_entity_type(entity_id)
+            if entity_type not in (
+                    EntityType.GUNNER, EntityType.SENTINEL,
+                    EntityType.BUILDER_BOT):
+                continue
+            if ct.get_team(entity_id) == ct.get_team():
+                continue
+            enemy_pos = ct.get_position(entity_id)
+            dx = enemy_pos.x - my_pos.x
+            dy = enemy_pos.y - my_pos.y
+            if dx != 0 and dy != 0:
+                continue
+            if dx > 0:
+                facing = Direction.EAST
+            elif dx < 0:
+                facing = Direction.WEST
+            elif dy > 0:
+                facing = Direction.SOUTH
+            elif dy < 0:
+                facing = Direction.NORTH
+            else:
+                continue
+            if facing == current_facing:
+                continue
+            priority = 0 if entity_type in (
+                EntityType.GUNNER, EntityType.SENTINEL
+            ) else 1
+            candidates.append((priority, my_pos.distance_squared(enemy_pos),
+                               CARDINALS.index(facing), facing))
+
+        if candidates:
+            facing = min(candidates)[3]
+            if ct.can_rotate(facing):
+                ct.rotate(facing)
 
     def sentinel(self, ct: Controller) -> None:
         if self.enemyCore is None:

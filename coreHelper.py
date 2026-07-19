@@ -1,11 +1,19 @@
 from fcode import *
 
+# replace the workforce only after the whole team is gutted.
+REPLACE_UNIT_THRESHOLD = 6
+# keep this titanium after paying for a replacement builder.
+REPLACE_RESERVE = 60
+
 
 def spawnBots(numSpawned: int, ct: Controller) -> bool:
     currentTitanium = ct.get_global_resources()
     if numSpawned < 5 and currentTitanium >= 350:
         return True
     if numSpawned > 4 and currentTitanium >= 400 * ct.get_scale_percent() / 100:
+        return True
+    if (ct.get_unit_count() <= REPLACE_UNIT_THRESHOLD
+            and currentTitanium >= ct.get_builder_bot_cost() + REPLACE_RESERVE):
         return True
     return False
 

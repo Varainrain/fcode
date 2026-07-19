@@ -377,9 +377,9 @@ class HomeDefense:
                 and dx * dx + dy * dy <= range_squared)
 
     def _counter_turret_count(self, ct, planner):
-        turrets = dict(planner.turret_memory)
-        turrets.update({key: value[0]
-                        for key, value in self.reactive_turrets.items()})
+        turrets = {key: (type_code, None)
+                   for key, type_code in planner.turret_memory.items()}
+        turrets.update(self.reactive_turrets)
         for building_id in ct.get_nearby_buildings():
             if ct.get_team(building_id) != ct.get_team():
                 continue
@@ -388,21 +388,19 @@ class HomeDefense:
             )
             if type_code in turretplan.TURRET_TYPES:
                 pos = ct.get_position(building_id)
-                turrets[(pos.x, pos.y)] = type_code
+                turrets[(pos.x, pos.y)] = (
+                    type_code, ct.get_direction(building_id)
+                )
 
         count = 0
-        for (x, y), type_code in turrets.items():
-            covers = False
+        for (x, y), (type_code, facing) in turrets.items():
+            if facing is None:
+                continue
             for target, _ in self.current_targets:
-                for facing in FACINGS:
-                    if turretplan.in_turret_envelope(
-                            (x, y), (target.x, target.y), type_code, facing):
-                        covers = True
-                        break
-                if covers:
+                if turretplan.in_turret_envelope(
+                        (x, y), (target.x, target.y), type_code, facing):
+                    count += 1
                     break
-            if covers:
-                count += 1
         return min(HOME_COUNTER_TURRET_CAP, count)
 
     def _prune_reactive_memory(self, ct):
