@@ -5,6 +5,12 @@ from fcode import Direction, EntityType, Environment, Position
 import turretplan
 
 
+# big maps keep one gunner standing near the core before any rush shows up
+STANDING_GUARD_MIN_AREA = 400
+STANDING_GUARD_RESERVE = 40  # ti to keep above the gunner cost
+STANDING_GUARD_MIN_ROUND = 12  # let the opening economy seed first
+STANDING_GUARD_WALK_MANHATTAN = 8  # defense bots further than this dont bother
+
 # home turrets this close trigger the interrupt.
 HOME_TURRET_MANHATTAN = 5
 # only builders already near home may respond.
@@ -447,3 +453,67 @@ class HomeDefense:
                 ct.heal(tile)
                 return True
         return False
+
+
+    def maintain_standing_guard(self, ct, planner, core_tiles, enemy_core,
+                                full_map, move_to):
+        """big maps only: one cheap pre-built gunner near the core so a rush
+        meets fire before the reactive battery spins up. returns
+        (engaged, built_tile)."""
+        if planner is None or not core_tiles:
+            return False, None
+        w, h = ct.get_map_width(), ct.get_map_height()
+        if w * h <= STANDING_GUARD_MIN_AREA:
+            return False, None
+        if ct.get_current_round() < STANDING_GUARD_MIN_ROUND:
+            return False, None
+        if ct.get_global_resources() < ct.get_gunner_cost() + STANDING_GUARD_RESERVE:
+            return False, None
+        # already guarded? shared records first, then own vision
+        for x, y, _t in planner._friendly_turrets():
+            if _near_core(Position(x, y), core_tiles) <= HOME_TURRET_MANHATTAN:
+                return False, None
+        team = ct.get_team()
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) == team
+                    and ct.get_entity_type(b) in (EntityType.GUNNER,
+                                                  EntityType.SENTINEL)
+                    and _near_core(ct.get_position(b), core_tiles)
+                    <= HOME_TURRET_MANHATTAN):
+                return False, None
+
+        # face the likely approach: sighted enemy core, else rotational guess
+        base = core_tiles[0]
+        if enemy_core is None:
+            enemy_core = Position(w - 2 - base.x, h - 2 - base.y)
+        dx = enemy_core.x - base.x
+        dy = enemy_core.y - base.y
+        if abs(dx) >= abs(dy):
+            face = Direction.EAST if dx > 0 else Direction.WEST
+        else:
+            face = Direction.SOUTH if dy > 0 else Direction.NORTH
+        fdx, fdy = face.delta()
+
+        # spot: two out from the core footprint toward the approach, slight
+        # side offsets as fallbacks
+        cands = []
+        for c in core_tiles:
+            p2 = Position(c.x + 2 * fdx, c.y + 2 * fdy)
+            for q in (p2, Position(p2.x + fdy, p2.y + fdx),
+                      Position(p2.x - fdy, p2.y - fdx)):
+                if 0 <= q.x < w and 0 <= q.y < h and q not in cands:
+                    cands.append(q)
+        my = ct.get_position()
+        for q in cands:
+            if full_map[q.x][q.y] != 0:
+                continue  # only known-empty ground
+            if my.distance_squared(q) <= 2:
+                if ct.can_build_gunner(q, face):
+                    ct.build_gunner(q, face)
+                    planner.pending_turrets[(q.x, q.y)] = turretplan.INFRA_GUNNER
+                    return True, q
+                continue
+            if _manhattan(my, q) <= STANDING_GUARD_WALK_MANHATTAN:
+                move_to(ct, q)
+                return True, None
+        return False, None

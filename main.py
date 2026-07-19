@@ -393,6 +393,16 @@ class Player:
             return
         if self.defenseMode:
             self.defender.defendInfrastructure(ct, self.teamCore, self.pf)
+            # big-map standing guard comes before idle heal-parking
+            guardEngaged, guardBuilt = self.homeDefense.maintain_standing_guard(
+                ct, self.turretPlanner,
+                self.teamCoreTiles or ([self.teamCore] if self.teamCore else []),
+                self.enemyCore, self.fullMap, self.moveTo,
+            )
+            if guardBuilt is not None:
+                self.noteBuiltTile(guardBuilt)
+            if guardEngaged:
+                return
             healPos = self.defender.picHealingLoc(
                 ct, self.teamCore, self.alwaysDefense
             )
