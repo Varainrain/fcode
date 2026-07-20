@@ -209,7 +209,9 @@ class HomeDefense:
         return False
 
     def _try_build(self, ct, planner, core_tiles, full_map):
-        reserve = max(HOME_BUILDER_RESERVE, ct.get_builder_bot_cost())
+        # flat reserve: the counter turret IS the survival spend, dont
+        # price it against a scaled builder replacement
+        reserve = HOME_BUILDER_RESERVE
         resources = ct.get_global_resources()
         gunner_cost = ct.get_gunner_cost()
         if resources >= gunner_cost + reserve:
