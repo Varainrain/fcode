@@ -10,9 +10,11 @@ REPLACE_RESERVE = 60
 
 def spawnBots(numSpawned: int, ct: Controller) -> bool:
     currentTitanium = ct.get_global_resources()
-    if numSpawned < 5 and currentTitanium >= 350:
+    # old 350 hoard starved the workforce at 4 builders whenever defense
+    # spending kept ti low; builders are the income multiplier, spawn them
+    if numSpawned < 5 and currentTitanium >= ct.get_builder_bot_cost() + 120:
         return True
-    if numSpawned > 4 and currentTitanium >= 400 * ct.get_scale_percent() / 100:
+    if numSpawned > 4 and currentTitanium >= 280 * ct.get_scale_percent() / 100:
         return True
     if (ct.get_current_round() >= REPLACE_MIN_ROUND
             and ct.get_unit_count() <= REPLACE_UNIT_THRESHOLD
