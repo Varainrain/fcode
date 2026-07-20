@@ -5,6 +5,10 @@ from fcode import Direction, EntityType, Environment, Position
 import turretplan
 
 
+# early enemy turret near our half = hyper aggressive opponent, stop attacking
+TURTLE_TRIGGER_MANHATTAN = 14
+TURTLE_TRIGGER_ROUND = 120
+
 # big maps keep one gunner standing near the core before any rush shows up
 STANDING_GUARD_MIN_AREA = 0  # every map: small maps get rushed the fastest
 STANDING_GUARD_RESERVE = 40  # ti to keep above the gunner cost
@@ -517,3 +521,19 @@ class HomeDefense:
                 move_to(ct, q)
                 return True, None
         return False, None
+
+
+    def should_turtle(self, ct, planner, core_tiles):
+        """sticky per unit: an early enemy turret near our side means this
+        opponent kills cores. every ti we spend attacking is stolen from
+        survival, and a game we survive is a game we win on econ."""
+        if planner is None or not core_tiles:
+            return False
+        if ct.get_current_round() > TURTLE_TRIGGER_ROUND:
+            return False
+        for (x, y), (type_code, _f) in planner.infra_memory.items():
+            if type_code not in turretplan.TURRET_TYPES:
+                continue
+            if _near_core(Position(x, y), core_tiles) <= TURTLE_TRIGGER_MANHATTAN:
+                return True
+        return False

@@ -66,6 +66,7 @@ class Player:
         self.mapH = None
         self.stuckTurns = 0
         self.turretPlanner = None
+        self.turtled = False  # opponent kills cores, we stop attacking
         self.homeDefense = homedefense.HomeDefense()
 
         self.randDir = Direction.NORTH
@@ -339,6 +340,12 @@ class Player:
         if self.turretPlanner is not None:
             self.turretPlanner.sync_and_observe(ct)
 
+        if (not self.turtled and self.turretPlanner is not None
+                and self.homeDefense.should_turtle(
+                    ct, self.turretPlanner,
+                    self.teamCoreTiles or ([self.teamCore] if self.teamCore else []))):
+            self.turtled = True
+
         responding, reactiveBuilt = self.homeDefense.respond(
             ct, self.turretPlanner, self.myNum,
             self.teamCoreTiles or ([self.teamCore] if self.teamCore else []),
@@ -441,8 +448,13 @@ class Player:
         self.defender.defendInfrastructure(ct, self.teamCore, self.pf)
 
         if self.attackMode:
-            self.attack(ct)
-            return
+            if self.turtled:
+                # attacking this opponent just feeds it our workforce
+                self.attackMode = False
+                self.defenseMode = True
+            else:
+                self.attack(ct)
+                return
         if self.defenseMode:
             self.defender.defendInfrastructure(ct, self.teamCore, self.pf)
             # big-map standing guard comes before idle heal-parking
@@ -491,7 +503,8 @@ class Player:
         if currentRound <= 120:
             # 36% Offense, 64% Eco + 1 Defense Bot
             if (currentRound % 11 in [3, 5, 7, 10]
-                    and self.currentHarvester is None):
+                    and self.currentHarvester is None
+                    and not self.turtled):
                 self.attackMode = True
             else:
                 self.defenseMode = False
@@ -504,7 +517,7 @@ class Player:
                 role = random.random()
                 if role > 0.75 or self.alwaysDefense:
                     self.defenseMode = True
-                elif role > 0.4:
+                elif role > 0.4 and not self.turtled:
                     self.attackMode = True
 
     def attack(self, ct: Controller) -> None:
