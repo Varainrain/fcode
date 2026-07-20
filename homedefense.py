@@ -6,9 +6,9 @@ import turretplan
 
 
 # big maps keep one gunner standing near the core before any rush shows up
-STANDING_GUARD_MIN_AREA = 400
+STANDING_GUARD_MIN_AREA = 0  # every map: small maps get rushed the fastest
 STANDING_GUARD_RESERVE = 40  # ti to keep above the gunner cost
-STANDING_GUARD_MIN_ROUND = 12  # let the opening economy seed first
+STANDING_GUARD_MIN_ROUND = 8  # up before the earliest rush arrives
 STANDING_GUARD_WALK_MANHATTAN = 8  # defense bots further than this dont bother
 
 # home turrets this close trigger the interrupt.
