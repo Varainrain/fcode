@@ -10,12 +10,7 @@ REPLACE_RESERVE = 60
 
 def spawnBots(numSpawned: int, ct: Controller) -> bool:
     currentTitanium = ct.get_global_resources()
-    # 350 hoard keeps the opening lean (low scale, defense fund intact).
-    # the mid-war clause fixes the other failure: 4 builders starving at
-    # r130+ because war spending never lets ti back over 350
-    if numSpawned < 5 and (currentTitanium >= 350
-            or (ct.get_current_round() >= 60
-                and currentTitanium >= ct.get_builder_bot_cost() + 60)):
+    if numSpawned < 5 and currentTitanium >= 350:
         return True
     if numSpawned > 4 and currentTitanium >= 400 * ct.get_scale_percent() / 100:
         return True
