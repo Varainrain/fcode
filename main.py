@@ -449,9 +449,11 @@ class Player:
 
         if self.attackMode:
             if self.turtled:
-                # attacking this opponent just feeds it our workforce
+                # attacking this opponent just feeds it our workforce.
+                # go MINE, not park: econ margin is the whole win condition,
+                # and defense capacity comes from the guard + interrupts
                 self.attackMode = False
-                self.defenseMode = True
+                self.defenseMode = False
             else:
                 self.attack(ct)
                 return
