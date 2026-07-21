@@ -23,6 +23,7 @@ CardDirections = CARDINALS
 GLOBAL_AMMO_BUFFER = 20
 REPLACE_CAP = 8       # max lifetime replacement respawns
 REPLACE_COOLDOWN = 25  # min rounds between them
+MILITARY_FLOOR = 150   # below this ti, harvesters/conveyors win the money, not extra sentinels
 # rotate only with enough titanium left for follow-up work.
 GUNNER_ROTATE_MIN_TITANIUM = 25
 
@@ -828,6 +829,7 @@ class Player:
                     pos, self.isEnemyInfastructure
                 )
                 if (direction != Direction.CENTRE
+                        and ct.get_global_resources() >= MILITARY_FLOOR
                         and ct.can_build_sentinel(pos, direction)):
                     ct.build_sentinel(pos, direction)
                     return
@@ -877,6 +879,7 @@ class Player:
         if self.enemyPos is not None and self.turretTimeOut == 0:
             direction = self.cardinalDirectionTo(self.conveyorEnd, self.enemyPos)
             if (direction != Direction.CENTRE
+                    and ct.get_global_resources() >= MILITARY_FLOOR
                     and ct.can_build_sentinel(self.conveyorEnd, direction)):
                 ct.build_sentinel(self.conveyorEnd, direction)
                 self.turretTimeOut = 1

@@ -597,6 +597,9 @@ class TurretPlanner:
             return None
         if ct.get_action_cooldown() != 0:
             return None
+        # harvesters/conveyors first when ti is scarce (long econ games)
+        if ct.get_global_resources() < 150:
+            return None
         if proposal.turret_type == INFRA_GUNNER:
             if not ct.can_build_gunner(pos, proposal.facing):
                 return None
