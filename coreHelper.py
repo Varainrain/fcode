@@ -14,10 +14,6 @@ def spawnBots(numSpawned: int, ct: Controller) -> bool:
         return True
     if numSpawned > 4 and currentTitanium >= 400 * ct.get_scale_percent() / 100:
         return True
-    if (ct.get_current_round() >= REPLACE_MIN_ROUND
-            and ct.get_unit_count() <= REPLACE_UNIT_THRESHOLD
-            and currentTitanium >= ct.get_builder_bot_cost() + REPLACE_RESERVE):
-        return True
     return False
 
 

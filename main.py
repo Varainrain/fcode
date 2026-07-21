@@ -21,6 +21,8 @@ CardDirections = CARDINALS
 
 # 20 ammo = 10 gunner shots or 2 sentinel shots.
 GLOBAL_AMMO_BUFFER = 20
+REPLACE_CAP = 8       # max lifetime replacement respawns
+REPLACE_COOLDOWN = 25  # min rounds between them
 # rotate only with enough titanium left for follow-up work.
 GUNNER_ROTATE_MIN_TITANIUM = 25
 
@@ -67,6 +69,8 @@ class Player:
         self.stuckTurns = 0
         self.turretPlanner = None
         self.turtled = False  # opponent kills cores, we stop attacking
+        self.replacements = 0      # capped respawns so deaths cant chain-drain
+        self.lastReplaceRound = -999
         self.homeDefense = homedefense.HomeDefense()
 
         self.randDir = Direction.NORTH
@@ -133,8 +137,17 @@ class Player:
     def core(self, ct: Controller) -> None:
         homeEmergency = self.homeDefense.observe_from_core(ct)
 
+        # replacement respawn: capped + cooldowned so a sentinel wall cant
+        # farm our titanium one dead builder at a time (string tiebreak: 41
+        # dead builders = ~1200 ti gone)
+        rnd = ct.get_current_round()
+        wantReplace = (rnd >= 30 and self.replacements < REPLACE_CAP
+                       and rnd - self.lastReplaceRound >= REPLACE_COOLDOWN
+                       and ct.get_unit_count() <= 6
+                       and ct.get_global_resources() >= ct.get_builder_bot_cost() + 60)
         # spawn first so the ammo topup doesnt eat the builder money
-        if spawnBots(self.numSpawned, ct):
+        if spawnBots(self.numSpawned, ct) or wantReplace:
+            _isReplace = not spawnBots(self.numSpawned, ct)
             corePos = ct.get_position()
             threats = findThreats(ct)
             spawned = False
@@ -154,6 +167,9 @@ class Player:
 
                     ct.spawn_builder(spawnPos)
                     self.numSpawned += 1
+                    if _isReplace:
+                        self.replacements += 1
+                        self.lastReplaceRound = rnd
                     # slot 0 also drives builder numbering + the share rotation
                     ct.write_store(0, self.numSpawned)
                     spawned = True
