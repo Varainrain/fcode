@@ -65,6 +65,8 @@ class Player:
         self.myNum = -1 # every builder bot gets its own unique number used to write to the shared array, and organize roles (1, 2, 3, ...)
         self.teamCore = None
         self.distMap = None
+        self._cacheTarget = None  # dijkstra reuse: skip recompute on same target+map
+        self._cacheVer = -1
         self.mapW = None
         self.mapH = None
         self.stuckTurns = 0
@@ -1196,7 +1198,17 @@ class Player:
             else:
                 self.stuckTurns += 1
             return
-        self.fillInDistTable(ct, target)
+        # cache: only rerun dijkstra when target or the shared map changed, or
+        # we walked into cells this table never filled (early-exit is bot-anchored)
+        ver = mapanalysis.struct_version
+        fresh = self._cacheTarget == target and self._cacheVer == ver and any(
+            0 <= myLoc.add(d).x < self.mapW and 0 <= myLoc.add(d).y < self.mapH
+            and self.distMap[myLoc.add(d).x][myLoc.add(d).y] < 4096
+            for d in CARDINALS)
+        if not fresh:
+            self.fillInDistTable(ct, target)
+            self._cacheTarget = target
+            self._cacheVer = ver
         bestDist = 4096
         bestDir = None
         for d in CARDINALS:
