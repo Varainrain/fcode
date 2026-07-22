@@ -13,6 +13,7 @@ from coreHelper import findEnemyCore, findTeamCore, findThreats, spawnBots
 from defend import Defender
 import homedefense
 import mapanalysis
+import symmetry
 import turretplan
 
 CARDINALS = [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]
@@ -27,8 +28,11 @@ MILITARY_FLOOR = 150   # below this ti, harvesters/conveyors win the money, not 
 # rotate only with enough titanium left for follow-up work.
 GUNNER_ROTATE_MIN_TITANIUM = 25
 
-openCost = 1       
+openCost = 1
 barrierCost = 8 # to be implemented later
+# Khaos soft-threat cost class: stepping through an enemy turret envelope is
+# legal but expensive, so paths detour unless there is no alternative.
+THREAT_COST = 12
 
 
 tileTypes = { # limited to 4 types to maximize caching ability
@@ -67,6 +71,7 @@ class Player:
         self.distMap = None
         self._cacheTarget = None  # dijkstra reuse: skip recompute on same target+map
         self._cacheVer = -1
+        self._threatTiles = set()  # enemy turret soft-threat tiles for pathing
         self.mapW = None
         self.mapH = None
         self.stuckTurns = 0
@@ -91,6 +96,7 @@ class Player:
         # Cores
         self.teamCoreTiles = None
         self.enemyCore = None
+        self.enemyCorePredicted = None  # symmetry guess before we ever see it
 
         # Launcher proofing
         self.oldPos = None
@@ -119,6 +125,7 @@ class Player:
         self.exploreTime = 0
         self.attackMoveTimeout = 0
         self.attackHypothesisIndex = 0
+        self.symTracker = None  # symmetry.SymmetryTracker, predicts enemy core
 
     def run(self, ct: Controller) -> None:
         etype = ct.get_entity_type()
@@ -153,33 +160,30 @@ class Player:
             _isReplace = not spawnBots(self.numSpawned, ct)
             corePos = ct.get_position()
             threats = findThreats(ct)
-            spawned = False
 
+            # collect every legal spawn tile on the core's adjacent ring
+            candidates = []
             for dx in (-1, 0, 1, 2):
                 for dy in (-1, 0, 1, 2):
-                    # skip the core's own 4 tiles
                     if 0 <= dx <= 1 and 0 <= dy <= 1:
-                        continue
-
+                        continue  # skip the core's own 2x2 footprint
                     spawnPos = Position(corePos.x + dx, corePos.y + dy)
                     if not ct.can_spawn(spawnPos):
                         continue
                     if any(spawnPos.distance_squared(threat) <= 2
                            for threat in threats):
                         continue
+                    candidates.append(spawnPos)
 
-                    ct.spawn_builder(spawnPos)
-                    self.numSpawned += 1
-                    if _isReplace:
-                        self.replacements += 1
-                        self.lastReplaceRound = rnd
-                    # slot 0 also drives builder numbering + the share rotation
-                    ct.write_store(0, self.numSpawned)
-                    spawned = True
-                    break
-
-                if spawned:
-                    break
+            spawnPos = self._pickSpawnTile(ct, corePos, candidates, _isReplace)
+            if spawnPos is not None:
+                ct.spawn_builder(spawnPos)
+                self.numSpawned += 1
+                if _isReplace:
+                    self.replacements += 1
+                    self.lastReplaceRound = rnd
+                # slot 0 also drives builder numbering + the share rotation
+                ct.write_store(0, self.numSpawned)
 
         ammoBuffer = (homedefense.HOME_AMMO_BUFFER if homeEmergency
                       else GLOBAL_AMMO_BUFFER)
@@ -192,6 +196,50 @@ class Player:
             amount = min(ammoBuffer - currentAmmo, spareTitanium)
             if amount > 0 and ct.can_convert_ammo(amount):
                 ct.convert_ammo(amount)
+
+    def _pickSpawnTile(self, ct, corePos, candidates, isReplace):
+        """Choose which adjacent tile to spawn on (Khaos ray-spawn opening).
+
+        Priority: (1) defensive spawn toward a visible enemy when we're thin,
+        (2) fan the first 4 builders across the interior-facing arc for ore
+        coverage, (3) fall back to the first legal tile.
+        """
+        if not candidates:
+            return None
+        ccx, ccy = corePos.x + 0.5, corePos.y + 0.5
+
+        # (1) defensive: a visible enemy and few of us -> spawn toward the threat
+        if ct.get_unit_count() < 10:
+            enemyPos = None
+            enemyDist = 1e9
+            for eid in ct.get_nearby_units():
+                if ct.get_team(eid) == ct.get_team():
+                    continue
+                ep = ct.get_position(eid)
+                d = (ep.x - ccx) ** 2 + (ep.y - ccy) ** 2
+                if d < enemyDist:
+                    enemyDist = d
+                    enemyPos = ep
+            if enemyPos is not None:
+                return min(candidates,
+                           key=lambda p: self.manhattan(p, enemyPos))
+
+        # (2) fan the first four builders outward (skip for replacements)
+        if not isReplace and self.numSpawned < 4:
+            w, h = ct.get_map_width(), ct.get_map_height()
+            primary = math.atan2(h / 2 - ccy, w / 2 - ccx)
+            offsets = (-1.178, -0.393, 0.393, 1.178)  # ~ -67.5..67.5 deg
+            target = primary + offsets[self.numSpawned]
+            tx, ty = math.cos(target), math.sin(target)
+
+            def align(p):
+                vx, vy = p.x + 0.5 - ccx, p.y + 0.5 - ccy
+                norm = math.hypot(vx, vy) or 1.0
+                return -(vx * tx + vy * ty) / norm  # smaller = better aligned
+            return min(candidates, key=align)
+
+        # (3) default: first legal tile (preserves old behaviour)
+        return candidates[0]
 
     def gunner(self, ct: Controller) -> None:
         target = ct.get_gunner_target()
@@ -305,25 +353,35 @@ class Player:
 
     def launcher(self, ct: Controller) -> None:
         myLoc = ct.get_position()
-        for d in CARDINALS:
-            adjacent = myLoc.add(d)
-            if not self.isInBounds(ct, adjacent) or not ct.is_in_vision(adjacent):
-                continue
-            bot_id = ct.get_tile_builder_bot_id(adjacent)
-            if bot_id is None or ct.get_team(bot_id) == ct.get_team():
-                continue
+        if self.teamCore is None:
+            self.teamCore = findTeamCore(ct)
+        # throw enemies AWAY from our core (Khaos: keep them out of our
+        # territory). Falling back to away-from-launcher if core unknown.
+        anchor = self.teamCore if self.teamCore is not None else myLoc
+        # pickup radius is sqrt(2): scan all 8 neighbours, not just cardinals.
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                adjacent = Position(myLoc.x + dx, myLoc.y + dy)
+                if (not self.isInBounds(ct, adjacent)
+                        or not ct.is_in_vision(adjacent)):
+                    continue
+                bot_id = ct.get_tile_builder_bot_id(adjacent)
+                if bot_id is None or ct.get_team(bot_id) == ct.get_team():
+                    continue
 
-            best = None
-            bestDist = -1
-            for tile in ct.get_nearby_tiles(26):
-                if ct.can_launch(adjacent, tile):
-                    dist = self.manhattan(myLoc, tile)
-                    if dist > bestDist:
-                        bestDist = dist
-                        best = tile
-            if best is not None:
-                ct.launch(adjacent, best)
-                return
+                best = None
+                bestDist = -1
+                for tile in ct.get_nearby_tiles(26):
+                    if ct.can_launch(adjacent, tile):
+                        dist = self.manhattan(anchor, tile)
+                        if dist > bestDist:
+                            bestDist = dist
+                            best = tile
+                if best is not None:
+                    ct.launch(adjacent, best)
+                    return
 
     def builderBot(self, ct: Controller) -> None:
         currentRound = ct.get_current_round()
@@ -352,6 +410,19 @@ class Player:
         self.getNewTiles(ct)
         self.shareTiles(ct, currentRound)
         self.updateBoard(ct)
+        # symmetry prediction: eliminate inconsistent hypotheses from the shared
+        # map, predict the enemy core corner. Cheap, only recomputes on struct
+        # change; feeds attack() targeting.
+        if self.teamCore is not None:
+            if self.symTracker is None:
+                self.symTracker = symmetry.SymmetryTracker(self.mapW, self.mapH)
+            self.symTracker.update(
+                self.fullMap, mapanalysis.struct_version, self.teamCore
+            )
+            if self.enemyCore is None and self.symTracker.resolved():
+                cx, cy = self.symTracker.enemy_core(self.teamCore)
+                if 0 <= cx < self.mapW - 1 and 0 <= cy < self.mapH - 1:
+                    self.enemyCorePredicted = Position(cx, cy)
         if self.teamCore is not None and self.turretPlanner is None:
             self.turretPlanner = turretplan.TurretPlanner(
                 self.mapW, self.mapH, self.teamCore
@@ -388,10 +459,55 @@ class Player:
                 built = self.turretPlanner.try_passive_build(ct)
                 if built is not None:
                     self.noteBuiltTile(Position(built.x, built.y))
+            self.tryChokeBlock(ct)
         self.advanceMapAnalysis(ct)
         if self.turretPlanner is not None:
             self.turretPlanner.advance(ct, self.fullMap, self.myNum)
             self.turretPlanner.draw_debug(ct)
+
+    def tryChokeBlock(self, ct: Controller):
+        """Khaos passive choke blocker: after the main behaviour, if the action
+        is free and we're standing next to an unblocked chokepoint on OUR side
+        of the map, plug it — barrier when the corridor is 1 tile wide, launcher
+        when wider (its 3x3 fling zone seals what a barrier can't).
+
+        Our own barriers stay traversable (moveTo break-walks them), so this
+        turns the corridor into a door only our builders can pass — exactly the
+        anti-rush geometry Besvikomat's opening has to walk through.
+        """
+        if ct.get_action_cooldown() != 0:
+            return
+        if not mapanalysis.chokes or self.teamCore is None:
+            return
+        myLoc = ct.get_position()
+        enemyRef = self.enemyCore or self.enemyCorePredicted
+        ti = ct.get_global_resources()
+        for choke in mapanalysis.chokes:
+            tile, clearance = choke[0], choke[1]
+            pos = Position(tile[0], tile[1])
+            if myLoc.distance_squared(pos) > 2:
+                continue  # outside builder action radius
+            # defensive perimeter only: strictly closer to our core
+            if (enemyRef is not None
+                    and self.manhattan(pos, self.teamCore)
+                    >= self.manhattan(pos, enemyRef)):
+                continue
+            if not self.isInBounds(ct, pos) or not ct.is_in_vision(pos):
+                continue
+            if ct.get_tile_building_id(pos) is not None:
+                continue  # already blocked
+            if ct.get_tile_env(pos) == Environment.ORE_TITANIUM:
+                continue  # never brick an ore tile
+            if clearance <= 1.2:
+                if (ti >= ct.get_barrier_cost() + 30
+                        and ct.can_build_barrier(pos)):
+                    ct.build_barrier(pos)
+                    self.noteBuiltTile(pos)
+                    return
+            elif ti >= 100 and ct.can_build_launcher(pos):
+                ct.build_launcher(pos)
+                self.noteBuiltTile(pos)
+                return
 
     def noteBuiltTile(self, builtPos: Position):
         oldType = self.fullMap[builtPos.x][builtPos.y]
@@ -459,8 +575,7 @@ class Player:
                 and (currentRound > 20 or self.nearCore2(myLoc) < 3)):
             self.alwaysDefense = True
             self.defenseMode = True
-        if currentRound % 120 == 1 or self.justSpawned:
-            self.assignRole(ct, currentRound)
+        self.assignRole(ct, currentRound)
         self.justSpawned = False
 
         # old repair pass
@@ -521,38 +636,50 @@ class Player:
                 self.moveTo(ct, self.explorePos)
 
     def assignRole(self, ct: Controller, currentRound):
-        if currentRound <= 120:
-            # 36% Offense, 64% Eco + 1 Defense Bot
-            if (currentRound % 11 in [3, 5, 7, 10]
-                    and self.currentHarvester is None
-                    and not self.turtled):
-                self.attackMode = True
-            else:
-                self.defenseMode = False
-                self.attackMode = False
-        if currentRound % 120 == 1 and currentRound > 120:
-            # 25% Defense, 35% Offense, 40% Eco
-            self.defenseMode = False
+        """Memoryless role choice (Khaos): recompute from live state every
+        round instead of dicing every 120. Hysteresis on the money gate so an
+        attacker mid-siege doesn't flicker back to eco at the threshold, and a
+        deterministic myNum spread replaces the random mix."""
+        if self.turtled or self.alwaysDefense:
             self.attackMode = False
-            if self.currentHarvester is None:
-                role = random.random()
-                if role > 0.75 or self.alwaysDefense:
-                    self.defenseMode = True
-                elif role > 0.4 and not self.turtled:
-                    self.attackMode = True
+            self.defenseMode = self.alwaysDefense
+            return
+        if self.currentHarvester is not None or self.foundHarvester is not None:
+            # committed econ claim: finish it first
+            self.attackMode = False
+            self.defenseMode = False
+            return
+        ti = ct.get_global_resources()
+        stayGate = MILITARY_FLOOR - 50 if self.attackMode else MILITARY_FLOOR + 50
+        self.attackMode = (currentRound > 25
+                           and self.myNum % 3 == 0
+                           and ti >= stayGate)
+        self.defenseMode = False
 
     def attack(self, ct: Controller) -> None:
         if self.teamCore is None:
             return
         myLoc = ct.get_position()
-        coreHypothesis = [
+        # symmetry-ordered core hypotheses: surviving guesses first (most-likely
+        # leading), then the full reflection/rotation set as a fallback so we
+        # still cycle if symmetry hasn't resolved.
+        coreHypothesis = []
+        if self.symTracker is not None:
+            for cx, cy in self.symTracker.enemy_core_candidates(self.teamCore):
+                if 0 <= cx < self.mapW - 1 and 0 <= cy < self.mapH - 1:
+                    coreHypothesis.append(Position(cx, cy))
+        for fallback in (
             Position(ct.get_map_width() - 2 - self.teamCore.x,
                      ct.get_map_height() - 2 - self.teamCore.y),
             Position(ct.get_map_width() - 2 - self.teamCore.x,
                      self.teamCore.y),
             Position(self.teamCore.x,
                      ct.get_map_height() - 2 - self.teamCore.y),
-        ]
+        ):
+            if fallback not in coreHypothesis:
+                coreHypothesis.append(fallback)
+        if self.attackHypothesisIndex >= len(coreHypothesis):
+            self.attackHypothesisIndex = 0
         if self.enemyCore is not None:
             self.attackPos = self.enemyCore
         elif self.attackPos is None:
@@ -697,7 +824,26 @@ class Player:
                 key=lambda p: (self.manhattan(p, myLoc) + self.nearCore2(p),
                                p.x, p.y)
             )
+            # Voronoi claim partition (Khaos): skip ore a visible teammate
+            # would reach first (id tiebreak), so builders stop contesting
+            # the same tile and fan out instead.
+            friends = []
+            myId = ct.get_id()
+            for uid in ct.get_nearby_units():
+                if (uid != myId and ct.get_team(uid) == ct.get_team()
+                        and ct.get_entity_type(uid) == EntityType.BUILDER_BOT):
+                    friends.append((ct.get_position(uid), uid))
             for orePos in knownOres:
+                if friends:
+                    myDist = self.manhattan(orePos, myLoc)
+                    contested = False
+                    for fpos, fid in friends:
+                        fd = self.manhattan(fpos, orePos)
+                        if fd < myDist or (fd == myDist and fid < myId):
+                            contested = True
+                            break
+                    if contested:
+                        continue
                 willWork = True
                 if ct.is_in_vision(orePos):
                     oreID = ct.get_tile_building_id(orePos)
@@ -1108,26 +1254,69 @@ class Player:
         if analysisJob is not None and analysisJob.phase == mapanalysis.DONE:
             mapanalysis.draw_debug(ct, Position)
             
+    def _buildThreatSet(self):
+        """Soft-threat tiles from remembered ENEMY turrets (facing unknown, so
+        approximate: gunner = cardinal rays len 3; sentinel = 3-wide cardinal
+        bands len 5 + adjacent ring). Walls clip the rays."""
+        threat = set()
+        planner = self.turretPlanner
+        if planner is None:
+            return threat
+        w, h = self.mapW, self.mapH
+        fullMap = self.fullMap
+        for (x, y), (code, _f) in planner.infra_memory.items():
+            if code == turretplan.INFRA_GUNNER:
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    for k in range(1, 4):
+                        tx, ty = x + dx * k, y + dy * k
+                        if not (0 <= tx < w and 0 <= ty < h):
+                            break
+                        if fullMap[tx][ty] == 2:
+                            break
+                        threat.add((tx, ty))
+            elif code == turretplan.INFRA_SENTINEL:
+                for ddx in (-1, 0, 1):
+                    for ddy in (-1, 0, 1):
+                        bx, by = x + ddx, y + ddy
+                        if 0 <= bx < w and 0 <= by < h:
+                            threat.add((bx, by))
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    for k in range(1, 6):
+                        tx, ty = x + dx * k, y + dy * k
+                        if not (0 <= tx < w and 0 <= ty < h):
+                            break
+                        if fullMap[tx][ty] == 2:
+                            break
+                        for off in (-1, 0, 1):
+                            bx, by = (tx, ty + off) if dx else (tx + off, ty)
+                            if 0 <= bx < w and 0 <= by < h:
+                                threat.add((bx, by))
+        return threat
+
     def tileCost(self, ct: Controller, tile: Position) -> int | None:
         if not (0 <= tile.x < self.mapW and 0 <= tile.y < self.mapH):
             return None
         cachedVal = self.fullMap[tile.x][tile.y]
         if cachedVal > 1: # either wall or unpassable
             return None
+        cost = openCost
         if ct.is_in_vision(tile):
             tileId = ct.get_tile_building_id(tile)
             if tileId is not None:
                 tTeam = ct.get_team(tileId)
                 tType = ct.get_entity_type(tileId)
                 if tTeam == ct.get_team() and tType == EntityType.BARRIER:
-                    return barrierCost
+                    cost = barrierCost
                 elif ct.is_tile_passable(tile) == False:
                     return 4096
-        return openCost
+        if (tile.x, tile.y) in self._threatTiles:
+            cost += THREAT_COST
+        return cost
 
     def fillInDistTable (self, ct: Controller, targetLoc: Position):
         w, h = self.mapW, self.mapH
-        maxCost = (w + h) * barrierCost + 5
+        self._threatTiles = self._buildThreatSet()
+        maxCost = (w + h) * (barrierCost + THREAT_COST) + 5
         
         for x in range(w):
             for y in range(h):
