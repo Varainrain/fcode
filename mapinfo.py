@@ -244,8 +244,9 @@ class MapInfo:
                     self.own_harvesters[(x, y)] = True
                 elif etype == EntityType.BARRIER:
                     self.own_barriers |= self.bit(x, y)
-                elif etype in (EntityType.GUNNER, EntityType.SENTINEL,
-                               EntityType.LAUNCHER):
+                elif etype == EntityType.SENTINEL:
+                    self.own_turrets[(x, y)] = 'S'
+                elif etype in (EntityType.GUNNER, EntityType.LAUNCHER):
                     self.own_turrets[(x, y)] = True
         for uid in ct.get_nearby_units():
             if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:

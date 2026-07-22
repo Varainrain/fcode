@@ -593,6 +593,21 @@ class Player:
             mine = path.claims(mi, my_bit, others, damaged)
             if mine:
                 return 8.0, ('heal', mine)
+        # Pantheon: own sentinel trading with an enemy sentinel counts as very
+        # damaged — medics pre-park. Scores 7, BELOW route's 7.75 (the paper's
+        # exact number; 8.0 parked the workforce and starved the economy).
+        trading = 0
+        for (x, y), tk in mi.own_turrets.items():
+            if tk != 'S':
+                continue
+            for (ex, ey), ekind in mi.enemy_turrets.items():
+                if ekind == 'S' and (x - ex) ** 2 + (y - ey) ** 2 <= 32:
+                    trading |= mi.bit(x, y)
+                    break
+        if trading:
+            mine = path.claims(mi, my_bit, others, trading)
+            if mine:
+                return 7.0, ('heal', mine)
         # Pantheon chase zone: 8 pathing steps around our conveyor network
         # (was 2 tiles) — intruders get hunted before they reach the chain.
         zone = mi.own_conveyors
