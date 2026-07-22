@@ -84,6 +84,7 @@ class Player:
 
         self.randDir = Direction.NORTH
         self.idleTurns = 0  # sentinel: consecutive turns with no enemy seen
+        self.enemyBotHistory = {}  # launcher: enemy builder position trails
 
         # Role
         self.attackMode = False
@@ -401,6 +402,20 @@ class Player:
         # throw enemies AWAY from our core (Khaos: keep them out of our
         # territory). Falling back to away-from-launcher if core unknown.
         anchor = self.teamCore if self.teamCore is not None else myLoc
+        # Khaos trap throw: remember where each enemy builder has walked so we
+        # can fling it BACK along its own path - several turns of lost walking
+        # per launcher action.
+        team = ct.get_team()
+        hist = self.enemyBotHistory
+        for uid in ct.get_nearby_units():
+            if (ct.get_team(uid) != team
+                    and ct.get_entity_type(uid) == EntityType.BUILDER_BOT):
+                ep = ct.get_position(uid)
+                lst = hist.setdefault(uid, [])
+                if not lst or lst[-1] != ep:
+                    lst.append(ep)
+                    if len(lst) > 12:
+                        lst.pop(0)
         # pickup radius is sqrt(2): scan all 8 neighbours, not just cardinals.
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
@@ -414,13 +429,17 @@ class Player:
                 if bot_id is None or ct.get_team(bot_id) == ct.get_team():
                     continue
 
+                # prefer a tile this bot already walked (trap: forced retrace),
+                # weighted by distance from our core; else plain away-throw.
+                walked = set(hist.get(bot_id, ())[:-3])  # skip its last steps
                 best = None
-                bestDist = -1
+                bestKey = (-1, -1)
                 for tile in ct.get_nearby_tiles(26):
                     if ct.can_launch(adjacent, tile):
-                        dist = self.manhattan(anchor, tile)
-                        if dist > bestDist:
-                            bestDist = dist
+                        key = (1 if tile in walked else 0,
+                               self.manhattan(anchor, tile))
+                        if key > bestKey:
+                            bestKey = key
                             best = tile
                 if best is not None:
                     ct.launch(adjacent, best)
