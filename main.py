@@ -648,6 +648,24 @@ class Player:
                         ct.build_launcher(p)
                         return
             return
+        # Pantheon counter-launcher fallback: chase can't PATH to the
+        # intruder (their launcher zone / barriers) -> zone them back
+        # instead of giving up.
+        step = path.next_step(mi, (pos.x, pos.y),
+                              mi.expand(tb) & mi.passable())
+        if step is None:
+            if (manhattan(pos, tpos) <= 3 and ct.get_action_cooldown() == 0
+                    and ct.get_global_resources()
+                    >= ct.get_launcher_cost() + 60):
+                for d in CARDINALS:
+                    p = pos.add(d)
+                    if (self._inBounds(p) and ct.is_in_vision(p)
+                            and manhattan(p, tpos) <= 2
+                            and ct.can_build_launcher(p)):
+                        ct.build_launcher(p)
+                        return
+            self._moveToward(ct, mi.expand(mi.expand(tb)) & mi.passable())
+            return
         self._moveToward(ct, mi.expand(tb) & mi.passable())
 
     # ------------------------------------------------------------------
@@ -868,6 +886,23 @@ class Player:
                 facing = DELTA_TO_DIR[(fbest[1], fbest[2])]
                 break
         if link is None:
+            # Pantheon: an unroutable dead-end near enemies gets CAPPED with
+            # a barrier on its output so they can't exploit/extend it
+            f = mi.own_conv_facing.get((hx, hy))
+            if f is not None and mi.enemy_bots:
+                near = mi.expand(mi.expand(mi.expand(mi.expand(
+                    mi.bit(hx, hy)))))
+                if near & mi.enemy_bots and ct.get_action_cooldown() == 0:
+                    ox, oy = hx + f[0], hy + f[1]
+                    if 0 <= ox < mi.w and 0 <= oy < mi.h:
+                        cap = Position(ox, oy)
+                        pos0 = ct.get_position()
+                        if (pos0.distance_squared(cap) <= 2
+                                and ct.is_in_vision(cap)
+                                and ct.can_build_barrier(cap)):
+                            ct.build_barrier(cap)
+                            mi.own_barriers |= mi.bit(ox, oy)
+                            mi.note_tile(ox, oy, mapinfo_mod.T_BLOCK)
             self.ttl[('route', hx, hy)] = rnd + 20
             return
         pos = ct.get_position()
