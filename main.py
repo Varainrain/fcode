@@ -25,8 +25,9 @@ GLOBAL_AMMO_BUFFER = 20
 REPLACE_CAP = 8       # max lifetime replacement respawns
 REPLACE_COOLDOWN = 25  # min rounds between them
 MILITARY_FLOOR = 150   # below this ti, harvesters/conveyors win the money, not extra sentinels
-# rotate only with enough titanium left for follow-up work.
-GUNNER_ROTATE_MIN_TITANIUM = 25
+# rotate only with enough titanium left for follow-up work (Khaos used 60 so
+# gunners can't burn the economy by spinning).
+GUNNER_ROTATE_MIN_TITANIUM = 60
 
 openCost = 1
 barrierCost = 8 # to be implemented later
@@ -82,6 +83,7 @@ class Player:
         self.homeDefense = homedefense.HomeDefense()
 
         self.randDir = Direction.NORTH
+        self.idleTurns = 0  # sentinel: consecutive turns with no enemy seen
 
         # Role
         self.attackMode = False
@@ -104,7 +106,9 @@ class Player:
         # Harvester finding
         self.currentHarvester = None
         self.foundHarvester = None
-        self.usedHarvesters = []
+        # TTL failure cache (Khaos): ore we gave up on comes back after 100
+        # rounds instead of being blacklisted forever. {Position: expiry_round}
+        self.usedHarvesters = {}
         self.reachHarvesterTime = 0
 
         # Building back and sentinel placement
@@ -208,19 +212,26 @@ class Player:
             return None
         ccx, ccy = corePos.x + 0.5, corePos.y + 0.5
 
-        # (1) defensive: a visible enemy and few of us -> spawn toward the threat
-        if ct.get_unit_count() < 10:
-            enemyPos = None
-            enemyDist = 1e9
-            for eid in ct.get_nearby_units():
-                if ct.get_team(eid) == ct.get_team():
-                    continue
-                ep = ct.get_position(eid)
-                d = (ep.x - ccx) ** 2 + (ep.y - ccy) ** 2
-                if d < enemyDist:
-                    enemyDist = d
-                    enemyPos = ep
-            if enemyPos is not None:
+        # (1) defensive: an enemy actually AT our base with no ally covering it
+        # -> spawn toward the intruder (Khaos). Tight gate: on small maps the
+        # core sees most of the board, and reacting to every distant scout
+        # hijacks the whole opening (sprint 0-mined regression).
+        enemyPos = None
+        enemyDist = 1e9
+        allies = []
+        for eid in ct.get_nearby_units():
+            ep = ct.get_position(eid)
+            if ct.get_team(eid) == ct.get_team():
+                if ct.get_entity_type(eid) == EntityType.BUILDER_BOT:
+                    allies.append(ep)
+                continue
+            d = (ep.x - ccx) ** 2 + (ep.y - ccy) ** 2
+            if d < enemyDist:
+                enemyDist = d
+                enemyPos = ep
+        if enemyPos is not None and enemyDist <= 18:
+            covered = any(a.distance_squared(enemyPos) <= 8 for a in allies)
+            if not covered:
                 return min(candidates,
                            key=lambda p: self.manhattan(p, enemyPos))
 
@@ -299,8 +310,34 @@ class Player:
     def sentinel(self, ct: Controller) -> None:
         if self.enemyCore is None:
             self.enemyCore = findEnemyCore(ct)
+        if self.teamCore is None:
+            self.teamCore = findTeamCore(ct)
 
         team = ct.get_team()
+
+        # Khaos: an idle FORWARD sentinel is +20% scale of dead weight; the
+        # scale refunds on death, so self-destruct after a long quiet spell.
+        # Home guards (near core) and harvester rings are exempt.
+        seesEnemy = False
+        for eid in ct.get_nearby_entities():
+            if ct.get_team(eid) != team:
+                seesEnemy = True
+                break
+        if seesEnemy:
+            self.idleTurns = 0
+        else:
+            self.idleTurns += 1
+            if self.idleTurns > 40 and ct.get_current_round() > 150:
+                nearHarv = any(
+                    ct.get_team(b) == team
+                    and ct.get_entity_type(b) == EntityType.HARVESTER
+                    for b in ct.get_nearby_buildings(8))
+                nearCore = (self.teamCore is not None
+                            and self.manhattan(ct.get_position(),
+                                               self.teamCore) <= 6)
+                if not nearHarv and not nearCore:
+                    ct.self_destruct()
+                    return
         priority = {
             EntityType.CORE: 5,
             EntityType.SENTINEL: 3,
@@ -333,19 +370,25 @@ class Player:
                 continue
 
             tilePriority = 0
+            targetHp = 0
             if buildingID is not None:
                 buildingType = ct.get_entity_type(buildingID)
                 if buildingType not in targets:
                     continue
                 tilePriority = priority.get(buildingType, 1)
+                targetHp = ct.get_hp(buildingID)
                 if builderID is not None:
                     tilePriority += 2
             elif builderID is not None:
                 # not worth 10 ammo on a lone builder
                 continue
 
-            if tilePriority > bestPriority:
-                bestPriority = tilePriority
+            # Khaos tiebreaks: same priority -> prefer a clean one-shot
+            # (hp <= 18 dies now, before their builders can heal it), then
+            # the lowest-hp target.
+            key = (tilePriority, 1 if 0 < targetHp <= 18 else 0, -targetHp)
+            if bestTile is None or key > bestPriority:
+                bestPriority = key
                 bestTile = tile
 
         if bestTile is not None and ct.can_fire(bestTile):
@@ -649,8 +692,11 @@ class Player:
             self.attackMode = False
             self.defenseMode = False
             return
+        # walking to the enemy is free; the sentinel build itself is
+        # affordability-gated downstream. Only a token gate here so a fresh
+        # attacker isn't dispatched while we're utterly broke.
         ti = ct.get_global_resources()
-        stayGate = MILITARY_FLOOR - 50 if self.attackMode else MILITARY_FLOOR + 50
+        stayGate = 30 if self.attackMode else 60
         self.attackMode = (currentRound > 25
                            and self.myNum % 3 == 0
                            and ti >= stayGate)
@@ -794,6 +840,24 @@ class Player:
         w = ct.get_map_width()
         h = ct.get_map_height()
         myLoc = ct.get_position()
+        # Khaos frontier sampling (cheap form): sample random tiles and head
+        # for the nearest genuinely UNSEEN one, so exploration eats the
+        # unknown map instead of re-walking known ground.
+        if self.seenTiles is not None and currentRound > 5:
+            best = None
+            bestDist = 1 << 30
+            for _ in range(24):
+                tx = random.randrange(w)
+                ty = random.randrange(h)
+                if self.seenTiles[tx][ty]:
+                    continue
+                d = abs(tx - myLoc.x) + abs(ty - myLoc.y)
+                if d < bestDist:
+                    bestDist = d
+                    best = Position(tx, ty)
+            if best is not None:
+                self.explorePos = best
+                return
         radius = (w + h) // 5
         if currentRound > 5:
             theta = random.random() * 2 * math.pi
@@ -806,6 +870,9 @@ class Player:
     def getHarvester(self, ct: Controller, myLoc: Position):
         if self.foundHarvester is None:
             # shared map first: chase ore teammates found, no out of vision queries
+            rnd = ct.get_current_round()
+            self.usedHarvesters = {p: exp for p, exp in
+                                   self.usedHarvesters.items() if exp > rnd}
             used = set(self.usedHarvesters)
             knownOres = {
                 Position(x, y)
@@ -824,26 +891,29 @@ class Player:
                 key=lambda p: (self.manhattan(p, myLoc) + self.nearCore2(p),
                                p.x, p.y)
             )
-            # Voronoi claim partition (Khaos): skip ore a visible teammate
-            # would reach first (id tiebreak), so builders stop contesting
-            # the same tile and fan out instead.
-            friends = []
+            # Voronoi claim partition (Khaos): each visible teammate claims
+            # only its single NEAREST ore (guards/attackers passing through
+            # must not veto every ore they happen to stand near). Skip an ore
+            # if a strictly-closer teammate has it as their nearest.
             myId = ct.get_id()
-            for uid in ct.get_nearby_units():
-                if (uid != myId and ct.get_team(uid) == ct.get_team()
-                        and ct.get_entity_type(uid) == EntityType.BUILDER_BOT):
-                    friends.append((ct.get_position(uid), uid))
-            for orePos in knownOres:
-                if friends:
-                    myDist = self.manhattan(orePos, myLoc)
-                    contested = False
-                    for fpos, fid in friends:
-                        fd = self.manhattan(fpos, orePos)
-                        if fd < myDist or (fd == myDist and fid < myId):
-                            contested = True
-                            break
-                    if contested:
+            claimed = set()
+            if knownOres:
+                for uid in ct.get_nearby_units():
+                    if (uid == myId or ct.get_team(uid) != ct.get_team()
+                            or ct.get_entity_type(uid)
+                            != EntityType.BUILDER_BOT):
                         continue
+                    fpos = ct.get_position(uid)
+                    nearest = min(
+                        knownOres,
+                        key=lambda p: (self.manhattan(p, fpos), p.x, p.y))
+                    fd = self.manhattan(nearest, fpos)
+                    myDist = self.manhattan(nearest, myLoc)
+                    if fd < myDist or (fd == myDist and uid < myId):
+                        claimed.add(nearest)
+            for orePos in knownOres:
+                if orePos in claimed:
+                    continue
                 willWork = True
                 if ct.is_in_vision(orePos):
                     oreID = ct.get_tile_building_id(orePos)
@@ -888,7 +958,8 @@ class Player:
             if possibleSpots:
                 self.moveTo(ct, possibleSpots[0])
             else:
-                self.usedHarvesters.append(self.foundHarvester)
+                self.usedHarvesters[self.foundHarvester] = (
+                    ct.get_current_round() + 100)
                 self.foundHarvester = None
             return
 
@@ -911,13 +982,16 @@ class Player:
 
     def removeHarvester(self, ct: Controller):
         if self.foundHarvester is not None:
-            self.usedHarvesters.append(self.foundHarvester)
+            self.usedHarvesters[self.foundHarvester] = (
+                ct.get_current_round() + 100)
         self.foundHarvester = None
         self.reachHarvesterTime = 0
 
     def addHarvester(self, ct: Controller, myLoc: Position):
         self.currentHarvester = self.foundHarvester
-        self.usedHarvesters.append(self.foundHarvester)
+        # own build claims are near-permanent, not a 100-round failure entry
+        self.usedHarvesters[self.foundHarvester] = (
+            ct.get_current_round() + 100000)
         self.foundHarvester = None
         self.conveyorEnd = myLoc
         self.surroundHarvester = False
@@ -1033,7 +1107,12 @@ class Player:
                 self.turretTimeOut = 1
                 self.nextTurretCountDown = 5
             else:
-                return
+                # can't place the screen sentinel (broke, or spot blocked):
+                # drop the request and keep routing. Returning here deadlocked
+                # the whole chain whenever enemy infra stayed visible while we
+                # were poor -> harvesters built but 0 delivered (sprint bug).
+                self.enemyPos = None
+                self.enemyType = -1
         if self.turretTimeOut > 0:
             self.turretTimeOut += 1
         if self.enemyType == 3 and self.turretTimeOut > 0:
@@ -1155,22 +1234,48 @@ class Player:
         return True
 
     def getNewTiles (self, ct: Controller):
+        # hottest per-turn loop (Khaos update_at analog): hoist lookups.
+        fullMap = self.fullMap
+        seenTiles = self.seenTiles
+        newTiles = self.newTiles
+        getEnv = ct.get_tile_env
+        getBuildingId = ct.get_tile_building_id
+        isPassable = ct.is_tile_passable
+        getTeam = ct.get_team
+        getType = ct.get_entity_type
+        myTeam = ct.get_team()
+        WALL = Environment.WALL
+        ORE = Environment.ORE_TITANIUM
+        BARRIER = EntityType.BARRIER
         for tile in ct.get_nearby_tiles():
             x = tile.x
             y = tile.y
-            tileEnv = ct.get_tile_env(tile)
-            if not self.checkPassable(ct, tile) and tileEnv != Environment.WALL: # Walls clearly dont have buildings so need that
-                tileEnv = 'Unpassable'
-            tileType = tileTypes.get(tileEnv)
-            oldType = self.fullMap[x][y]
-            if self.seenTiles[x][y] == False or self.fullMap[x][y] != tileType:
-                self.seenTiles[x][y] = True
-                self.newTiles.append([Position(x, y), tileType]) 
+            tileEnv = getEnv(tile)
+            if tileEnv == WALL:
+                tileType = 2
+            else:
+                # inline checkPassable: empty or own-barrier tiles count
+                tileId = getBuildingId(tile)
+                blocked = False
+                if tileId is not None and not isPassable(tile):
+                    if (getTeam(tileId) != myTeam
+                            or getType(tileId) != BARRIER):
+                        blocked = True
+                if blocked:
+                    tileType = 3
+                elif tileEnv == ORE:
+                    tileType = 1
+                else:
+                    tileType = 0
+            oldType = fullMap[x][y]
+            if seenTiles[x][y] == False or oldType != tileType:
+                seenTiles[x][y] = True
+                newTiles.append([Position(x, y), tileType])
             if (oldType in (-1, 2, 3)) != (tileType in (-1, 2, 3)):
                 mapanalysis.note_structural_tile(
                     x, y, tileType in (-1, 2, 3), self.mapW, self.mapH
                 )
-            self.fullMap[x][y] = tileType
+            fullMap[x][y] = tileType
     
     def shareTiles(self, ct: Controller, curRound):
         spawnCount = ct.read_store(0)
@@ -1293,69 +1398,73 @@ class Player:
                                 threat.add((bx, by))
         return threat
 
-    def tileCost(self, ct: Controller, tile: Position) -> int | None:
-        if not (0 <= tile.x < self.mapW and 0 <= tile.y < self.mapH):
-            return None
-        cachedVal = self.fullMap[tile.x][tile.y]
-        if cachedVal > 1: # either wall or unpassable
-            return None
-        cost = openCost
-        if ct.is_in_vision(tile):
-            tileId = ct.get_tile_building_id(tile)
-            if tileId is not None:
-                tTeam = ct.get_team(tileId)
-                tType = ct.get_entity_type(tileId)
-                if tTeam == ct.get_team() and tType == EntityType.BARRIER:
-                    cost = barrierCost
-                elif ct.is_tile_passable(tile) == False:
-                    return 4096
-        if (tile.x, tile.y) in self._threatTiles:
-            cost += THREAT_COST
-        return cost
-
     def fillInDistTable (self, ct: Controller, targetLoc: Position):
+        # Khaos perf pass: locals hoisted, raw int coords in the buckets, and
+        # an inline vision test — Controller calls only for the handful of
+        # tiles actually inside vision.
         w, h = self.mapW, self.mapH
         self._threatTiles = self._buildThreatSet()
+        threat = self._threatTiles
         maxCost = (w + h) * (barrierCost + THREAT_COST) + 5
-        
+        distMap = self.distMap
+        fullMap = self.fullMap
+        blank = [4096] * h
         for x in range(w):
-            for y in range(h):
-                self.distMap[x][y] = 4096
-        
-        buckets = [[] for _ in range(maxCost)]
-        buckets[0].append(targetLoc)
-        self.distMap[targetLoc.x][targetLoc.y] = 0
-       
-        myLoc = ct.get_position()
+            distMap[x][:] = blank
 
-        myNeighbors = []
-        for d in CARDINALS:
-            myNeighbors.append(myLoc.add(d))
+        buckets = [[] for _ in range(maxCost)]
+        buckets[0].append((targetLoc.x, targetLoc.y))
+        distMap[targetLoc.x][targetLoc.y] = 0
+
+        myLoc = ct.get_position()
+        myx, myy = myLoc.x, myLoc.y
+        myNeighbors = {(myx + 1, myy), (myx - 1, myy),
+                       (myx, myy + 1), (myx, myy - 1)}
+        myTeam = ct.get_team()
+        getBuildingId = ct.get_tile_building_id
+        getTeam = ct.get_team
+        getType = ct.get_entity_type
+        isPassable = ct.is_tile_passable
+        BARRIER = EntityType.BARRIER
 
         for dist in range(maxCost):
             bucket = buckets[dist]
             hitBucket = False
             while bucket:
                 cur = bucket.pop()
+                cx, cy = cur
 
-                if self.distMap[cur.x][cur.y] < dist:
+                if distMap[cx][cy] < dist:
                     continue
 
-                if (cur.x, cur.y) in myNeighbors:
+                if cur in myNeighbors:
                     hitBucket = True
                     continue
 
-                for d in CARDINALS:
-                    nextTile = cur.add(d)
-                    nextX = nextTile.x
-                    nextY = nextTile.y
-                    if 0 <= nextX < w and 0 <= nextY < h:
-                        stepCost = self.tileCost(ct, nextTile)
-                        if stepCost is not None:
-                            newDist = dist + stepCost
-                            if newDist < maxCost and newDist < self.distMap[nextX][nextY]:
-                                self.distMap[nextX][nextY] = newDist
-                                buckets[newDist].append(nextTile)
+                for nx, ny in ((cx + 1, cy), (cx - 1, cy),
+                               (cx, cy + 1), (cx, cy - 1)):
+                    if not (0 <= nx < w and 0 <= ny < h):
+                        continue
+                    if fullMap[nx][ny] > 1:
+                        continue  # wall or unpassable
+                    cost = openCost
+                    dxv = nx - myx
+                    dyv = ny - myy
+                    if dxv * dxv + dyv * dyv <= 20:  # builder vision r^2
+                        pos = Position(nx, ny)
+                        tileId = getBuildingId(pos)
+                        if tileId is not None:
+                            if (getTeam(tileId) == myTeam
+                                    and getType(tileId) == BARRIER):
+                                cost = barrierCost
+                            elif not isPassable(pos):
+                                continue
+                    if (nx, ny) in threat:
+                        cost += THREAT_COST
+                    newDist = dist + cost
+                    if newDist < maxCost and newDist < distMap[nx][ny]:
+                        distMap[nx][ny] = newDist
+                        buckets[newDist].append((nx, ny))
             if hitBucket:
                 return dist
         return 4096
