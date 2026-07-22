@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.replay26
+gate_results.csv
+.DS_Store
