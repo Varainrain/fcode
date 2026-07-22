@@ -62,6 +62,7 @@ class MapInfo:
         self.enemy_bots = 0
         self.own_conveyors = 0
         self.own_barriers = 0   # break-walkable at cost (Pantheon 15)
+        self.own_loaded = 0     # own conveyors holding a stack (jam-avoid)
         # remembered facings of own conveyors: (x,y) -> (dx,dy) output delta
         self.own_conv_facing = {}
 
@@ -170,7 +171,12 @@ class MapInfo:
                 del self.out_tiles[:32]
 
     def update_vision(self, ct):
-        """Per-turn scan: static tiles into masks, dynamic entities rebuilt."""
+        """Per-turn scan: static tiles into masks, dynamic entities rebuilt.
+
+        Vision-delta optimization (Pantheon update_move): env is immutable, so
+        for already-seen tiles we skip get_tile_env entirely — walls skip ALL
+        queries (nothing can stand on them), other seen tiles derive env from
+        the ore mask and only pay the building-id query."""
         my_team = ct.get_team()
         get_env = ct.get_tile_env
         get_bid = ct.get_tile_building_id
@@ -179,10 +185,22 @@ class MapInfo:
         self.enemy_bots = 0
         self.own_conveyors = 0
         self.own_barriers = 0
+        self.own_loaded = 0  # own conveyors currently holding a stack
+        get_stored = ct.get_stored_resource
         WALKABLE = (EntityType.CONVEYOR, EntityType.SPLITTER)
+        seen = self.seen
+        walls = self.walls
+        ore = self.ore
         for tile in ct.get_nearby_tiles():
             x, y = tile.x, tile.y
-            env = get_env(tile)
+            b = 1 << (x + y * self.w)
+            if seen & b:
+                if walls & b:
+                    continue  # immutable, uninhabitable: zero queries
+                env = (Environment.ORE_TITANIUM if ore & b
+                       else Environment.EMPTY)
+            else:
+                env = get_env(tile)
             if env == Environment.WALL:
                 note(x, y, T_WALL)
                 continue
@@ -200,6 +218,8 @@ class MapInfo:
                 note(x, y, T_ORE if env == Environment.ORE_TITANIUM else T_EMPTY)
                 if team == my_team:
                     self.own_conveyors |= self.bit(x, y)
+                    if get_stored(bid) is not None:
+                        self.own_loaded |= self.bit(x, y)
                     if etype == EntityType.CONVEYOR:
                         d = DIR_DELTA.get(ct.get_direction(bid))
                         if d is not None:

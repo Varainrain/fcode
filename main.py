@@ -53,6 +53,8 @@ class Player:
         self._homeDisc = None    # cached home-guard disc for builder #1
         self.brokenBarriers = []  # own barriers we broke while walking
         self._plantCache = None   # score-plane best placement cache
+        self.enemyField = None    # dist-to-enemy-core field (attack route)
+        self.enemyFieldVer = -1
         self.ttl = {}              # (state, x, y) -> expiry round
         self.stuck = 0
         self.lastPos = None
@@ -60,6 +62,7 @@ class Player:
         # turret / launcher state
         self.idleTurns = 0
         self.enemyBotHistory = {}
+        self.tapWait = 0  # sentinel one-tap coordination hold counter
 
     # ------------------------------------------------------------------
     def run(self, ct: Controller) -> None:
@@ -426,11 +429,69 @@ class Player:
         self._plantCache = (key, best)
         return best
 
+    def _enemyFieldCached(self, mi, guess):
+        key = (mi.struct_version, guess.x, guess.y)
+        if self.enemyField is not None and self.enemyFieldVer == key:
+            return self.enemyField
+        m = 0
+        for dx in (0, 1):
+            for dy in (0, 1):
+                x, y = guess.x + dx, guess.y + dy
+                if 0 <= x < mi.w and 0 <= y < mi.h:
+                    m |= mi.bit(x, y)
+        self.enemyField = path.dist_field(mi, mi.expand(m))
+        self.enemyFieldVer = key
+        return self.enemyField
+
     def _run_attack(self, ct, mi, data):
         kind, payload = data
         pos = ct.get_position()
         rnd = ct.get_current_round()
         if kind == 'core':
+            # ATTACK ROUTE (Pantheon override): while marching on the enemy
+            # core, lay a conveyor trail once we're geographically ahead
+            # (dist-to-them <= 1.5x dist-home). Walkable for us, area denial
+            # for them; planes convert the head into a gunner on contact.
+            if (ct.get_action_cooldown() == 0
+                    and ct.get_global_resources()
+                    >= ct.get_conveyor_cost() + 120):
+                ef = self._enemyFieldCached(mi, payload)
+                hf = self._routeFieldCached(ct)
+                idx = pos.x + pos.y * mi.w
+                if (ef is not None and hf is not None
+                        and ef[idx] < 4096 and hf[idx] < 4096
+                        and ef[idx] <= 1.5 * hf[idx]):
+                    best = None
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = pos.x + dx, pos.y + dy
+                        if not (0 <= nx < mi.w and 0 <= ny < mi.h):
+                            continue
+                        b = mi.bit(nx, ny)
+                        if (mi.walls | mi.blocked | mi.own_conveyors
+                                | mi.own_barriers | mi.ore) & b:
+                            continue
+                        d = ef[nx + ny * mi.w]
+                        if best is None or d < best[0]:
+                            best = (d, nx, ny)
+                    if best is not None and best[0] < ef[idx]:
+                        _, lx, ly = best
+                        link = Position(lx, ly)
+                        # face further downhill toward the enemy core
+                        fb = None
+                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                            fx, fy = lx + dx, ly + dy
+                            if not (0 <= fx < mi.w and 0 <= fy < mi.h):
+                                continue
+                            fd = ef[fx + fy * mi.w]
+                            if fb is None or fd < fb[0]:
+                                fb = (fd, dx, dy)
+                        if fb is not None:
+                            facing = DELTA_TO_DIR[(fb[1], fb[2])]
+                            if (ct.is_in_vision(link)
+                                    and ct.can_build_conveyor(link, facing)):
+                                ct.build_conveyor(link, facing)
+                                mi.own_conveyors |= mi.bit(lx, ly)
+                                mi.own_conv_facing[(lx, ly)] = (fb[1], fb[2])
             m = mi.bit(payload.x, payload.y)
             self._moveToward(ct, mi.expand(mi.expand(m)))
             return
@@ -512,7 +573,13 @@ class Player:
             mine = path.claims(mi, my_bit, others, damaged)
             if mine:
                 return 8.0, ('heal', mine)
-        intruders = mi.enemy_bots & mi.expand(mi.expand(mi.own_conveyors))
+        # Pantheon chase zone: 8 pathing steps around our conveyor network
+        # (was 2 tiles) — intruders get hunted before they reach the chain.
+        zone = mi.own_conveyors
+        passable = mi.passable()
+        for _ in range(8):
+            zone = mi.expand(zone) & (passable | zone)
+        intruders = mi.enemy_bots & zone
         if intruders:
             mine = path.claims(mi, my_bit, others, intruders)
             if mine:
@@ -585,11 +652,15 @@ class Player:
             return None
         # Pantheon merge targets: the core PLUS every conveyor already
         # connected to it — new chains join existing trunks instead of each
-        # harvester paying for a private line the whole way home.
+        # harvester paying for a private line the whole way home. LOADED
+        # trunk tiles are excluded (P6): a full conveyor can't accept a new
+        # stack, so merging there jams the junction (their +4 penalty, made
+        # binary by dev23's hold-1-stack rule).
         self._connected = self._connectedConveyors(mi)
         targets = coreMask
         for (x, y) in self._connected:
             targets |= mi.bit(x, y)
+        targets &= ~mi.own_loaded | coreMask
         self.routeField = path.dist_field(mi, targets)
         self.routeVer = key
         return self.routeField
@@ -696,6 +767,15 @@ class Player:
             root = (hx, hy)  # dead-end conveyor target: walk from it
         else:
             root = self._chainRoot(mi, hx, hy)
+            # P6 cost gate (Pantheon cost(d)): before STARTING a fresh chain,
+            # check we can afford ~the whole line. 0.65 discount — income
+            # keeps arriving while we build.
+            d = field[hx + hy * mi.w]
+            if d < 4096:
+                est = 3 * d * ct.get_scale_percent() / 100 * 0.65
+                if ct.get_global_resources() < est:
+                    self.ttl[('route', hx, hy)] = rnd + 30
+                    return
         if root is None:
             link, facing = self._downhillLink(mi, field, hx, hy)
         else:
@@ -1018,6 +1098,11 @@ class Player:
         if ct.get_hp() < ct.get_max_hp() and ct.can_heal(pos):
             ct.heal(pos)
             return
+        # Pantheon 6-tier heal priority: (very damaged?, type tier, damage)
+        TIER = {EntityType.CORE: 6, EntityType.GUNNER: 5,
+                EntityType.SENTINEL: 5, EntityType.LAUNCHER: 5,
+                EntityType.HARVESTER: 4, EntityType.CONVEYOR: 3,
+                EntityType.SPLITTER: 2, EntityType.BARRIER: 2}
         best = None
         for bid in ct.get_nearby_buildings(2):
             if ct.get_team(bid) != ct.get_team():
@@ -1025,8 +1110,10 @@ class Player:
             dmg = ct.get_max_hp(bid) - ct.get_hp(bid)
             if dmg >= 4:
                 p = ct.get_position(bid)
-                if best is None or dmg > best[0]:
-                    best = (dmg, p)
+                key = (1 if dmg >= 12 else 0,
+                       TIER.get(ct.get_entity_type(bid), 1), dmg)
+                if best is None or key > best[0]:
+                    best = (key, p)
         if best is not None and ct.can_heal(best[1]):
             ct.heal(best[1])
 
@@ -1099,7 +1186,30 @@ class Player:
             key = (tilePriority, 1 if 0 < targetHp <= 18 else 0, -targetHp)
             if bestTile is None or key > bestKey:
                 bestKey, bestTile = key, tile
-        if bestTile is not None and ct.can_fire(bestTile):
+        if bestTile is None:
+            return
+        # Pantheon one-tap lock: if the target survives one shot and a
+        # LOWER-id ally sentinel also covers it, hold fire — lower id acts
+        # first, so next turn both shots land the same round (36 dmg kills
+        # anything but a core chunk) before enemy medics can heal. Bounded
+        # wait so a dead ally can't deadlock us.
+        targetHp = 0
+        bid = ct.get_tile_building_id(bestTile) \
+            if ct.is_in_vision(bestTile) else None
+        if bid is not None:
+            targetHp = ct.get_hp(bid)
+        if targetHp > 18 and self.tapWait < 2:
+            myId = ct.get_id()
+            myPos = ct.get_position()
+            for aid in ct.get_nearby_entities():
+                if (aid < myId and ct.get_team(aid) == ct.get_team()
+                        and ct.get_entity_type(aid) == EntityType.SENTINEL
+                        and ct.get_position(aid).distance_squared(bestTile)
+                        <= 32):
+                    self.tapWait += 1
+                    return
+        self.tapWait = 0
+        if ct.can_fire(bestTile):
             ct.fire(bestTile)
 
     def gunner(self, ct: Controller) -> None:
@@ -1179,13 +1289,32 @@ class Player:
                 if bot_id is None or ct.get_team(bot_id) == team:
                     continue
                 walked = set(hist.get(bot_id, ())[:-3])
-                best, bestKey = None, (-1, -1)
+                # Pantheon region-minimizing throw: flood the area the bot
+                # could navigate from each destination (enemy-POV, unseen =
+                # impassable) and throw into the SMALLEST pocket. Trail tiles
+                # (trap: forced retrace) outrank everything.
+                mi = self.mi
+                if mi is None:
+                    w, h = ct.get_map_width(), ct.get_map_height()
+                    self.mi = mi = mapinfo_mod.MapInfo(w, h)
+                mi.update_vision(ct)
+                epass = mi.seen & ~mi.walls & ~mi.blocked
+                best, bestKey = None, None
                 for tile in ct.get_nearby_tiles(26):
-                    if ct.can_launch(adjacent, tile):
-                        key = (1 if tile in walked else 0,
-                               manhattan(anchor, tile))
-                        if key > bestKey:
-                            bestKey, best = key, tile
+                    if not ct.can_launch(adjacent, tile):
+                        continue
+                    seed = mi.bit(tile.x, tile.y)
+                    region = seed
+                    for _ in range(12):
+                        grown = mi.expand(region) & epass
+                        if grown == region:
+                            break
+                        region = grown
+                    size = bin(region).count('1')
+                    key = (1 if tile in walked else 0,
+                           -size, manhattan(anchor, tile))
+                    if bestKey is None or key > bestKey:
+                        bestKey, best = key, tile
                 if best is not None:
                     ct.launch(adjacent, best)
                     return
