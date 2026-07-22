@@ -182,6 +182,15 @@ class Player:
         if rnd % 16 == 0:
             self.ttl = {k: v for k, v in self.ttl.items() if v > rnd}
 
+        # death memory: a turret we built got destroyed -> ban that placement
+        # tile for a long while (stops the build-die-rebuild Ti pump the
+        # sprint-vs-Ijti replay exposed: same gunner tile fed every 4 rounds)
+        if mi.turret_losses:
+            for (lx, ly) in mi.turret_losses:
+                self.ttl[('plant', lx, ly)] = rnd + 80
+            mi.turret_losses.clear()
+            self._plantCache = None
+
         # claims context: my bit vs other friendly bots
         my_bit = mi.bit(pos.x, pos.y)
         others = mi.own_bots & ~my_bit
@@ -356,11 +365,16 @@ class Player:
         if rnd < 30 or self.myNum % 3 != 0 or self.myNum == 1:
             return 0.0, None  # builder #1 is the home guard, never sieges
         guess = self._enemyCoreGuess()
-        # bit-sliced plane placement (Pantheon): score EVERY legal gunner
-        # placement board-wide, take the best above threshold.
+        # bit-sliced plane placement (Pantheon): score EVERY legal placement
+        # board-wide — prefer one we can build THIS TURN (adjacent), but only
+        # when it's COMPARABLE to the global best (their immediacy rule is
+        # among preferred tiles, not a license for low-grade adjacent spam).
         plant = self._bestPlant(ct, mi)
+        near = self._bestPlant(ct, mi, near_mask=mi.expand(my_bit) & ~my_bit)
+        if near is not None and (plant is None or near[0] >= plant[0] - 10):
+            plant = near
         if plant is not None:
-            score, px, py, fk = plant
+            score, px, py, fk, pkind = plant
             # geographic money gate on the PLACEMENT tile
             if self.teamCore is not None and guess is not None:
                 dHome = abs(px - self.teamCore.x) + abs(py - self.teamCore.y)
@@ -371,7 +385,7 @@ class Player:
             if not deep or ti >= 150:
                 mine = path.claims(mi, my_bit, others, mi.bit(px, py))
                 if mine:
-                    return 9.0, ('plant', (px, py, fk))
+                    return 9.0, ('plant', (px, py, fk, pkind))
         # fallback: walk at remembered enemy buildings (old greedy pathway)
         cands = 0
         for (x, y) in mi.enemy_buildings:
@@ -397,9 +411,8 @@ class Player:
 
     PLANT_VALUES = None  # built lazily: EntityType -> placement value
 
-    def _bestPlant(self, ct, mi):
-        """Best gunner placement from the score planes, cached per
-        (struct, enemy-set). Threshold 20 = better than a lone barrier."""
+    def _plantStacks(self, ct, mi):
+        """Cached plane stacks + candidate masks for turret placement."""
         if Player.PLANT_VALUES is None:
             Player.PLANT_VALUES = {
                 EntityType.CORE: 60, EntityType.GUNNER: 40,
@@ -421,13 +434,60 @@ class Player:
         valid = (mi.seen & ~mi.walls & ~mi.blocked & ~mi.ore
                  & ~mi.own_conveyors & ~mi.own_barriers
                  & ~mi.expand(mi.expand(mi.enemy_bots)))
-        best = None
+        # death memory: tiles where our turrets died are banned while fresh
+        rnd = ct.get_current_round()
+        for (kind, kx, ky), exp in self.ttl.items():
+            if kind == 'plant' and exp > rnd:
+                valid &= ~mi.bit(kx, ky)
+        data = None
         if class_masks and valid:
-            best = planes.best_placement(mi, class_masks, valid)
-            if best is not None and best[0] < 20:
-                best = None
-        self._plantCache = (key, best)
-        return best
+            threat = mi.threat()
+            # sentinels never inside enemy GUNNER cover (Pantheon: they shoot
+            # too slowly to win that trade)
+            gthreat = 0
+            for (x, y), kind in mi.enemy_turrets.items():
+                if kind != 'G':
+                    continue
+                for shift in (mi.east, mi.west, mi.north, mi.south):
+                    ray = mi.bit(x, y)
+                    for _ in range(3):
+                        ray = shift(ray) & ~mi.walls
+                        gthreat |= ray
+            gun = planes.gunner_planes(mi, class_masks, valid)
+            sent = planes.sentinel_planes(mi, class_masks, valid & ~gthreat)
+            data = (gun, sent, valid & ~threat, valid & threat,
+                    valid & ~gthreat)
+        self._plantCache = (key, data)
+        return data
+
+    def _bestPlant(self, ct, mi, near_mask=None):
+        """Best placement (score, x, y, facing, 'G'|'S'). Threat tiles need
+        2x value; sentinel only when significantly better than the best
+        gunner (Pantheon: 'when a gunner would be significantly worse')."""
+        data = self._plantStacks(ct, mi)
+        if data is None:
+            return None
+        gun, sent, plain, hot, sval = data
+        if near_mask is not None:
+            plain &= near_mask
+            hot &= near_mask
+            sval &= near_mask
+        best = planes.best_over(gun, plain, mi)
+        hotbest = planes.best_over(gun, hot, mi)
+        if hotbest is not None and hotbest[0] >= 40 \
+                and (best is None or hotbest[0] > best[0]):
+            best = hotbest
+        kind = 'G'
+        ti = ct.get_global_resources()
+        if ti >= ct.get_sentinel_cost() + 40:
+            sbest = planes.best_over(sent, sval, mi)
+            if sbest is not None and sbest[0] >= 40 \
+                    and (best is None or sbest[0] >= best[0] + 15):
+                best = sbest
+                kind = 'S'
+        if best is None or best[0] < 20:
+            return None
+        return (best[0], best[1], best[2], best[3], kind)
 
     def _enemyFieldCached(self, mi, guess):
         key = (mi.struct_version, guess.x, guess.y)
@@ -496,7 +556,7 @@ class Player:
             self._moveToward(ct, mi.expand(mi.expand(m)))
             return
         if kind == 'plant':
-            px, py, fk = payload
+            px, py, fk, pkind = payload
             tile = Position(px, py)
             facing = {'E': Direction.EAST, 'W': Direction.WEST,
                       'N': Direction.NORTH, 'S': Direction.SOUTH}[fk]
@@ -507,10 +567,18 @@ class Player:
                 return
             if pos.distance_squared(tile) <= 2 \
                     and ct.get_action_cooldown() == 0:
-                if ct.is_in_vision(tile) and ct.can_build_gunner(tile, facing):
-                    ct.build_gunner(tile, facing)
-                    self._plantCache = None
-                    return
+                if ct.is_in_vision(tile):
+                    if pkind == 'S' \
+                            and ct.can_build_sentinel(tile, facing):
+                        ct.build_sentinel(tile, facing)
+                        mi.own_turrets[(px, py)] = 'S'
+                        self._plantCache = None
+                        return
+                    if ct.can_build_gunner(tile, facing):
+                        ct.build_gunner(tile, facing)
+                        mi.own_turrets[(px, py)] = 'G'
+                        self._plantCache = None
+                        return
                 self.ttl[('atk', px, py)] = rnd + 20
                 self._plantCache = None
                 return
@@ -573,6 +641,22 @@ class Player:
             mine = path.claims(mi, my_bit, others, damaged)
             if mine:
                 return 8.0, ('heal', mine)
+        # Pantheon: an own sentinel TRADING with an enemy sentinel counts as
+        # very damaged — medics pre-park beside it. Scores 7 — BELOW route's
+        # 7.75, exactly as the paper has it (an 8.0 here parked the whole
+        # workforce during mirror turret wars and starved the economy).
+        trading = 0
+        for (x, y), kind in mi.own_turrets.items():
+            if kind != 'S':
+                continue
+            for (ex, ey), ekind in mi.enemy_turrets.items():
+                if ekind == 'S' and (x - ex) ** 2 + (y - ey) ** 2 <= 32:
+                    trading |= mi.bit(x, y)
+                    break
+        if trading:
+            mine = path.claims(mi, my_bit, others, trading)
+            if mine:
+                return 7.0, ('heal', mine)
         # Pantheon chase zone: 8 pathing steps around our conveyor network
         # (was 2 tiles) — intruders get hunted before they reach the chain.
         zone = mi.own_conveyors
@@ -612,6 +696,25 @@ class Player:
                             >= ct.get_launcher_cost() + 60):
                         ct.build_launcher(p)
                         return
+            return
+        # Pantheon counter-launcher fallback: if the chase cannot PATH to the
+        # intruder (their launcher zone / barriers), don't give up — approach
+        # the ring around them and zone back with our own launcher.
+        step = path.next_step(mi, (pos.x, pos.y), mi.expand(tb) & mi.passable())
+        if step is None:
+            ring2 = mi.expand(mi.expand(tb)) & mi.passable()
+            if (manhattan(pos, tpos) <= 3 and ct.get_action_cooldown() == 0
+                    and ct.get_global_resources()
+                    >= ct.get_launcher_cost() + 60):
+                for d in CARDINALS:
+                    p = pos.add(d)
+                    if (self._inBounds(p) and ct.is_in_vision(p)
+                            and manhattan(p, tpos) <= 2
+                            and ct.can_build_launcher(p)):
+                        ct.build_launcher(p)
+                        mi.own_turrets[(p.x, p.y)] = 'L'
+                        return
+            self._moveToward(ct, ring2)
             return
         self._moveToward(ct, mi.expand(tb) & mi.passable())
 
@@ -826,6 +929,23 @@ class Player:
                 facing = DELTA_TO_DIR[(fbest[1], fbest[2])]
                 break
         if link is None:
+            # Pantheon: an unroutable dead-end near enemies gets CAPPED with a
+            # barrier on its output so they can't exploit/extend it (anti-seed)
+            f = mi.own_conv_facing.get((hx, hy))
+            if f is not None and mi.enemy_bots:
+                near = mi.expand(mi.expand(mi.expand(mi.expand(
+                    mi.bit(hx, hy)))))
+                if near & mi.enemy_bots and ct.get_action_cooldown() == 0:
+                    ox, oy = hx + f[0], hy + f[1]
+                    if 0 <= ox < mi.w and 0 <= oy < mi.h:
+                        cap = Position(ox, oy)
+                        pos0 = ct.get_position()
+                        if (pos0.distance_squared(cap) <= 2
+                                and ct.is_in_vision(cap)
+                                and ct.can_build_barrier(cap)):
+                            ct.build_barrier(cap)
+                            mi.own_barriers |= mi.bit(ox, oy)
+                            mi.note_tile(ox, oy, mapinfo_mod.T_BLOCK)
             self.ttl[('route', hx, hy)] = rnd + 20
             return
         pos = ct.get_position()
@@ -1162,6 +1282,21 @@ class Player:
             EntityType.CONVEYOR: 1,
         }
         targets = set(priority)
+        # context for the Pantheon heal-waste exceptions and the
+        # furthest-from-healers tiebreak
+        enemyBuilders = []
+        allyBotsNear = 0
+        allySentinelInSight = False
+        for eid in ct.get_nearby_units():
+            et = ct.get_entity_type(eid)
+            if ct.get_team(eid) == team:
+                if et == EntityType.BUILDER_BOT:
+                    allyBotsNear += 1
+                elif et == EntityType.SENTINEL \
+                        and eid != ct.get_id():
+                    allySentinelInSight = True
+            elif et == EntityType.BUILDER_BOT:
+                enemyBuilders.append(ct.get_position(eid))
         bestTile, bestKey = None, None
         for tile in ct.get_attackable_tiles():
             if not self._inBounds(tile) or not ct.is_in_vision(tile):
@@ -1183,7 +1318,18 @@ class Player:
                     tilePriority += 2
             elif builderID is not None:
                 continue
-            key = (tilePriority, 1 if 0 < targetHp <= 18 else 0, -targetHp)
+            healerDist = min(
+                (manhattan(tile, e) for e in enemyBuilders), default=99)
+            # Pantheon heal-waste rule: skip cheap heal-sustainable targets
+            # (conveyor/barrier) with a medic adjacent, UNLESS we outnumber
+            # locally, an ally sentinel is in sight (out-damage the heals),
+            # or the shot one-taps it anyway.
+            if (buildingID is not None and tilePriority <= 2
+                    and healerDist <= 1 and targetHp > 18
+                    and not allySentinelInSight and allyBotsNear < 2):
+                continue
+            key = (tilePriority, 1 if 0 < targetHp <= 18 else 0,
+                   healerDist, -targetHp)
             if bestTile is None or key > bestKey:
                 bestKey, bestTile = key, tile
         if bestTile is None:

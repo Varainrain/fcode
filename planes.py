@@ -85,15 +85,52 @@ def gunner_planes(mi, class_masks, valid_mask):
     return out
 
 
-def best_placement(mi, class_masks, valid_mask):
-    """(score, x, y, facing_key) of the best gunner placement, or None."""
-    stacks = gunner_planes(mi, class_masks, valid_mask)
+SENT_RANGE = 5
+
+
+def sentinel_planes(mi, class_masks, valid_mask):
+    """Per-facing plane stacks for SENTINEL placements. Band = forward 1..5
+    along the facing, +-1 lateral; sentinels shoot OVER tiles so no wall
+    clipping. No range discount (the whole band hits equally)."""
+    shifts_back = {
+        'E': mi.west, 'W': mi.east, 'N': mi.south, 'S': mi.north,
+    }
+    lateral = {
+        'E': (mi.north, mi.south), 'W': (mi.north, mi.south),
+        'N': (mi.east, mi.west), 'S': (mi.east, mi.west),
+    }
+    out = {}
+    for fk, back in shifts_back.items():
+        la, lb = lateral[fk]
+        stack = [0] * NUM_PLANES
+        for value, emask in class_masks:
+            if not emask:
+                continue
+            s = emask
+            for _ in range(SENT_RANGE):
+                s = back(s)
+                if not s:
+                    break
+                spots = (s | la(s) | lb(s)) & valid_mask
+                add_const(stack, value, spots)
+        out[fk] = stack
+    return out
+
+
+def best_over(stacks, cands, mi):
+    """(score, x, y, facing_key) argmax across facing stacks within cands."""
     best = None
-    for fk, planes in stacks.items():
-        score, mask = argmax_mask(planes, valid_mask)
+    for fk, stack in stacks.items():
+        score, mask = argmax_mask(stack, cands)
         if score > 0 and mask:
             lsb = mask & -mask
             x, y = mi.xy(lsb)
             if best is None or score > best[0]:
                 best = (score, x, y, fk)
     return best
+
+
+def best_placement(mi, class_masks, valid_mask):
+    """(score, x, y, facing_key) of the best gunner placement, or None."""
+    stacks = gunner_planes(mi, class_masks, valid_mask)
+    return best_over(stacks, valid_mask, mi)
