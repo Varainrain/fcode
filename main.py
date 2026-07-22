@@ -73,6 +73,8 @@ class Player:
         self._cacheTarget = None  # dijkstra reuse: skip recompute on same target+map
         self._cacheVer = -1
         self._threatTiles = set()  # enemy turret soft-threat tiles for pathing
+        self._routeDist = None  # Khaos route state: dist-to-core table
+        self._routeVer = -1
         self.mapW = None
         self.mapH = None
         self.stuckTurns = 0
@@ -1034,6 +1036,16 @@ class Player:
                 if ct.get_team(building_id) != ct.get_team():
                     self.isEnemyInfastructure = ct.get_position(building_id)
 
+        if self.isEnemyInfastructure is None:
+            # quiet neighbourhood: the barrier ring is wasted tempo (v30
+            # lesson) and enemy builders can't hurt a harvester anyway ->
+            # route the chain NOW. Screens/protection can come later if
+            # enemy infra actually shows up.
+            self.protectTurns = 0
+            self.surroundHarvester = True
+            self.sentinelSpot = None
+            return
+
         protectSpots = []
         for direction in CARDINALS:
             pos = self.currentHarvester.add(direction)
@@ -1147,6 +1159,26 @@ class Player:
             return
         self.buildCloser(ct)
 
+    def _routeTable(self, ct: Controller):
+        """Khaos route state: full-map dist-to-core over placeable tiles,
+        threat-aware, cached until the shared map structurally changes. Lets
+        chains round walls and dodge sentinel bands instead of greedy-walking
+        the manhattan gradient into them."""
+        ver = mapanalysis.struct_version
+        if self._routeDist is not None and self._routeVer == ver:
+            return self._routeDist
+        if self._routeDist is None:
+            self._routeDist = [[4096] * self.mapH for _ in range(self.mapW)]
+        seeds = [s for s in (self.teamCoreTiles
+                             or ([self.teamCore] if self.teamCore else []))
+                 if s is not None]
+        if not seeds:
+            return self._routeDist
+        self.fillInDistTable(ct, seeds[0], table=self._routeDist,
+                             seeds=seeds, earlyExit=False)
+        self._routeVer = ver
+        return self._routeDist
+
     def buildCloser(self, ct: Controller):
         if self.conveyorEnd is None:
             return
@@ -1182,11 +1214,14 @@ class Player:
                     and ct.get_tile_env(end) in
                     (Environment.EMPTY, Environment.ORE_TITANIUM)):
                 possibleConveyors.append(direction)
-        possibleConveyors.sort(
-            key=lambda direction: self.nearCore2(
-                self.conveyorEnd.add(direction)
-            )
-        )
+        # Khaos route ordering: follow the Dijkstra dist-to-core gradient
+        # (routes around walls/threat); manhattan only as tiebreak/fallback.
+        routeD = self._routeTable(ct)
+
+        def routeKey(direction):
+            end = self.conveyorEnd.add(direction)
+            return (routeD[end.x][end.y], self.nearCore2(end))
+        possibleConveyors.sort(key=routeKey)
 
         for direction in possibleConveyors:
             end = self.conveyorEnd.add(direction)
@@ -1198,9 +1233,16 @@ class Player:
                 self.conveyorEnd = None
                 return
 
+        curRoute = routeD[self.conveyorEnd.x][self.conveyorEnd.y]
         for direction in possibleConveyors:
             end = self.conveyorEnd.add(direction)
-            if self.nearCore2(end) >= self.nearCore2(self.conveyorEnd):
+            # merge only downhill along the route gradient (manhattan fallback
+            # when the table hasn't reached one of the tiles)
+            endRoute = routeD[end.x][end.y]
+            if endRoute < 4096 and curRoute < 4096:
+                if endRoute >= curRoute:
+                    continue
+            elif self.nearCore2(end) >= self.nearCore2(self.conveyorEnd):
                 continue
             endID = ct.get_tile_building_id(end)
             if (endID is not None
@@ -1417,23 +1459,29 @@ class Player:
                                 threat.add((bx, by))
         return threat
 
-    def fillInDistTable (self, ct: Controller, targetLoc: Position):
+    def fillInDistTable (self, ct: Controller, targetLoc: Position,
+                         table=None, seeds=None, earlyExit=True):
         # Khaos perf pass: locals hoisted, raw int coords in the buckets, and
         # an inline vision test — Controller calls only for the handful of
-        # tiles actually inside vision.
+        # tiles actually inside vision. With table/seeds/earlyExit=False this
+        # doubles as the conveyor-ROUTING solver (full map dist-to-core).
         w, h = self.mapW, self.mapH
         self._threatTiles = self._buildThreatSet()
         threat = self._threatTiles
         maxCost = (w + h) * (barrierCost + THREAT_COST) + 5
-        distMap = self.distMap
+        distMap = table if table is not None else self.distMap
         fullMap = self.fullMap
         blank = [4096] * h
         for x in range(w):
             distMap[x][:] = blank
 
         buckets = [[] for _ in range(maxCost)]
-        buckets[0].append((targetLoc.x, targetLoc.y))
-        distMap[targetLoc.x][targetLoc.y] = 0
+        if seeds is None:
+            seeds = [targetLoc]
+        for s in seeds:
+            if 0 <= s.x < w and 0 <= s.y < h:
+                buckets[0].append((s.x, s.y))
+                distMap[s.x][s.y] = 0
 
         myLoc = ct.get_position()
         myx, myy = myLoc.x, myLoc.y
@@ -1456,7 +1504,7 @@ class Player:
                 if distMap[cx][cy] < dist:
                     continue
 
-                if cur in myNeighbors:
+                if earlyExit and cur in myNeighbors:
                     hitBucket = True
                     continue
 
