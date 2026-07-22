@@ -664,7 +664,8 @@ class Player:
 
     def _routeFieldCached(self, ct):
         mi = self.mi
-        key = (mi.struct_version, len(mi.own_conv_facing))
+        key = (mi.struct_version, len(mi.own_conv_facing),
+               tuple(sorted(mi.enemy_turrets)))
         if self.routeField is not None and self.routeVer == key:
             return self.routeField
         coreMask = self._coreMask()
@@ -681,7 +682,13 @@ class Player:
         for (x, y) in self._connected:
             targets |= mi.bit(x, y)
         targets &= ~mi.own_loaded | coreMask
-        self.routeField = path.dist_field(mi, targets)
+        # Pantheon universal AVOID mask (p7): tiles covered by enemy turrets
+        # are HARD-excluded from conveyor route planning, not soft-costed —
+        # a link placed under a known gun is titanium fed to the enemy
+        # (Landers vault r139: we rebuilt one threatened link 7 times).
+        # Existing own conveyors stay routable so trunks aren't orphaned.
+        avoid = mi.threat() & ~mi.own_conveyors & ~coreMask
+        self.routeField = path.dist_field(mi, targets, avoid_mask=avoid)
         self.routeVer = key
         return self.routeField
 
