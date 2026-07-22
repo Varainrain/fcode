@@ -55,7 +55,7 @@ class MapInfo:
         self.enemy_turrets = {}   # (x,y) -> 'G' | 'S'
         self.enemy_buildings = {}  # (x,y) -> EntityType
         self.own_harvesters = {}   # (x,y) -> True
-        self.own_turrets = {}      # (x,y) -> True (for death detection)
+        self.own_turrets = {}      # (x,y) -> True (death detection)
         self.turret_losses = []    # tiles where an own turret just died
         self._threat_cache = (None, 0)
 
@@ -212,11 +212,9 @@ class MapInfo:
                 self.enemy_buildings.pop((x, y), None)
                 self.enemy_turrets.pop((x, y), None)
                 self.own_harvesters.pop((x, y), None)
-                self.own_conv_facing.pop((x, y), None)
                 if self.own_turrets.pop((x, y), None):
-                    # our turret stood here and is gone: it DIED. Tell the
-                    # placement layer so it stops feeding this tile.
                     self.turret_losses.append((x, y))
+                self.own_conv_facing.pop((x, y), None)
                 continue
             etype = ct.get_entity_type(bid)
             team = ct.get_team(bid)
@@ -246,12 +244,9 @@ class MapInfo:
                     self.own_harvesters[(x, y)] = True
                 elif etype == EntityType.BARRIER:
                     self.own_barriers |= self.bit(x, y)
-                elif etype == EntityType.GUNNER:
-                    self.own_turrets[(x, y)] = 'G'
-                elif etype == EntityType.SENTINEL:
-                    self.own_turrets[(x, y)] = 'S'
-                elif etype == EntityType.LAUNCHER:
-                    self.own_turrets[(x, y)] = 'L'
+                elif etype in (EntityType.GUNNER, EntityType.SENTINEL,
+                               EntityType.LAUNCHER):
+                    self.own_turrets[(x, y)] = True
         for uid in ct.get_nearby_units():
             if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
                 continue
