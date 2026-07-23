@@ -54,9 +54,12 @@ WIN = re.compile(r"Winner:\s+(\S+)\s+\((.*?),\s*turn\s*(\d+)\)")
 
 
 def game(first, second, m, seed):
+    # utf-8 + replace, not text=True: on Windows the default cp1252 decode
+    # dies on any non-ascii byte in the output and returns stdout=None
     out = run(["fcode", "run", first, second, f"maps/{m}.map26",
                "--seed", str(seed), "--tle", "10"],
-              capture_output=True, text=True, cwd=ROOT).stdout
+              capture_output=True, encoding="utf-8", errors="replace",
+              cwd=ROOT).stdout or ""
     mo = WIN.search(out)
     if not mo:
         return m, first, second, seed, "draw", "unknown", 0
