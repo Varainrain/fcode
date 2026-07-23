@@ -1214,6 +1214,7 @@ class Player:
         # it — v2's self-choke (40%, new maps 2/24) came from barriers
         # blocking our own resource lines
         eg = self._enemyCoreGuess()
+        ring = []
         if eg is not None:
             cx, cy = core.x + 0.5, core.y + 0.5
             cd = abs(cx - eg.x) + abs(cy - eg.y)
@@ -1224,13 +1225,20 @@ class Player:
                         continue
                     if not (0 <= x < mi.w and 0 <= y < mi.h):
                         continue
-                    if abs(x - eg.x) + abs(y - eg.y) < cd:
-                        tiles.append((x, y))
+                    # <= includes the boundary tiles (quarry t70: the kill
+                    # gunner at (2,4) sat exactly on the tie) — only the
+                    # strictly-home-side tiles stay open for spawning
+                    if abs(x - eg.x) + abs(y - eg.y) <= cd:
+                        ring.append((x, y))
         if eg is not None:
-            # build the wall in THREAT ORDER: under 2.3's act-xor-move the
-            # wall rises slowly, so the enemy-facing tiles must come first
-            # (crossfire t68 loss: kill gunners stood on never-built tiles)
+            # BUILD ORDER = kill order: ring first (distance-1 gunners are
+            # instant death AND ring conveyors block the 1-step diagonal
+            # rays), then everything else by threat side. The old order put
+            # outer barriers before the ring — their t70 doorstep gunners
+            # found it empty.
+            ring.sort(key=lambda t: abs(t[0] - eg.x) + abs(t[1] - eg.y))
             tiles.sort(key=lambda t: abs(t[0] - eg.x) + abs(t[1] - eg.y))
+            return ring + tiles
         return tiles
 
     def _denyHomeSiege(self, ct, mi):

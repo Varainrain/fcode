@@ -138,6 +138,30 @@ class MapInfo:
         self._threat_cache = (t, key)
         return t
 
+    def threat_diag(self):
+        """2.3 diagonal firing lanes (facing is 8-way). Kept SEPARATE from
+        threat(): routing/harvest/placement consume threat() as hard
+        exclusion, and 8-way there strangled the whole bot (gate 54% vs
+        62%). This mask is a soft walker-only cost in path.next_step."""
+        key = tuple(sorted(self.enemy_turrets.items()))
+        cached, ver = getattr(self, "_tdiag_cache", (None, 0))
+        if cached is not None and ver == key:
+            return cached
+        t = 0
+        diag = ((self.north, self.east), (self.north, self.west),
+                (self.south, self.east), (self.south, self.west))
+        for (x, y), kind in self.enemy_turrets.items():
+            b = self.bit(x, y)
+            dlen = 2 if kind == 'G' else 4   # range^2 13 / 32 on diagonals
+            for f, g in diag:
+                ray = b
+                for _ in range(dlen):
+                    ray = f(g(ray)) & ~self.walls
+                    t |= ray
+        t &= self.board
+        self._tdiag_cache = (t, key)
+        return t
+
     def frontier(self):
         """Seen tiles adjacent to unseen ones — exploration targets."""
         unseen = self.board & ~self.seen

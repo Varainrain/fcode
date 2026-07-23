@@ -10,6 +10,7 @@ consumers (conveyor routing).
 """
 
 THREAT_EXTRA = 12          # entering a threat tile costs 1 + THREAT_EXTRA
+DIAG_EXTRA = 5             # 2.3 diagonal firing lane: lean out, don't detour
 BARRIER_EXTRA = 14         # entering an OWN barrier costs 1 + 14 (Pantheon 15:
                            # the mover destroys it, spending its action)
 RING = THREAT_EXTRA + BARRIER_EXTRA + 3  # ring must exceed max edge cost
@@ -25,6 +26,7 @@ def next_step(mi, start_xy, targets_mask, avoid_mask=0, max_iters=None):
     if not targets:
         return None
     threat = mi.threat()
+    diagm = mi.threat_diag() & ~threat   # cardinal threat cost dominates
     sx, sy = start_xy
     sbit = mi.bit(sx, sy)
     nbrs = []
@@ -60,18 +62,16 @@ def next_step(mi, start_xy, targets_mask, avoid_mask=0, max_iters=None):
             if len(found) == len(nbrs):
                 break
         nxt = mi.expand(cur) & passable & ~visited
-        plain = nxt & ~threat & ~barriers
-        hot = nxt & threat & ~barriers
-        barr = nxt & barriers & ~threat
-        both = nxt & barriers & threat
-        if plain:
-            ring[(dist + 1) % RING] |= plain
-        if hot:
-            ring[(dist + 1 + THREAT_EXTRA) % RING] |= hot
-        if barr:
-            ring[(dist + 1 + BARRIER_EXTRA) % RING] |= barr
-        if both:
-            ring[(dist + 1 + THREAT_EXTRA + BARRIER_EXTRA) % RING] |= both
+        for extra, mask in (
+                (0, ~threat & ~diagm & ~barriers),
+                (THREAT_EXTRA, threat & ~barriers),
+                (DIAG_EXTRA, diagm & ~barriers),
+                (BARRIER_EXTRA, barriers & ~threat & ~diagm),
+                (THREAT_EXTRA + BARRIER_EXTRA, barriers & threat),
+                (DIAG_EXTRA + BARRIER_EXTRA, barriers & diagm)):
+            m = nxt & mask
+            if m:
+                ring[(dist + 1 + extra) % RING] |= m
     if not found:
         return None
     best = min(found.items(), key=lambda kv: kv[1])[0]
