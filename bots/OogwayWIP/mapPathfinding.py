@@ -49,6 +49,7 @@ class MapPathfinder:
         self.myNum = -1 # every builder bot gets its own unique number used to write to the shared array, and organize roles (1, 2, 3, ...)
         self.teamCore = None
         self.distMap = None
+        self.conveyorMap = None
         self.mapW = None
         self.mapH = None
         self.stuckTurns = 0
@@ -70,6 +71,8 @@ class MapPathfinder:
             self.mapH = ct.get_map_height()
         if self.distMap is None:
             self.distMap = [[4096 for _ in range(self.mapH)] for _ in range(self.mapW)]
+        if self.conveyorMap is None:
+            self.conveyorMap = [[[4096, 'stuck'] for _ in range(self.mapH)] for _ in range(self.mapW)]
         if self.fullMap is None:
             self.fullMap = [[-1 for _ in range(self.mapH)] for _ in range(self.mapW)]
         if self.seenTiles is None:
@@ -173,7 +176,7 @@ class MapPathfinder:
 
     def fillInDistTable (self, ct: Controller, targetLoc: Position):
         w, h = self.mapW, self.mapH
-        maxCost = (w + h) * barrierCost + 5
+        maxCost = (w + h) * barrierCost + 8
         
         for x in range(w):
             for y in range(h):
@@ -216,6 +219,110 @@ class MapPathfinder:
             if hitBucket:
                 return dist
         return 4096
+
+    def conveyorTileCost(self, ct: Controller, tile: Position):
+        cachedVal = self.fullMap[tile.x][tile.y]
+        if cachedVal == 2 or cachedVal == 3:
+            return [None, 'stuck']
+
+        if ct.is_in_vision(tile):
+            tileId = ct.get_tile_building_id(tile)
+            if tileId is not None:
+                tTeam = ct.get_team(tileId)
+                tType = ct.get_entity_type(tileId)
+                if tTeam != ct.get_team():
+                    return [None, 'stuck']  # enemy building
+                if tType == EntityType.CORE:
+                    return [0, 'done']
+                if tType == EntityType.CONVEYOR:
+                    if ct.get_stored_resource(tileId) is not None:
+                        return [40, 'done']  # loaded
+                    return [8, 'working']  # empty
+                if tType == EntityType.BARRIER:
+                    return [barrierCost, 'working']  
+                return [None, 'stuck']  # dont break other stuff
+        return [1, 'working'] 
+
+    def fillConveyorDistTable(self, ct: Controller, curEnd: Position):
+        myTeam = ct.get_team()
+        w, h = self.mapW, self.mapH
+        maxCost = (w + h) * barrierCost + 48 # because path ends when you go to a full conveyor
+        for x in range(w):
+            for y in range(h):
+                self.conveyorMap[x][y] = [maxCost, 'stuck']
+        buckets = [[] for _ in range(maxCost)]
+        if self.teamCore is not None:
+            tL = self.teamCore
+            bL = self.teamCore.add(Direction.SOUTH)
+            tR = self.teamCore.add(Direction.EAST)
+            bR = self.teamCore.add(Direction.SOUTH).add(Direction.EAST)
+            buckets[0].append(tL)
+            buckets[0].append(tR)
+            buckets[0].append(bL)
+            buckets[0].append(bR)
+            self.conveyorMap[tL.x][tL.y] = [0, 'done']
+            self.conveyorMap[tR.x][tR.y] = [0, 'done']
+            self.conveyorMap[bR.x][bR.y] = [0, 'done']
+            self.conveyorMap[bL.x][bL.y] = [0, 'done']
+        for b in ct.get_nearby_buildings():
+            bPos = ct.get_position(b)
+            bTeam = ct.get_team(b)
+            bType = ct.get_entity_type(b)
+            if bTeam == myTeam and bType == EntityType.CONVEYOR:
+                cost = 8 if ct.get_stored_resource(b) is None else 40
+                if cost < self.conveyorMap[bPos.x][bPos.y][0]:
+                        self.conveyorMap[bPos.x][bPos.y] = [cost, 'done']
+                        buckets[cost].append(bPos)
+        for dist in range(maxCost):
+            bucket = buckets[dist]
+            hitBucket = False
+            while bucket:
+                cur = bucket.pop()
+                if self.conveyorMap[cur.x][cur.y][0] < dist:
+                    continue
+                if cur == curEnd:
+                    hitBucket = True
+                    continue
+                for d in CARDINALS:
+                    nextTile = cur.add(d)
+                    nx, ny = nextTile.x, nextTile.y
+                    if 0 <= nx < w and 0 <= ny < h:
+                        cost, status = self.conveyorTileCost(ct, nextTile)
+                        if status != 'stuck':
+                            newDist = dist + cost
+                            if newDist < maxCost and newDist < self.conveyorMap[nx][ny][0]:
+                                self.conveyorMap[nx][ny] = [newDist, status]
+                                buckets[newDist].append(nextTile)
+            if hitBucket:
+                return dist
+        return 4096
+
+    def routeConveyor(self, ct: Controller, curEnd: Position):
+        myLoc = ct.get_position()
+        self.fillConveyorDistTable(ct, curEnd)
+        bestDist = 4096
+        bestNextDir = None
+        for d in CARDINALS:
+            nextPos = curEnd.add(d)
+            if 0 <= nextPos.x < self.mapW and 0 <= nextPos.y < self.mapH:
+                posDist = self.conveyorMap[nextPos.x][nextPos.y][0]
+                if posDist < bestDist: 
+                    bestNextDir = d
+                    bestDist = posDist
+        if bestNextDir is None:
+            return # ur cooked just give up
+        tileId = ct.get_tile_building_id(curEnd)
+        if tileId is not None:
+            tTeam = ct.get_team(tileId)
+            tType = ct.get_entity_type(tileId)
+            if tTeam == ct.get_team() and tType == EntityType.BARRIER:
+                if ct.can_destroy(curEnd):
+                    ct.destroy(curEnd)
+                    return
+        if ct.can_build_conveyor(curEnd, bestNextDir):
+            ct.build_conveyor(curEnd, bestNextDir)
+        else:
+            self.moveTo(ct, curEnd)
 
     def moveTo (self, ct: Controller, target: Position):
         myLoc = ct.get_position()
@@ -265,3 +372,16 @@ class MapPathfinder:
                         movableDirs.append(i)
                 if len(movableDirs) > 0:
                     ct.move(random.choice(movableDirs))
+    
+    def returnUnvisited(self, ct: Controller, myLoc: Position):
+        unvisitedPositions = []
+        for x in range(self.mapW):
+            for y in range(self.mapH):
+                if not self.seenTiles[x][y]:
+                    unvisitedPositions.append(Position(x, y))
+        unvisitedPositions.sort(key=lambda pos: pos.distance_squared(myLoc))
+        if len(unvisitedPositions) > 0:
+            return unvisitedPositions[0]
+        return None
+    def getTileEnv (self, tile: Position):
+        return self.fullMap[tile.x][tile.y]
