@@ -527,7 +527,7 @@ class Player:
                 # standing on the placement: step aside
                 self._moveToward(ct, mi.expand(tb) & mi.passable() & ~tb)
                 return
-            if pos.distance_squared(tile) <= 2 \
+            if manhattan(pos, tile) == 1 \
                     and ct.get_action_cooldown() == 0:
                 if ct.is_in_vision(tile) and ct.can_build_gunner(tile, facing):
                     ct.build_gunner(tile, facing)
@@ -630,7 +630,7 @@ class Player:
         tx, ty = mi.xy(tb)
         tpos = Position(tx, ty)
         if kind == 'heal':
-            if pos.distance_squared(tpos) <= 2:
+            if manhattan(pos, tpos) == 1:   # 2.3: ortho-adjacent only
                 if ct.can_heal(tpos):
                     ct.heal(tpos)
                 return
@@ -1031,7 +1031,9 @@ class Player:
             # standing on the ore: sidestep so we can build it
             self._moveToward(ct, mi.expand(target) & mi.passable() & ~target)
             return
-        if pos.distance_squared(tpos) <= 2 and ct.get_action_cooldown() == 0:
+        # 2.3: build targets must be ORTHOGONALLY adjacent — from a diagonal
+        # keep stepping (expand is ortho), don't TTL-poison the ore
+        if manhattan(pos, tpos) == 1 and ct.get_action_cooldown() == 0:
             if ct.is_in_vision(tpos) and ct.can_build_harvester(tpos):
                 ct.build_harvester(tpos)
                 mi.own_harvesters[(tx, ty)] = True
@@ -1218,7 +1220,7 @@ class Player:
         pos = ct.get_position()
         for (x, y) in self._denyTiles():
             p = Position(x, y)
-            if pos.distance_squared(p) > 2 or p == pos:
+            if manhattan(pos, p) != 1:   # 2.3: ortho-adjacent only
                 continue
             if not ct.is_in_vision(p):
                 continue
@@ -1288,7 +1290,7 @@ class Player:
         for (x, y) in sorted(ring, key=lambda t: (pos.x - t[0]) ** 2
                              + (pos.y - t[1]) ** 2):
             p = Position(x, y)
-            if pos.distance_squared(p) > 2 or p == pos:
+            if manhattan(pos, p) != 1:   # 2.3: ortho-adjacent only
                 continue
             if not ct.is_in_vision(p):
                 continue
@@ -1310,7 +1312,7 @@ class Player:
         for choke in mapanalysis.chokes:
             tile, clearance = choke[0], choke[1]
             p = Position(tile[0], tile[1])
-            if pos.distance_squared(p) > 2:
+            if manhattan(pos, p) != 1:   # 2.3: ortho-adjacent only
                 continue
             if (enemyRef is not None
                     and manhattan(p, self.teamCore) >= manhattan(p, enemyRef)):
@@ -1333,9 +1335,7 @@ class Player:
         if ct.get_action_cooldown() != 0:
             return
         pos = ct.get_position()
-        if ct.get_hp() < ct.get_max_hp() and ct.can_heal(pos):
-            ct.heal(pos)
-            return
+        # 2.3: own-tile self-heal is gone; heal targets must be ortho-adjacent
         # Pantheon 6-tier heal priority: (very damaged?, type tier, damage)
         TIER = {EntityType.CORE: 6, EntityType.GUNNER: 5,
                 EntityType.SENTINEL: 5, EntityType.LAUNCHER: 5,
@@ -1348,6 +1348,8 @@ class Player:
             dmg = ct.get_max_hp(bid) - ct.get_hp(bid)
             if dmg >= 4:
                 p = ct.get_position(bid)
+                if manhattan(pos, p) != 1:
+                    continue  # 2.3: diagonal neighbors can't be healed
                 key = (1 if dmg >= 12 else 0,
                        TIER.get(ct.get_entity_type(bid), 1), dmg)
                 if best is None or key > best[0]:
