@@ -941,6 +941,22 @@ class Player:
             open_sides = mi.expand(b) & ~b & mi.passable() & ~mi.own_conveyors
             if open_sides:
                 exposed |= open_sides
+        # SECURE THE CORE (Pantheon secure-state on the ultimate exposed
+        # building): a conveyor ring denies point-blank turret plants AND
+        # absorbs distant gunner rays (ray stops at first targetable
+        # building — 20hp conveyor tanks it, not the 500hp core). Only under
+        # threat near home, so peaceful econ games skip the +scale tax.
+        # (lastpopperian strait r136: two gunners planted at our doorstep,
+        # 20dmg/round vs 8/round of medic healing.)
+        if self.teamCore is not None:
+            coreMask = self._coreMask()
+            ring = mi.expand(coreMask) & ~coreMask  # cardinal shell-1 only:
+            # gunner rays are cardinal, and distant rays die in shell 1
+            openRing = ring & mi.passable() & ~mi.own_conveyors \
+                & ~mi.own_barriers & ~mi.ore
+            homeThreat = danger & self._homeMask()
+            if openRing and homeThreat:
+                exposed |= openRing
         if not exposed:
             return 0.0, None
         mine = path.claims(mi, my_bit, others, exposed)
@@ -964,6 +980,19 @@ class Player:
                         harv = (hp, d)
                         break
                 if harv is None:
+                    # core-ring tile: face INTO the core (denies the plant,
+                    # absorbs rays, and delivers titanium)
+                    coreMask = self._coreMask()
+                    for d in CARDINALS:
+                        cp = tpos.add(d)
+                        if (self._inBounds(cp)
+                                and coreMask & mi.bit(cp.x, cp.y)):
+                            if ct.can_build_conveyor(tpos, d):
+                                ct.build_conveyor(tpos, d)
+                                mi.own_conveyors |= mi.bit(tpos.x, tpos.y)
+                                mi.own_conv_facing[(tpos.x, tpos.y)] = (
+                                    mapinfo_mod.DIR_DELTA[d])
+                            return
                     return
                 hp, inward = harv
                 # Khaos: if this side is the harvester's downhill side, face
