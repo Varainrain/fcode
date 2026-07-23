@@ -1115,7 +1115,10 @@ class Player:
                         continue
                     todo.append((x, y))
                 if todo:
-                    x, y = min(todo, key=lambda t: (pos.x - t[0]) ** 2
+                    # todo is threat-ordered; pick the nearest of the top
+                    # few so the guard plugs dangerous tiles first without
+                    # ping-ponging across the whole wall
+                    x, y = min(todo[:6], key=lambda t: (pos.x - t[0]) ** 2
                                + (pos.y - t[1]) ** 2)
                     self.exploreTarget = Position(x, y)
                     self._moveToward(ct, mi.expand(mi.bit(x, y))
@@ -1177,7 +1180,24 @@ class Player:
                 tiles.append((core.x + 1 + d, core.y + o))   # east ray
                 tiles.append((core.x + o, core.y - d))       # north ray
                 tiles.append((core.x + o, core.y + 1 + d))   # south ray
-        return [(x, y) for (x, y) in tiles if 0 <= x < mi.w and 0 <= y < mi.h]
+        # DIAGONAL rays (facing is 8-way; lastpopperian_ 5-0'd us with
+        # gunners at 2-step diagonals, e.g. (10,5) vs core (12,3)): from
+        # each footprint tile, the 2-step diagonal is in range (d^2=8<=13),
+        # the 3-step is not. The 1-step diagonals are the ring corners —
+        # already denied by ring conveyors, which also BLOCK these rays.
+        for a in (0, 1):
+            for b in (0, 1):
+                fx, fy = core.x + a, core.y + b
+                for dx, dy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                    tiles.append((fx + 2 * dx, fy + 2 * dy))
+        seen = set()
+        out = []
+        for (x, y) in tiles:
+            if (x, y) in seen or not (0 <= x < mi.w and 0 <= y < mi.h):
+                continue
+            seen.add((x, y))
+            out.append((x, y))
+        return out
 
     def _denyTiles(self):
         """Ray tiles plus the ENEMY-FACING half of the adjacent ring. Live
@@ -1206,6 +1226,11 @@ class Player:
                         continue
                     if abs(x - eg.x) + abs(y - eg.y) < cd:
                         tiles.append((x, y))
+        if eg is not None:
+            # build the wall in THREAT ORDER: under 2.3's act-xor-move the
+            # wall rises slowly, so the enemy-facing tiles must come first
+            # (crossfire t68 loss: kill gunners stood on never-built tiles)
+            tiles.sort(key=lambda t: abs(t[0] - eg.x) + abs(t[1] - eg.y))
         return tiles
 
     def _denyHomeSiege(self, ct, mi):
