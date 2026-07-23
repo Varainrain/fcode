@@ -72,7 +72,9 @@ n = len(jobs)
 print(f"GATE  {CAND} vs {BASE}  |  {len(MAPS)} maps x {SEEDS} seeds x both sides = {n} games\n")
 
 rows, w, kills, kills_against, oddballs = [], 0, 0, 0, 0
-with cf.ThreadPoolExecutor(max_workers=min(12, os.cpu_count() or 4)) as ex:
+# 6, not 12: heavy bots (khaos's map analysis) at 12 parallel engines exhaust
+# the Windows commit limit -> WinError 1455 + phantom "draw (unknown)" games
+with cf.ThreadPoolExecutor(max_workers=min(6, os.cpu_count() or 4)) as ex:
     for i, (m, first, second, seed, winner, cond, turn) in enumerate(
             ex.map(lambda j: game(*j), jobs), 1):
         rows.append([dt.datetime.now().isoformat(timespec="seconds"),
