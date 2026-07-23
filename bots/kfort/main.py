@@ -1102,7 +1102,7 @@ class Player:
             # denial wall goes up before anyone arrives to use those tiles
             if self.myNum == 1 and self.teamCore is not None:
                 todo = []
-                for (x, y) in self._siegeRayTiles(self.teamCore):
+                for (x, y) in self._denyTiles():
                     p = Position(x, y)
                     b = mi.bit(x, y)
                     if (mi.walls | mi.blocked | mi.own_barriers) & b:
@@ -1177,6 +1177,35 @@ class Player:
                 tiles.append((core.x + o, core.y + 1 + d))   # south ray
         return [(x, y) for (x, y) in tiles if 0 <= x < mi.w and 0 <= y < mi.h]
 
+    def _denyTiles(self):
+        """Ray tiles plus the ENEMY-FACING half of the adjacent ring. Live
+        runestone loss (a96c7927 g4): gunners parked ON the open ring at
+        distance 1 — (4,11)/(4,12) against core (2,11) — so the ring can't
+        stay fully open. The home-side half stays free for spawning and
+        deliveries."""
+        core = self.teamCore
+        mi = self.mi
+        tiles = self._siegeRayTiles(core)
+        # ring tiles always-on again, but denied with CORE-FACING CONVEYORS
+        # instead of barriers (the user's guard-conveyor idea): the tile is
+        # still unbuildable for the enemy, but our delivery lines plug into
+        # it — v2's self-choke (40%, new maps 2/24) came from barriers
+        # blocking our own resource lines
+        eg = self._enemyCoreGuess()
+        if eg is not None:
+            cx, cy = core.x + 0.5, core.y + 0.5
+            cd = abs(cx - eg.x) + abs(cy - eg.y)
+            foot = {(core.x + a, core.y + b) for a in (0, 1) for b in (0, 1)}
+            for x in range(core.x - 1, core.x + 3):
+                for y in range(core.y - 1, core.y + 3):
+                    if (x, y) in foot:
+                        continue
+                    if not (0 <= x < mi.w and 0 <= y < mi.h):
+                        continue
+                    if abs(x - eg.x) + abs(y - eg.y) < cd:
+                        tiles.append((x, y))
+        return tiles
+
     def _denyHomeSiege(self, ct, mi):
         """Pantheon guard-conveyor idea aimed at the core: pre-occupy the
         gunner firing tiles around OUR core with 3-Ti barriers so a siege
@@ -1187,7 +1216,7 @@ class Player:
         if ct.get_global_resources() < ct.get_barrier_cost() + 40:
             return
         pos = ct.get_position()
-        for (x, y) in self._siegeRayTiles(self.teamCore):
+        for (x, y) in self._denyTiles():
             p = Position(x, y)
             if pos.distance_squared(p) > 2 or p == pos:
                 continue
@@ -1198,6 +1227,37 @@ class Player:
                 continue  # walls deny for free; ore should get a harvester
             if ct.get_tile_building_id(p) is not None:
                 continue  # any building already denies the tile
+            core = self.teamCore
+            foot = {(core.x + a, core.y + b) for a in (0, 1) for b in (0, 1)}
+            on_ring = (core.x - 1 <= x <= core.x + 2
+                       and core.y - 1 <= y <= core.y + 2)
+            if on_ring:
+                # ring: conveyor facing the core (or chained via the edge
+                # ring tile from a corner) — denies placement AND delivers
+                target = None
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if (x + dx, y + dy) in foot:
+                        target = Position(x + dx, y + dy)
+                        break
+                if target is None:  # corner: chain into an edge ring tile
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = x + dx, y + dy
+                        if (core.x - 1 <= nx <= core.x + 2
+                                and core.y - 1 <= ny <= core.y + 2
+                                and (nx, ny) not in foot
+                                and (nx == core.x or nx == core.x + 1
+                                     or ny == core.y or ny == core.y + 1)):
+                            target = Position(nx, ny)
+                            break
+                if target is None:
+                    continue
+                facing = self._cardinalTo(p, target)
+                if facing != Direction.CENTRE and ct.can_build_conveyor(p, facing):
+                    ct.build_conveyor(p, facing)
+                    mi.own_conveyors |= mi.bit(x, y)
+                    mi.own_conv_facing[(x, y)] = (target.x - x, target.y - y)
+                    return
+                continue
             if ct.can_build_barrier(p):
                 ct.build_barrier(p)
                 mi.own_barriers |= mi.bit(x, y)
