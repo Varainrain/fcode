@@ -1264,39 +1264,42 @@ class Player:
                 continue  # any building already denies the tile
             core = self.teamCore
             foot = {(core.x + a, core.y + b) for a in (0, 1) for b in (0, 1)}
-            on_ring = (core.x - 1 <= x <= core.x + 2
-                       and core.y - 1 <= y <= core.y + 2)
-            if on_ring:
-                # ring: conveyor facing the core (or chained via the edge
-                # ring tile from a corner) — denies placement AND delivers
-                target = None
+            # THE WHOLE WALL IS CONVEYORS, chained coreward — barriers on
+            # the ray tiles were walling off our own trunk lines (user-
+            # observed: no titanium coming home). Conveyor denial costs the
+            # same 3 Ti, delivers instead of blocking, and khaos's route
+            # state auto-connects any dead-end wall tiles into the economy.
+            target = None
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                if (x + dx, y + dy) in foot:
+                    target = Position(x + dx, y + dy)   # ring: face the core
+                    break
+            if target is None:
+                # non-ring: ONLY chain into an already-connected own
+                # conveyor (or it would dead-end and swallow every trunk
+                # the router wires into it — smoke test: 160 mined vs
+                # 1500). Unchainable tiles stay unbuilt this pass.
+                best = None
                 for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    if (x + dx, y + dy) in foot:
-                        target = Position(x + dx, y + dy)
-                        break
-                if target is None:  # corner: chain into an edge ring tile
-                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                        nx, ny = x + dx, y + dy
-                        if (core.x - 1 <= nx <= core.x + 2
-                                and core.y - 1 <= ny <= core.y + 2
-                                and (nx, ny) not in foot
-                                and (nx == core.x or nx == core.x + 1
-                                     or ny == core.y or ny == core.y + 1)):
-                            target = Position(nx, ny)
-                            break
-                if target is None:
-                    continue
-                facing = self._cardinalTo(p, target)
-                if facing != Direction.CENTRE and ct.can_build_conveyor(p, facing):
-                    ct.build_conveyor(p, facing)
-                    mi.own_conveyors |= mi.bit(x, y)
-                    mi.own_conv_facing[(x, y)] = (target.x - x, target.y - y)
-                    return
+                    nx, ny = x + dx, y + dy
+                    if not (0 <= nx < mi.w and 0 <= ny < mi.h):
+                        continue
+                    if (nx, ny) in foot:
+                        continue
+                    if not (mi.own_conveyors & mi.bit(nx, ny)):
+                        continue
+                    d = abs(nx - core.x - 0.5) + abs(ny - core.y - 0.5)
+                    if best is None or d < best[0]:
+                        best = (d, nx, ny)
+                if best is not None:
+                    target = Position(best[1], best[2])
+            if target is None:
                 continue
-            if ct.can_build_barrier(p):
-                ct.build_barrier(p)
-                mi.own_barriers |= mi.bit(x, y)
-                mi.note_tile(x, y, mapinfo_mod.T_BLOCK)
+            facing = self._cardinalTo(p, target)
+            if facing != Direction.CENTRE and ct.can_build_conveyor(p, facing):
+                ct.build_conveyor(p, facing)
+                mi.own_conveyors |= mi.bit(x, y)
+                mi.own_conv_facing[(x, y)] = (target.x - x, target.y - y)
                 return
 
     def _ringGuns(self, ct, mi):
