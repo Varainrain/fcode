@@ -340,7 +340,7 @@ class Player:
     def heal(self, ct: Controller, healPos: Position):
         myLoc = ct.get_position()
         if myLoc == healPos and ct.get_hp() < 40: # this means you are low, so run
-            ct.moveTo(self.teamCore)
+            self.mapPf.moveTo(ct, self.mapPf.teamCore)
         if ct.can_heal(healPos):
             ct.heal(healPos)
         else:
