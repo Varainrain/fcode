@@ -31,7 +31,15 @@ if not SITE or not KEY:
 WORKER = os.environ.get("WARROOM_NAME", socket.gethostname())[:20]
 
 FAST_MAPS = ["duel", "quarry", "aurora", "twins", "longship", "sprint"]
+# default match size: 10 maps x both sides = 20 games (was every map = 42)
+STD_MAPS = ["duel", "quarry", "aurora", "twins", "longship", "sprint",
+            "hive", "strait", "crossfire", "vault"]
 WIN = re.compile(r"Winner:\s+(\S+)\s+\((.*?),\s*turn\s*(\d+)\)")
+
+# how many MATCHES this machine runs at once (each shows as its own RUNNING
+# row). Default = core count so the CPU stays busy and the queue drains in
+# parallel instead of one-at-a-time. Override with WARROOM_SLOTS.
+SLOTS = int(os.environ.get("WARROOM_SLOTS", "0")) or max(1, os.cpu_count() or 2)
 
 
 def api(path, body=None):
@@ -65,17 +73,23 @@ def run_job(job):
             print(f"  !! bots/{bot} missing on this machine - reporting empty")
             return []
     all_maps = sorted(p.stem for p in (ROOT / "maps").glob("*.map26"))
-    maps = [m for m in FAST_MAPS if m in all_maps] if job["maps"] == "fast" else all_maps
+    mode = job.get("maps", "std")
+    if mode == "fast":
+        pool = FAST_MAPS
+    elif mode == "full":
+        pool = all_maps
+    else:  # "std" or anything else -> the 20-game format
+        pool = STD_MAPS
+    maps = [m for m in pool if m in all_maps]
     jobs = [(x, y, m, s) for m in maps for s in range(1, job["seeds"] + 1)
             for x, y in ((a, b), (b, a))]
-    print(f"  {a} vs {b}: {len(jobs)} games...")
+    # each slot runs its match's games with modest inner parallelism so
+    # SLOTS matches x INNER games ~ total cores (no oversubscription)
+    inner = max(1, (os.cpu_count() or 2) // SLOTS)
     results = []
-    with cf.ThreadPoolExecutor(max_workers=min(6, os.cpu_count() or 4)) as ex:
+    with cf.ThreadPoolExecutor(max_workers=inner) as ex:
         for g in ex.map(lambda j: game(*j), jobs):
             results.append(g)
-            done = len(results)
-            if done % 10 == 0:
-                print(f"    {done}/{len(jobs)}")
     return results
 
 
@@ -99,37 +113,50 @@ def sync_roster():
     return bots
 
 
-print(f"war room worker '{WORKER}' online -> {SITE}")
+import threading
+
+_stop = threading.Event()
+
+
+def match_slot(n):
+    """One concurrent match runner. Claims a job (manual queue first, then
+    the auto league), plays it, reports. Many of these run at once."""
+    while not _stop.is_set():
+        try:
+            job = api("/api/claim", {"worker": WORKER}).get("job")
+            src = "queued"
+            if not job:
+                job = api("/api/matchmake", {"worker": WORKER}).get("job")
+                src = "auto"
+            if not job:
+                _stop.wait(8)
+                continue
+            print(f"[slot {n}] [{src}] {job['a']} vs {job['b']} "
+                  f"({job.get('maps', 'std')})")
+            games = run_job(job)
+            api("/api/report", {"id": job["id"], "a": job["a"], "b": job["b"],
+                                "games": games, "worker": WORKER})
+            wa = sum(1 for g in games if g["winner"] == job["a"])
+            wb = sum(1 for g in games if g["winner"] == job["b"])
+            print(f"  -> {job['a']} {wa} - {wb} {job['b']}")
+        except Exception as e:
+            print(f"  slot {n} error: {e} (retry 20s)")
+            _stop.wait(20)
+
+
+print(f"war room worker '{WORKER}' online -> {SITE}  |  {SLOTS} concurrent slots")
 bots = sync_roster()
 print(f"repo: {ROOT}  |  {len(bots)} bots registered: {', '.join(bots)}")
-last_sync = time.time()
 
-while True:
-    try:
-        # re-pull + re-register every ~2 min so new bots on main auto-join
-        if time.time() - last_sync > 120:
-            sync_roster()
-            last_sync = time.time()
-        # manual queue first, then the auto league
-        job = api("/api/claim", {"worker": WORKER}).get("job")
-        source = "queued"
-        if not job:
-            job = api("/api/matchmake", {"worker": WORKER}).get("job")
-            source = "auto"
-        if not job:
-            time.sleep(10)
-            continue
-        print(f"[{source}] {job['a']} vs {job['b']} "
-              f"({job['maps']}, {job['seeds']} seed(s), by {job['by']})")
-        games = run_job(job)
-        api("/api/report", {"id": job["id"], "a": job["a"], "b": job["b"],
-                            "games": games, "worker": WORKER})
-        wa = sum(1 for g in games if g["winner"] == job["a"])
-        wb = sum(1 for g in games if g["winner"] == job["b"])
-        print(f"  -> {job['a']} {wa} - {wb} {job['b']}")
-    except KeyboardInterrupt:
-        print("\nworker offline")
-        break
-    except Exception as e:
-        print(f"  error: {e} (retrying in 30s)")
-        time.sleep(30)
+slots = [threading.Thread(target=match_slot, args=(i + 1,), daemon=True)
+         for i in range(SLOTS)]
+for t in slots:
+    t.start()
+
+try:
+    while True:
+        time.sleep(120)  # main thread: keep the roster fresh
+        sync_roster()
+except KeyboardInterrupt:
+    print("\nworker offline")
+    _stop.set()
