@@ -3,3 +3,4 @@ __pycache__/
 *.replay26
 gate_results.csv
 .DS_Store
+worker.log
