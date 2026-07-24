@@ -62,6 +62,16 @@ Head-to-head between any two bots: `python gate.py botA botB`
 The champion only ever moves forward through steps 1-4. Nobody edits
 `bots/champion/` directly.
 
+## War Room dashboard
+
+`python dashboard.py` then open http://localhost:8642 — live team rating,
+rank, rating sparkline, match feed with per-match ELO, a rival-scouting
+panel (edit `NEW_TEAM` at the top to pick who), the repo's recent commits,
+and a Battle button that queues unrated matches (max 5 per 10 min,
+rate-limit is shared team-wide). Needs the fcode CLI logged in (`fcode
+login`) — same data for every team member. First load after a cold start
+shows last-known numbers instantly and refreshes live within ~10s.
+
 ## Practical notes
 
 - Engine moves fast (2.2.0.devNN via test.pypi, breaking changes land without
