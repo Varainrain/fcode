@@ -14,6 +14,7 @@ import concurrent.futures as cf
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -22,6 +23,15 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+
+# Resolve fcode by FULL PATH, not via PATH lookup — a scheduled task running
+# as SYSTEM has a different PATH and can't find the console script, so every
+# game failed instantly under the task while manual runs worked. Fall back to
+# the Scripts dir next to this Python, then to the bare name.
+FCODE = (shutil.which("fcode")
+         or (str(Path(sys.executable).parent / "Scripts" / "fcode.exe")
+             if (Path(sys.executable).parent / "Scripts" / "fcode.exe").exists()
+             else "fcode"))
 
 # args or env (env lets a systemd service keep the secret in a root-only file)
 SITE = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("WARROOM_URL", "")).rstrip("/")
@@ -55,7 +65,7 @@ def api(path, body=None):
 
 def game(first, second, m, seed):
     out = subprocess.run(
-        ["fcode", "run", first, second, f"maps/{m}.map26",
+        [FCODE, "run", first, second, f"maps/{m}.map26",
          "--seed", str(seed), "--tle", "10"],
         capture_output=True, encoding="utf-8", errors="replace",
         cwd=ROOT).stdout or ""
@@ -121,12 +131,13 @@ _stop = threading.Event()
 def match_slot(n):
     """One concurrent match runner. Claims a job (manual queue first, then
     the auto league), plays it, reports. Many of these run at once."""
-    while not _stop.is_set():
+    wid = f"{WORKER}#{n}"   # unique per slot so slots don't clear each other's
+    while not _stop.is_set():                                  # running rows
         try:
-            job = api("/api/claim", {"worker": WORKER}).get("job")
+            job = api("/api/claim", {"worker": wid}).get("job")
             src = "queued"
             if not job:
-                job = api("/api/matchmake", {"worker": WORKER}).get("job")
+                job = api("/api/matchmake", {"worker": wid}).get("job")
                 src = "auto"
             if not job:
                 _stop.wait(8)
@@ -135,7 +146,7 @@ def match_slot(n):
                   f"({job.get('maps', 'std')})")
             games = run_job(job)
             api("/api/report", {"id": job["id"], "a": job["a"], "b": job["b"],
-                                "games": games, "worker": WORKER})
+                                "games": games, "worker": wid})
             wa = sum(1 for g in games if g["winner"] == job["a"])
             wb = sum(1 for g in games if g["winner"] == job["b"])
             print(f"  -> {job['a']} {wa} - {wb} {job['b']}")
