@@ -326,7 +326,7 @@ class Player:
         for d in CARDINALS: # try destorying after you exhaust all possible build opportunities
             gunnerSpot = myLoc.add(d)
             dist = attackPos.distance_squared(gunnerSpot)
-            if dist < 10 and dist != 5:
+            if dist < 10 and dist != 5 and 0 <= gunnerSpot.x < mapW and 0 <= gunnerSpot.y < mapH:
                 spotId = ct.get_tile_building_id(gunnerSpot)
                 if spotId is not None:            
                     spotTeam = ct.get_team(spotId)
