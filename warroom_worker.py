@@ -64,11 +64,19 @@ def api(path, body=None):
 
 
 def game(first, second, m, seed):
-    out = subprocess.run(
-        [FCODE, "run", first, second, f"maps/{m}.map26",
-         "--seed", str(seed), "--tle", "10"],
-        capture_output=True, encoding="utf-8", errors="replace",
-        cwd=ROOT).stdout or ""
+    # HARD TIMEOUT: without it, one hung fcode game freezes the whole slot
+    # forever (observed: a match stuck 10+ min, queue never draining). Kill
+    # a game that runs past 90s and count it a draw so the slot moves on.
+    try:
+        out = subprocess.run(
+            [FCODE, "run", first, second, f"maps/{m}.map26",
+             "--seed", str(seed), "--tle", "10"],
+            capture_output=True, encoding="utf-8", errors="replace",
+            cwd=ROOT, timeout=90).stdout or ""
+    except subprocess.TimeoutExpired:
+        return {"map": m, "seed": seed, "winner": None, "cond": "timeout", "turn": 0}
+    except Exception:
+        return {"map": m, "seed": seed, "winner": None, "cond": "error", "turn": 0}
     mo = WIN.search(out)
     if not mo:
         return {"map": m, "seed": seed, "winner": None, "cond": "draw/error", "turn": 0}
