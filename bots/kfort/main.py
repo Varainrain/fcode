@@ -66,17 +66,23 @@ class Player:
 
     # ------------------------------------------------------------------
     def run(self, ct: Controller) -> None:
-        etype = ct.get_entity_type()
-        if etype == EntityType.CORE:
-            self.core(ct)
-        elif etype == EntityType.BUILDER_BOT:
-            self.builder(ct)
-        elif etype == EntityType.SENTINEL:
-            self.sentinel(ct)
-        elif etype == EntityType.GUNNER:
-            self.gunner(ct)
-        elif etype == EntityType.LAUNCHER:
-            self.launcher(ct)
+        # dev26-clarified rule: an uncaught exception PERMANENTLY destroys
+        # this unit for the rest of the match (a CPU timeout only skips the
+        # turn). One bad tile query must never cost a unit.
+        try:
+            etype = ct.get_entity_type()
+            if etype == EntityType.CORE:
+                self.core(ct)
+            elif etype == EntityType.BUILDER_BOT:
+                self.builder(ct)
+            elif etype == EntityType.SENTINEL:
+                self.sentinel(ct)
+            elif etype == EntityType.GUNNER:
+                self.gunner(ct)
+            elif etype == EntityType.LAUNCHER:
+                self.launcher(ct)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Core: fan-spawn opening, defensive spawn, ammo buffer
