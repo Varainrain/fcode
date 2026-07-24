@@ -31,7 +31,16 @@ directionMoves = [
     Position(6, 6), Position(2, 6), Position(6, 2), Position(0, 6), # bR
     Position(-6, 6), Position(-2, 6), Position(-6, 2), Position(-6, 0) # bL
 ]
-
+gunnerAttacks = [
+    Position(0, 1), Position(0, 2), Position(0, 3),
+    Position(0, -1), Position(0, -2), Position(0, -3),
+    Position(-1, 0), Position(-2, 0), Position(-3, 0),
+    Position(1, 0), Position(2, 0), Position(3, 0),
+    Position(-1, 1), Position(-2, 2),
+    Position(-1, -1), Position(-2, -2),
+    Position(1, 1), Position(2, 2),
+    Position(1, -1), Position(2, -2)
+]
 # slot 0 numSpawned, slot 1-6 map sharing, slot 7 initial target
 
 class Player:
@@ -42,6 +51,7 @@ class Player:
         self.fiveDirections = None
         self.initTarget = None
         self.turnsAlive = 0
+        self.attackBan = 0
         self.mapW = None
         self.mapH = None
 
@@ -74,6 +84,21 @@ class Player:
                 ct.write_store(0, self.numSpawned )
                 ct.write_store(7, target.x * 32 + target.y) #
                 self.fiveDirections.remove(spawnAngle) # so it doesnt spawn in the same spot twice.
+        globalAmmo = ct.get_global_ammo()
+        globalTitanium = ct.get_global_resources()
+
+        if globalTitanium > 80 + 60 * self.numSpawned:
+            for i in ct.get_nearby_tiles():
+                if ct.can_spawn(i):
+                    ct.spawn_builder(i)
+                    corners = [Position(0, 0), Position(self.mapW - 1, 0), Position(0, self.mapH - 1), Position(self.mapW - 1, self.mapH - 1)]
+                    corners.sort(key=lambda corner: corner.distance_squared(ct.get_position()))
+                    ct.write_store(7, corners[0].x * 32 + corners[0].y)
+                    break
+        if globalAmmo < 20 and globalTitanium > 100:
+            if ct.can_convert_ammo(20 - globalAmmo):
+                ct.convert_ammo(20 - globalAmmo)
+        
     def run(self, ct: Controller) -> None:
         if self.mapW is None:
             self.mapH = ct.get_map_height()
@@ -83,6 +108,8 @@ class Player:
             self.runCore(ct)
         elif etype == EntityType.BUILDER_BOT:
             self.builderBot(ct)
+        elif etype == EntityType.GUNNER:
+            self.runGunner(ct)
     def builderBot(self, ct: Controller):
         myLoc = ct.get_position()
         self.numSpawned = ct.read_store(0)
@@ -92,6 +119,47 @@ class Player:
             self.initTarget = Position(compact // 32, compact % 32)
         self.turnsAlive += 1
         print(self.runBestState(ct, myLoc))
+    def runGunner (self, ct: Controller):
+        curTarget = ct.get_gunner_target()
+        myDir = ct.get_direction()
+        myPos = ct.get_position()
+        myTeam = ct.get_team()
+        if curTarget is not None:
+            targetId = ct.get_tile_building_id(curTarget)
+            bbId = ct.get_tile_builder_bot_id(curTarget) 
+            if bbId is not None and ct.get_team(bbId) == myTeam:
+                return # dont kill your own bot
+            if targetId is not None and ct.get_team(targetId) != ct.get_team():
+                if ct.can_fire(curTarget):
+                    ct.fire(curTarget)
+                    return
+        if ct.get_global_resources() > 60:
+            bestScore = 0
+            bestDir = myDir # so you only rotate when you need to
+            for d in DIRECTIONS:
+                curScore = 0
+                for tile in ct.get_attackable_tiles_from(myPos, d, EntityType.GUNNER):
+                    tileId = ct.get_tile_building_id(tile)
+                    bbId = ct.get_tile_builder_bot_id(tile) 
+                    if tileId is not None and ct.get_team(tileId) != myTeam:
+                        tType = ct.get_entity_type(tileId)
+                        if tType in [EntityType.GUNNER, EntityType.SENTINEL]:
+                            curScore += 10
+                        elif tType == EntityType.CORE:
+                            curScore += 8
+                        elif tType in [EntityType.LAUNCHER, EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
+                            curScore += 4
+                        else:
+                            curScore += 1
+                        if bbId is not None and ct.get_team(bbId) != myTeam:
+                            curScore += 2
+                if curScore > bestScore:
+                    bestScore = curScore
+                    bestDir = d
+            if bestDir != myDir:
+                if ct.can_rotate(bestDir):
+                    ct.rotate(bestDir)
+
 
     def runBestState(self, ct: Controller, myLoc: Position):
         nearbyUnits = ct.get_nearby_entities() # both builder bots and buildings
@@ -100,29 +168,37 @@ class Player:
         # attack, max score of 10
         attackScore = 0
         attackPos = None
-        if ct.get_global_resources() > 100: # dont attack if u r broke
-            for b in nearbyUnits: # looks at nearby enemies, and scored on entity type and distance
-                bTeam = ct.get_team(b)
-                buildingScore = 0
-                if bTeam != myTeam:
-                    bPos = ct.get_position(b)
-                    bType = ct.get_entity_type(b)
-                    if bType in [EntityType.GUNNER, EntityType.SENTINEL, EntityType.CORE]:
-                        buildingScore = 10
-                    elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
-                        buildingScore = 8
-                    elif bType == EntityType.BUILDER_BOT:
-                        buildingScore = 2
+        if self.attackBan == 0:
+            if ct.get_global_resources() > 120 and ct.get_id() > 4: # dont attack if u r broke and leave one bot for defense
+                for b in nearbyUnits: # looks at nearby enemies, and scored on entity type and distance
+                    bTeam = ct.get_team(b)
+                    buildingScore = 0
+                    if bTeam != myTeam:
+                        bPos = ct.get_position(b)
+                        bType = ct.get_entity_type(b)
+                        if bType in [EntityType.GUNNER, EntityType.SENTINEL, EntityType.CORE]:
+                            buildingScore = 10
+                        elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
+                            buildingScore = 8
+                        elif bType == EntityType.BUILDER_BOT:
+                            buildingScore = 2
+                        else:
+                            buildingScore = 1
                     else:
-                        buildingScore = 1
-                else:
-                    continue
-                dist = myLoc.distance_squared(bPos)
-                buildingScore = buildingScore * (1 - dist/40)
-                if buildingScore > attackScore:
-                    attackScore = buildingScore
-                    attackPos = bPos # no need to worry about this not being initialized, as it needs buildingScore > attackScore, so there must be a position
-        
+                        continue
+                    dist = myLoc.distance_squared(bPos)
+                    buildingScore = buildingScore * (1 - dist/40)
+                    if buildingScore > attackScore:
+                        attackScore = buildingScore
+                        attackPos = bPos # no need to worry about this not being initialized, as it needs buildingScore > attackScore, so there must be a position
+                for b in ct.get_nearby_buildings(5):
+                    if ct.get_entity_type(b) == EntityType.GUNNER and ct.get_team(b) == myTeam:
+                        attackScore = 0
+                        self.attackBan = 4 + (ct.get_id() % 8)
+                        break
+        else:
+            self.attackBan -= 1
+
         # heal, max score of 8
         healScore = 0
         healPos = None
@@ -132,7 +208,7 @@ class Player:
             if bTeam == myTeam:
                 bPos = ct.get_position(b)
                 bType = ct.get_entity_type(b)
-                if bType in [EntityType.CORE]: # dont waste an entire state on just healing yourself
+                if bType in [EntityType.CORE, EntityType.BUILDER_BOT]: # dont waste an entire state on just healing yourself
                     buildingScore = 8
                 elif bType in [EntityType.GUNNER, EntityType.SENTINEL]:
                     buildingScore = 6
@@ -165,7 +241,7 @@ class Player:
                 bType = ct.get_entity_type(b)
                 bDir = None
                 endTile = None
-                if bType == EntityType.HARVESTER: # max score of 5 to prioritize cotninueing paths
+                if bType == EntityType.HARVESTER and myLoc.distance_squared(bPos) < 16: # max score of 5 to prioritize cotninueing paths
                     noTeamConv = True
                     workingSpots = []
                     for possibleDir in CARDINALS: # would have named it dir, but thats not allowed
@@ -178,7 +254,7 @@ class Player:
                                 noTeamConv = False
                     if noTeamConv and len(workingSpots) > 0:
                         workingSpots.sort(key=lambda pos: pos.distance_squared(teamCore))
-                        bScore = max(1.6, 5 * (1 - (workingSpots[0].distance_squared(teamCore) / 100)) * (1 - myLoc.distance_squared(bPos)/120))
+                        bScore = max(1.6, 5 * max(0, (1 - (workingSpots[0].distance_squared(teamCore) / 100))) * max(0, (1 - myLoc.distance_squared(bPos)/60)))
                         bDir = Direction.CENTRE
                         endTile = workingSpots[0]
                 elif bType == EntityType.CONVEYOR:  
@@ -188,7 +264,7 @@ class Player:
                         if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
                             eId = ct.get_tile_building_id(endTile)
                             if eId is None:
-                                bScore = max(2, 6 * (1 - (endTile.distance_squared(teamCore) / 120)) * (1 - myLoc.distance_squared(bPos)/80))
+                                bScore = max(2, 6 * max(0, (1 - (endTile.distance_squared(teamCore) / 120))) * max(0, (1 - myLoc.distance_squared(bPos)/40)))
                 if bScore > routeScore:
                     routeScore = bScore
                     routePos = endTile
@@ -202,7 +278,7 @@ class Player:
                 if self.mapPf.getTileEnv(tile) == 1: # since it checks all nearby tiles before choosing state, this is fine
                     if ct.get_tile_building_id(tile) is None: 
                         dist = teamCore.distance_squared(tile)
-                        tileScore = max(1.2, 3 * (1 - dist/160) * (1 - myLoc.distance_squared(bPos)/120))
+                        tileScore = max(1.2, 3 * (1 - dist/160) * (1 - myLoc.distance_squared(tile)/120))
                         if tileScore > harvestScore:
                             harvestPos = tile
                             harvestScore = tileScore
@@ -232,8 +308,44 @@ class Player:
             self.harvest(ct, harvestPos)
         else:
             self.explore(ct, explorePos)
-    # def attack(self, ct: Controller, attackPos: Position):
-    # def heal(self, ct: Controller, healPos: Position):
+    def attack(self, ct: Controller, attackPos: Position):
+        myLoc = ct.get_position()
+        myTeam = ct.get_team()
+        mapW = self.mapW
+        mapH = self.mapH
+        for d in CARDINALS:
+            gunnerSpot = myLoc.add(d)
+            dist = attackPos.distance_squared(gunnerSpot)
+            if dist < 10 and dist != 5 and 0 <= gunnerSpot.x < mapW and 0 <= gunnerSpot.y < mapH:
+                spotId = ct.get_tile_building_id(gunnerSpot)
+                if spotId is None:
+                    gunnerDir = gunnerSpot.direction_to(attackPos)
+                    if ct.can_build_gunner(gunnerSpot, gunnerDir):
+                        ct.build_gunner(gunnerSpot, gunnerDir)
+                    return # you might be able to build next turn tho, so leave as is
+        for d in CARDINALS: # try destorying after you exhaust all possible build opportunities
+            gunnerSpot = myLoc.add(d)
+            dist = attackPos.distance_squared(gunnerSpot)
+            if dist < 10 and dist != 5:
+                spotId = ct.get_tile_building_id(gunnerSpot)
+                if spotId is not None:            
+                    spotTeam = ct.get_team(spotId)
+                    spotType = ct.get_entity_type(spotId)
+                    if spotTeam == myTeam and spotType in [EntityType.BARRIER, EntityType.CONVEYOR]:
+                        if ct.can_destroy(gunnerSpot):
+                            ct.destroy(gunnerSpot)
+                            return
+        self.mapPf.moveTo(ct, attackPos)
+
+    def heal(self, ct: Controller, healPos: Position):
+        myLoc = ct.get_position()
+        if myLoc == healPos and ct.get_hp() < 40: # this means you are low, so run
+            ct.moveTo(self.teamCore)
+        if ct.can_heal(healPos):
+            ct.heal(healPos)
+        else:
+            self.mapPf.moveTo(ct, healPos)
+                
     def route(self, ct: Controller, routePos: Position, routeDir: Direction):
         self.mapPf.routeConveyor(ct, routePos)
     def harvest(self, ct: Controller, harvestPos: Position):

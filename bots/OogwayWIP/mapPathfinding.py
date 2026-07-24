@@ -245,31 +245,36 @@ class MapPathfinder:
 
     def fillConveyorDistTable(self, ct: Controller, curEnd: Position):
         myTeam = ct.get_team()
+        myLoc = ct.get_position()
         w, h = self.mapW, self.mapH
         maxCost = (w + h) * barrierCost + 48 # because path ends when you go to a full conveyor
         for x in range(w):
             for y in range(h):
                 self.conveyorMap[x][y] = [maxCost, 'stuck']
         buckets = [[] for _ in range(maxCost)]
-        if self.teamCore is not None:
-            tL = self.teamCore
-            bL = self.teamCore.add(Direction.SOUTH)
-            tR = self.teamCore.add(Direction.EAST)
-            bR = self.teamCore.add(Direction.SOUTH).add(Direction.EAST)
-            buckets[0].append(tL)
-            buckets[0].append(tR)
-            buckets[0].append(bL)
-            buckets[0].append(bR)
-            self.conveyorMap[tL.x][tL.y] = [0, 'done']
-            self.conveyorMap[tR.x][tR.y] = [0, 'done']
-            self.conveyorMap[bR.x][bR.y] = [0, 'done']
-            self.conveyorMap[bL.x][bL.y] = [0, 'done']
+        tL = self.teamCore
+        bL = self.teamCore.add(Direction.SOUTH)
+        tR = self.teamCore.add(Direction.EAST)
+        bR = self.teamCore.add(Direction.SOUTH).add(Direction.EAST)
+        corners = [tL, bL, tR, bR]
+        buckets[0].append(tL)
+        buckets[0].append(tR)
+        buckets[0].append(bL)
+        buckets[0].append(bR)
+        self.conveyorMap[tL.x][tL.y] = [0, 'done']
+        self.conveyorMap[tR.x][tR.y] = [0, 'done']
+        self.conveyorMap[bR.x][bR.y] = [0, 'done']
+        self.conveyorMap[bL.x][bL.y] = [0, 'done']
+        corners.sort(key=lambda corner: corner.distance_squared(myLoc))
+        closestCorner = corners[0]
         for b in ct.get_nearby_buildings():
             bPos = ct.get_position(b)
             bTeam = ct.get_team(b)
             bType = ct.get_entity_type(b)
             if bTeam == myTeam and bType == EntityType.CONVEYOR:
                 cost = 8 if ct.get_stored_resource(b) is None else 40
+                if bPos.distance_squared(closestCorner) > myLoc.distance_squared(closestCorner):
+                    cost += 24
                 if cost < self.conveyorMap[bPos.x][bPos.y][0]:
                         self.conveyorMap[bPos.x][bPos.y] = [cost, 'done']
                         buckets[cost].append(bPos)
