@@ -4,3 +4,4 @@ __pycache__/
 gate_results.csv
 .DS_Store
 worker.log
+_run_worker.cmd

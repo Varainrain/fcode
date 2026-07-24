@@ -3,8 +3,28 @@
 Put the arena engine on your own VPS so no home PC ever needs to be on. The
 box only runs `fcode run` matches locally and posts results — bots stay on
 a machine you own (same privacy as your laptop; nothing goes to Vercel).
+You do NOT need Claude on the VPS — just Python + this repo.
 
-## Setup (once, ~3 min on Ubuntu/Debian)
+## Windows VPS (Scheduled Task)
+
+In an elevated PowerShell:
+
+```
+# 1. Python (if missing): winget install Python.Python.3.12  (reopen PowerShell)
+# 2. clone the private fcode repo with a read-only token so `git pull` works unattended
+cd C:\
+git clone https://<TOKEN>@github.com/Varainrain/fcode.git
+cd fcode
+# 3. install the worker as an always-on task
+powershell -ExecutionPolicy Bypass -File deploy\vps-setup.ps1 -Url https://warroom-hq.vercel.app -Key 593C-5B2R-56MG-34MH
+```
+
+Runs at boot, restarts on crash, pulls new bots from `main`, grinds the
+ladder. Watch: `Get-Content C:\fcode\worker.log -Wait -Tail 20`.
+
+## Linux VPS (systemd) — Ubuntu/Debian
+
+## Setup (once, ~3 min)
 
 1. Clone the private fcode repo onto the VPS with a token so unattended
    `git pull` keeps working. Make a GitHub **fine-grained PAT** (read-only,
