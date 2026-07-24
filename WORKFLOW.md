@@ -50,6 +50,17 @@ not proven — iterate or drop it, don't ship it.
 Quick screen while iterating (24 games, 6 maps): `python gate.py mybot champion 1 fast`
 Head-to-head between any two bots: `python gate.py botA botB`
 
+**Measurement standard — results only compare if we all run the same setup:**
+- same engine (`pip show fcode` before trusting any number; update command is
+  pinned in the Discord staging announcements)
+- `--tle 10` (the server's real per-turn budget — gate.py does this; ad-hoc
+  `fcode run` tests must pass it explicitly, the default is tighter and
+  punishes compute-heavy bots unrealistically)
+- the full `maps/` pool, both sides, 2+ seeds (84+ games)
+Two of us measured the same matchup 26 points apart once (kfort vs krb,
+72% vs 46%) — environment drift, not variance. Check setup first, argue
+strategy second.
+
 ## Promotion procedure
 
 1. `python gate.py mybot` says PROMOTE.
