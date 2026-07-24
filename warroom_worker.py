@@ -78,24 +78,54 @@ def run_job(job):
     return results
 
 
+def discover():
+    return sorted(p.name for p in (ROOT / "bots").iterdir()
+                  if (p / "main.py").is_file())
+
+
+def sync_roster():
+    # pull main so everyone runs the latest bots, then register the roster
+    try:
+        subprocess.run(["git", "-C", str(ROOT), "pull", "--ff-only", "--quiet"],
+                       capture_output=True, timeout=60)
+    except Exception as e:
+        print(f"  git pull skipped: {e}")
+    bots = discover()
+    try:
+        api("/api/roster", {"bots": bots})
+    except Exception as e:
+        print(f"  roster report failed: {e}")
+    return bots
+
+
 print(f"war room worker '{WORKER}' online -> {SITE}")
-print(f"repo: {ROOT}  |  bots available: "
-      f"{', '.join(sorted(p.name for p in (ROOT / 'bots').iterdir() if (p / 'main.py').is_file()))}")
+bots = sync_roster()
+print(f"repo: {ROOT}  |  {len(bots)} bots registered: {', '.join(bots)}")
+last_sync = time.time()
+
 while True:
     try:
-        d = api("/api/claim", {"worker": WORKER})
-        job = d.get("job")
+        # re-pull + re-register every ~2 min so new bots on main auto-join
+        if time.time() - last_sync > 120:
+            sync_roster()
+            last_sync = time.time()
+        # manual queue first, then the auto league
+        job = api("/api/claim", {"worker": WORKER}).get("job")
+        source = "queued"
+        if not job:
+            job = api("/api/matchmake", {"worker": WORKER}).get("job")
+            source = "auto"
         if not job:
             time.sleep(10)
             continue
-        print(f"claimed {job['id']}: {job['a']} vs {job['b']} "
-              f"({job['maps']}, {job['seeds']} seed(s), queued by {job['by']})")
+        print(f"[{source}] {job['a']} vs {job['b']} "
+              f"({job['maps']}, {job['seeds']} seed(s), by {job['by']})")
         games = run_job(job)
         api("/api/report", {"id": job["id"], "a": job["a"], "b": job["b"],
                             "games": games, "worker": WORKER})
         wa = sum(1 for g in games if g["winner"] == job["a"])
         wb = sum(1 for g in games if g["winner"] == job["b"])
-        print(f"  reported: {job['a']} {wa} - {wb} {job['b']}")
+        print(f"  -> {job['a']} {wa} - {wb} {job['b']}")
     except KeyboardInterrupt:
         print("\nworker offline")
         break

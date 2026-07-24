@@ -34,6 +34,17 @@ select:focus,input:focus{border-color:#555;outline:0}
 .muted{color:#8a8a8a;font-size:12px;font-weight:300}
 .games{color:#8a8a8a;font-size:12px;font-weight:300;padding:0 8px 12px}
 .gold{color:#fbbf24}
+.mini{background:none;border:1px solid #2a2a2a;color:#8a8a8a;padding:3px 10px;font-size:9px;border-radius:3px}
+.mini:hover{border-color:#f87171;color:#f87171}
+.switch{position:relative;display:inline-block;width:34px;height:18px;vertical-align:middle}
+.switch.sm{width:30px;height:16px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:#2a2a2a;border-radius:20px;transition:.2s}
+.slider:before{content:"";position:absolute;height:12px;width:12px;left:3px;bottom:3px;background:#888;border-radius:50%;transition:.2s}
+.switch.sm .slider:before{height:10px;width:10px}
+input:checked+.slider{background:#0d2818}
+input:checked+.slider:before{transform:translateX(16px);background:#4ade80}
+.switch.sm input:checked+.slider:before{transform:translateX(14px)}
 </style></head><body>
 
 <div id="gate">
@@ -58,10 +69,17 @@ select:focus,input:focus{border-color:#555;outline:0}
   <button onclick="queueMatch()">Fight</button>
   <span id="q-msg" class="muted"></span>
  </div>
- <div class="muted" style="margin-top:8px">runs on whichever teammate's worker is online — bot names = folders in bots/</div>
+ <div class="bar" style="margin-top:10px">
+  <span class="lbl">Auto League</span>
+  <label class="switch"><input type="checkbox" id="autosw" onchange="setAuto()"><span class="slider"></span></label>
+  <span class="muted" id="auto-note">workers continuously play the least-tested matchup among active bots</span>
+ </div>
+ <div class="muted" style="margin-top:8px">bots auto-discovered from <b>main</b> by whatever worker is online — no folder typing</div>
 </section>
 
-<section><h2>Ladder</h2><table id="ladder"><tbody></tbody></table></section>
+<section><h2>Players · Ladder</h2><table id="ladder"><tbody></tbody></table>
+ <div class="muted" style="margin-top:8px">bench a bot to keep it out of the Auto League · reset wipes its ELO + record</div>
+</section>
 <section><h2>In progress / queued</h2><table id="live"><tbody></tbody></table></section>
 <section><h2>Recent battles</h2><table id="hist"><tbody></tbody></table></section>
 </div>
@@ -80,6 +98,13 @@ function boot(){
   document.getElementById('app').style.display='';
   load(); setInterval(load, 5000);
 }
+async function manage(body){
+  await fetch('/api/manage',{method:'POST',headers:H(),body:JSON.stringify(body)});
+  load();
+}
+function setAuto(){ manage({op:'setAuto', auto:document.getElementById('autosw').checked}); }
+function setActive(bot,active){ manage({op:'setActive', bot, active}); }
+function resetBot(bot){ if(confirm('Reset '+bot+"'s ELO and record?")) manage({op:'resetBot', bot}); }
 async function queueMatch(){
   const body = {a:botA.value, b:botB.value, maps:maps.value, seeds:seeds.value, by:who.value};
   const r = await fetch('/api/queue',{method:'POST',headers:H(),body:JSON.stringify(body)});
@@ -95,12 +120,17 @@ async function load(){
   const bots = d.bots||[];
   document.getElementById('botlist').innerHTML =
     bots.map(b=>`<option>${b.bot}</option>`).join('');
-  document.getElementById('ladder').innerHTML = '<tbody><tr><th>#</th><th>bot</th><th>elo</th><th>w-l</th><th>win%</th></tr>'+
-    bots.map((b,i)=>{const t=b.w+b.l; const pct=t?Math.round(100*b.w/t):0;
-      return `<tr><td style="color:#555">${String(i+1).padStart(2,'0')}</td>`+
-      `<td>${i===0?'<span class="gold">👑</span> ':''}${b.bot}</td>`+
+  if(document.activeElement.id!=='autosw') document.getElementById('autosw').checked = !!d.auto;
+  const rank = bots.filter(b=>b.active);
+  document.getElementById('ladder').innerHTML = '<tbody><tr><th>#</th><th>bot</th><th>elo</th><th>w-l</th><th>win%</th><th>active</th><th></th></tr>'+
+    bots.map((b)=>{const t=b.w+b.l; const pct=t?Math.round(100*b.w/t):0;
+      const r=b.active?rank.indexOf(b)+1:0;
+      return `<tr style="opacity:${b.active?1:.4}"><td style="color:#555">${b.active?String(r).padStart(2,'0'):'—'}</td>`+
+      `<td>${b.active&&r===1?'<span class="gold">👑</span> ':''}${b.bot}</td>`+
       `<td style="font-weight:600">${b.elo}</td><td class="muted">${b.w}–${b.l}</td>`+
-      `<td style="color:${pct>=50?'#4ade80':'#f87171'}">${pct}%</td></tr>`}).join('')+'</tbody>';
+      `<td style="color:${pct>=50?'#4ade80':'#f87171'}">${t?pct+'%':'—'}</td>`+
+      `<td><label class="switch sm"><input type="checkbox" ${b.active?'checked':''} onchange="setActive('${b.bot}',this.checked)"><span class="slider"></span></label></td>`+
+      `<td><button class="mini" onclick="resetBot('${b.bot}')">reset</button></td></tr>`}).join('')+'</tbody>';
   const live = (d.running||[]).map(x=>
     `<tr><td>${x.job.a} <span style="color:#555">vs</span> ${x.job.b}</td>`+
     `<td><span class="pill plive">RUNNING</span></td><td class="muted">${x.worker}'s machine</td></tr>`)
