@@ -23,11 +23,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 
-if len(sys.argv) < 3:
+# args or env (env lets a systemd service keep the secret in a root-only file)
+SITE = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("WARROOM_URL", "")).rstrip("/")
+KEY = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("WARROOM_KEY", "")
+if not SITE or not KEY:
     sys.exit(__doc__)
-SITE = sys.argv[1].rstrip("/")
-KEY = sys.argv[2]
-WORKER = socket.gethostname()[:20]
+WORKER = os.environ.get("WARROOM_NAME", socket.gethostname())[:20]
 
 FAST_MAPS = ["duel", "quarry", "aurora", "twins", "longship", "sprint"]
 WIN = re.compile(r"Winner:\s+(\S+)\s+\((.*?),\s*turn\s*(\d+)\)")
