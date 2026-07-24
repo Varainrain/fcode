@@ -1,0 +1,123 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EREBUS · Private Arena</title><style>
+*{box-sizing:border-box;margin:0}
+:root{color-scheme:dark}
+body{background:#000;color:#fff;font-family:Inter,-apple-system,'Segoe UI',sans-serif;
+ -webkit-font-smoothing:antialiased;letter-spacing:.01em}
+.wrap{max-width:1100px;margin:0 auto;padding:36px 32px}
+header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:36px}
+.logo{font-weight:800;font-size:15px;letter-spacing:.35em}
+.sub{color:#8a8a8a;font-size:12px;font-weight:300;letter-spacing:.15em;text-transform:uppercase}
+section{margin-bottom:40px}
+h2{font-size:12px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:#8a8a8a;
+ margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid #1a1a1a}
+table{width:100%;border-collapse:collapse;font-size:14px;font-weight:300}
+td,th{padding:9px 8px;text-align:left}
+th{color:#555;font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-weight:600}
+tr{border-bottom:1px solid #111}tbody tr:hover{background:#0a0a0a}
+.pill{display:inline-block;padding:2px 11px;border-radius:100px;font-size:10px;font-weight:600;letter-spacing:.15em}
+.pw{background:#0d2818;color:#4ade80}.pl{background:#2a0d0d;color:#f87171}
+.plive{background:#2a230d;color:#fbbf24;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.45}}
+button{background:#fff;color:#000;border:0;padding:9px 22px;font-family:inherit;font-weight:600;
+ font-size:11px;letter-spacing:.25em;text-transform:uppercase;border-radius:4px;cursor:pointer}
+button:hover{background:#d0d0d0}
+select,input{background:#0a0a0a;color:#fff;border:1px solid #222;border-radius:4px;padding:8px 10px;
+ font-family:inherit;font-size:13px;font-weight:300}
+select:focus,input:focus{border-color:#555;outline:0}
+.bar{display:flex;gap:10px;align-items:center;background:#0a0a0a;border:1px solid #161616;
+ border-radius:8px;padding:12px 14px;flex-wrap:wrap}
+.lbl{color:#555;font-size:10px;letter-spacing:.25em;text-transform:uppercase;font-weight:600}
+#gate{max-width:360px;margin:18vh auto;text-align:center}
+#gate input{width:100%;margin:14px 0;text-align:center}
+.muted{color:#8a8a8a;font-size:12px;font-weight:300}
+.games{color:#8a8a8a;font-size:12px;font-weight:300;padding:0 8px 12px}
+.gold{color:#fbbf24}
+</style></head><body>
+
+<div id="gate">
+  <div class="logo">EREBUS</div>
+  <div class="sub" style="margin-top:8px">private arena · members only</div>
+  <input id="key" type="password" placeholder="war room key" onkeydown="if(event.key==='Enter')login()">
+  <button onclick="login()">Enter</button>
+  <div id="gate-err" class="muted" style="margin-top:10px"></div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+<header><div class="logo">EREBUS · ARENA</div><div class="sub">local engines · zero public replays</div></header>
+
+<section><h2>Queue a battle</h2>
+ <div class="bar">
+  <span class="lbl">A</span><input id="botA" list="botlist" size="14" placeholder="bot folder">
+  <span class="lbl">vs</span><input id="botB" list="botlist" size="14" placeholder="bot folder">
+  <datalist id="botlist"></datalist>
+  <select id="maps"><option value="full">all maps</option><option value="fast">fast (6 maps)</option></select>
+  <select id="seeds"><option>1</option><option>2</option></select>
+  <input id="who" size="8" placeholder="your name">
+  <button onclick="queueMatch()">Fight</button>
+  <span id="q-msg" class="muted"></span>
+ </div>
+ <div class="muted" style="margin-top:8px">runs on whichever teammate's worker is online — bot names = folders in bots/</div>
+</section>
+
+<section><h2>Ladder</h2><table id="ladder"><tbody></tbody></table></section>
+<section><h2>In progress / queued</h2><table id="live"><tbody></tbody></table></section>
+<section><h2>Recent battles</h2><table id="hist"><tbody></tbody></table></section>
+</div>
+
+<script>
+let KEY = localStorage.getItem('wrkey') || '';
+const H = () => ({'Content-Type':'application/json','x-warroom-key':KEY});
+async function login(){
+  KEY = document.getElementById('key').value.trim();
+  const r = await fetch('/api/state',{headers:H()});
+  if(r.ok){ localStorage.setItem('wrkey',KEY); boot(); }
+  else document.getElementById('gate-err').textContent = 'wrong key';
+}
+function boot(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='';
+  load(); setInterval(load, 5000);
+}
+async function queueMatch(){
+  const body = {a:botA.value, b:botB.value, maps:maps.value, seeds:seeds.value, by:who.value};
+  const r = await fetch('/api/queue',{method:'POST',headers:H(),body:JSON.stringify(body)});
+  const d = await r.json();
+  document.getElementById('q-msg').textContent = d.ok ? 'queued ✓' : (d.error||'error');
+  setTimeout(()=>document.getElementById('q-msg').textContent='',4000);
+  load();
+}
+async function load(){
+  const r = await fetch('/api/state',{headers:H()});
+  if(!r.ok) return;
+  const d = await r.json();
+  const bots = d.bots||[];
+  document.getElementById('botlist').innerHTML =
+    bots.map(b=>`<option>${b.bot}</option>`).join('');
+  document.getElementById('ladder').innerHTML = '<tbody><tr><th>#</th><th>bot</th><th>elo</th><th>w-l</th><th>win%</th></tr>'+
+    bots.map((b,i)=>{const t=b.w+b.l; const pct=t?Math.round(100*b.w/t):0;
+      return `<tr><td style="color:#555">${String(i+1).padStart(2,'0')}</td>`+
+      `<td>${i===0?'<span class="gold">👑</span> ':''}${b.bot}</td>`+
+      `<td style="font-weight:600">${b.elo}</td><td class="muted">${b.w}–${b.l}</td>`+
+      `<td style="color:${pct>=50?'#4ade80':'#f87171'}">${pct}%</td></tr>`}).join('')+'</tbody>';
+  const live = (d.running||[]).map(x=>
+    `<tr><td>${x.job.a} <span style="color:#555">vs</span> ${x.job.b}</td>`+
+    `<td><span class="pill plive">RUNNING</span></td><td class="muted">${x.worker}'s machine</td></tr>`)
+    .concat((d.queue||[]).map(j=>
+    `<tr><td>${j.a} <span style="color:#555">vs</span> ${j.b}</td>`+
+    `<td class="muted">queued</td><td class="muted">by ${j.by}</td></tr>`));
+  document.getElementById('live').innerHTML = '<tbody>'+(live.join('')||'<tr><td class="muted">arena idle</td></tr>')+'</tbody>';
+  document.getElementById('hist').innerHTML = '<tbody>'+(d.matches||[]).map(m=>{
+    const games = m.games.map(g=>`${g.map} → ${g.winner||'draw'}${g.turn?' t'+g.turn:''}`).join(' · ');
+    return `<tr><td>${m.a} <span class="pill ${m.winsA>=m.winsB?'pw':'pl'}">${m.winsA}</span>`+
+    ` <span style="color:#555">vs</span> <span class="pill ${m.winsB>=m.winsA?'pw':'pl'}">${m.winsB}</span> ${m.b}</td>`+
+    `<td class="muted">${new Date(m.ts).toLocaleTimeString()}</td></tr>`+
+    `<tr><td colspan="2" class="games">${games}</td></tr>`;}).join('')+'</tbody>';
+}
+(async()=>{
+  if(!KEY) return;
+  const r = await fetch('/api/state',{headers:H()});
+  if(r.ok) boot(); else localStorage.removeItem('wrkey');
+})();
+</script></body></html>
