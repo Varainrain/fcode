@@ -40,16 +40,19 @@ if not SITE or not KEY:
     sys.exit(__doc__)
 WORKER = os.environ.get("WARROOM_NAME", socket.gethostname())[:20]
 
+MINI_MAPS = ["duel", "aurora", "quarry"]   # 3 maps x both sides = 6 games
 FAST_MAPS = ["duel", "quarry", "aurora", "twins", "longship", "sprint"]
-# default match size: 10 maps x both sides = 20 games (was every map = 42)
 STD_MAPS = ["duel", "quarry", "aurora", "twins", "longship", "sprint",
             "hive", "strait", "crossfire", "vault"]
+MAP_MODES = {"mini": MINI_MAPS, "fast": FAST_MAPS, "std": STD_MAPS}  # "full"->all
 WIN = re.compile(r"Winner:\s+(\S+)\s+\((.*?),\s*turn\s*(\d+)\)")
 
-# how many MATCHES this machine runs at once (each shows as its own RUNNING
-# row). Default = core count so the CPU stays busy and the queue drains in
-# parallel instead of one-at-a-time. Override with WARROOM_SLOTS.
-SLOTS = int(os.environ.get("WARROOM_SLOTS", "0")) or max(1, os.cpu_count() or 2)
+# concurrent MATCHES (each is its own RUNNING row) and total GAMES in flight.
+# PAR oversubscribes the cores a bit (games have IO/startup slack), so on a
+# 2-core box ~4 games run at once. Override with WARROOM_SLOTS / WARROOM_PAR.
+SLOTS = int(os.environ.get("WARROOM_SLOTS", "0")) or 2
+PAR = int(os.environ.get("WARROOM_PAR", "0")) or max(2, 2 * (os.cpu_count() or 2))
+_GAME_POOL = cf.ThreadPoolExecutor(max_workers=PAR)
 
 
 def api(path, body=None):
@@ -91,24 +94,15 @@ def run_job(job):
             print(f"  !! bots/{bot} missing on this machine - reporting empty")
             return []
     all_maps = sorted(p.stem for p in (ROOT / "maps").glob("*.map26"))
-    mode = job.get("maps", "std")
-    if mode == "fast":
-        pool = FAST_MAPS
-    elif mode == "full":
-        pool = all_maps
-    else:  # "std" or anything else -> the 20-game format
-        pool = STD_MAPS
+    mode = job.get("maps", "mini")
+    pool = all_maps if mode == "full" else MAP_MODES.get(mode, MINI_MAPS)
     maps = [m for m in pool if m in all_maps]
-    jobs = [(x, y, m, s) for m in maps for s in range(1, job["seeds"] + 1)
-            for x, y in ((a, b), (b, a))]
-    # each slot runs its match's games with modest inner parallelism so
-    # SLOTS matches x INNER games ~ total cores (no oversubscription)
-    inner = max(1, (os.cpu_count() or 2) // SLOTS)
-    results = []
-    with cf.ThreadPoolExecutor(max_workers=inner) as ex:
-        for g in ex.map(lambda j: game(*j), jobs):
-            results.append(g)
-    return results
+    combos = [(x, y, m, s) for m in maps for s in range(1, job["seeds"] + 1)
+              for x, y in ((a, b), (b, a))]
+    # submit all this match's games to the SHARED pool — total games in
+    # flight across every slot is capped at PAR, so slots overlap cleanly
+    futs = [_GAME_POOL.submit(game, *c) for c in combos]
+    return [f.result() for f in futs]
 
 
 def discover():
