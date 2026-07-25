@@ -1,6 +1,6 @@
 """Starter bot - a simple example to demonstrate usage of the Controller API.
 
-Each unit gets its own Player instance; the engine calls run() once per round.
+Each unit gets its own Player instance; run() is called once per round.
 Use Controller.get_entity_type() to branch on what kind of unit you are.
 """
 
@@ -110,7 +110,6 @@ class Player:
             self.builderBot(ct)
         elif etype == EntityType.GUNNER:
             self.runGunner(ct)
-    
     def builderBot(self, ct: Controller):
         myLoc = ct.get_position()
         self.numSpawned = ct.read_store(0)
@@ -170,7 +169,7 @@ class Player:
         attackScore = 0
         attackPos = None
         if self.attackBan == 0:
-            if ct.get_global_resources() > 80 and ct.get_id() > 4: # dont attack if u r broke and leave one bot for defense
+            if ct.get_global_resources() > 120 and ct.get_id() > 4: # dont attack if u r broke and leave one bot for defense
                 for b in nearbyUnits: # looks at nearby enemies, and scored on entity type and distance
                     bTeam = ct.get_team(b)
                     buildingScore = 0
@@ -180,7 +179,7 @@ class Player:
                         if bType in [EntityType.GUNNER, EntityType.SENTINEL, EntityType.CORE]:
                             buildingScore = 10
                         elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
-                            buildingScore = 7.2
+                            buildingScore = 8
                         elif bType == EntityType.BUILDER_BOT:
                             buildingScore = 2
                         else:
@@ -209,10 +208,8 @@ class Player:
             if bTeam == myTeam:
                 bPos = ct.get_position(b)
                 bType = ct.get_entity_type(b)
-                if bType in [EntityType.CORE]: # dont waste an entire state on just healing yourself
+                if bType in [EntityType.CORE, EntityType.BUILDER_BOT]: # dont waste an entire state on just healing yourself
                     buildingScore = 8
-                elif bType in [EntityType.BUILDER_BOT]:
-                    buildingScore = 7.2
                 elif bType in [EntityType.GUNNER, EntityType.SENTINEL]:
                     buildingScore = 6
                 elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
@@ -298,9 +295,6 @@ class Player:
                 exploreScore = 1
             else:
                 exploreScore = 0.4 # exploring isnt as important then
-            if self.mapPf.myNum % 6 == 1 and self.mapPf.enemyCore is not None and ct.get_global_resources() > 150:
-                explorePos = self.mapPf.enemyCore
-                exploreScore = 6 * (1 - myLoc.distance_squared(self.mapPf.enemyCore)/80)
         stateScores = [attackScore, healScore, harvestScore, routeScore, exploreScore]
         stateScores.sort(key=lambda score: score, reverse=True)
         bestScore = stateScores[0]

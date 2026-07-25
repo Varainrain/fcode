@@ -1,6 +1,6 @@
 """Starter bot - a simple example to demonstrate usage of the Controller API.
 
-Each unit gets its own Player instance; the engine calls run() once per round.
+Each unit gets its own Player instance; run() is called once per round.
 Use Controller.get_entity_type() to branch on what kind of unit you are.
 """
 
@@ -39,7 +39,7 @@ tileTypes2 = {
     "OTBlocker": 14, # team launcher/barrier (on ore)
     "OTHarvester": 15 # team harvester
 } # tileTypes2 would be really cool to implement, but imo not worth the time right now
-# shared array. 0: num bots spawned 1-6: new tiles from that bot 7: the map symmetry , 8: enemyCore pos
+# shared array. 0: num bots spawned 1-6: new tiles from that bot 7: the map symmetry 
 
 class MapPathfinder:
     def __init__(self):
@@ -48,7 +48,6 @@ class MapPathfinder:
         self.seenTiles = None # used to get self.newTiles
         self.myNum = -1 # every builder bot gets its own unique number used to write to the shared array, and organize roles (1, 2, 3, ...)
         self.teamCore = None
-        self.enemyCore = None
         self.distMap = None
         self.conveyorMap = None
         self.mapW = None
@@ -57,9 +56,6 @@ class MapPathfinder:
         self.mapChanged = True
         self.prevTarget = None
         self.randDir = Direction.NORTH
-        self.possibleSymmetry = ['180', "Vertical", "Horizontal"]
-        self.chosenSymmetry = None
-
     def setupMap(self, ct: Controller):
         self.mapChanged = False
         curRound = ct.get_current_round()
@@ -84,15 +80,6 @@ class MapPathfinder:
         self.getNewTiles(ct)
         self.shareTiles(ct, curRound)
         self.updateBoard(ct)
-        if self.chosenSymmetry is None:
-            self.checkSymmetry(ct)
-        if self.chosenSymmetry is not None:
-            self.updateMap(ct)
-        if self.enemyCore is None:
-            storeVal = ct.read_store(8)
-            if storeVal != 0:
-                storeVal -= 32
-                self.enemyCore = Position(storeVal//32, storeVal % 32)
     def checkPassable (self, ct: Controller, tile: Position): # Only team barriers, or empty tiles are passbale
         tileId = ct.get_tile_building_id(tile)
         if tileId is not None and not ct.is_tile_passable(tile):
@@ -102,18 +89,9 @@ class MapPathfinder:
                 return False
         return True
     def getNewTiles (self, ct: Controller):
-        myTeam = ct.get_team()
         for tile in ct.get_nearby_tiles():
             x = tile.x
             y = tile.y
-            tId = ct.get_tile_building_id(tile)
-            if tId is not None:
-                tType = ct.get_entity_type(tId)
-                tTeam = ct.get_team(tId)
-                if tTeam != myTeam and tType == EntityType.CORE:
-                    self.enemyCore = tile
-                    ct.write_store(8, x * 32 + y + 32) # + 32 in case the core position is (0, 0)
-            
             tileEnv = ct.get_tile_env(tile)
             if not self.checkPassable(ct, tile) and tileEnv != Environment.WALL: # Walls clearly dont have buildings so need that
                 tileEnv = 'Unpassable'
@@ -179,7 +157,8 @@ class MapPathfinder:
                 self.fullMap[x][y] = t_type
                 self.mapChanged = True
                 
-            self.newTiles = [t for t in self.newTiles if not (t[0].x == x and t[0].y == y)] # you dont want to broadcast the same position twice            
+            self.newTiles = [t for t in self.newTiles if not (t[0].x == x and t[0].y == y)] # you dont want to broadcast the same position twice
+            
     def tileCost(self, ct: Controller, tile: Position) -> int | None:
         cachedVal = self.fullMap[tile.x][tile.y]
         if cachedVal > 1: # either wall or unpassable
@@ -194,6 +173,7 @@ class MapPathfinder:
                 elif ct.is_tile_passable(tile) == False:
                     return 4096
         return openCost
+
     def fillInDistTable (self, ct: Controller, targetLoc: Position):
         w, h = self.mapW, self.mapH
         maxCost = (w + h) * barrierCost + 8
@@ -239,6 +219,7 @@ class MapPathfinder:
             if hitBucket:
                 return dist
         return 4096
+
     def conveyorTileCost(self, ct: Controller, tile: Position):
         cachedVal = self.fullMap[tile.x][tile.y]
         if cachedVal == 2 or cachedVal == 3:
@@ -261,6 +242,7 @@ class MapPathfinder:
                     return [barrierCost, 'working']  
                 return [None, 'stuck']  # dont break other stuff
         return [1, 'working'] 
+
     def fillConveyorDistTable(self, ct: Controller, curEnd: Position):
         myTeam = ct.get_team()
         myLoc = ct.get_position()
@@ -319,6 +301,7 @@ class MapPathfinder:
             if hitBucket:
                 return dist
         return 4096
+
     def routeConveyor(self, ct: Controller, curEnd: Position):
         myLoc = ct.get_position()
         self.fillConveyorDistTable(ct, curEnd)
@@ -345,6 +328,7 @@ class MapPathfinder:
             ct.build_conveyor(curEnd, bestNextDir)
         else:
             self.moveTo(ct, curEnd)
+
     def moveTo (self, ct: Controller, target: Position):
         myLoc = ct.get_position()
         if myLoc == target:
@@ -379,7 +363,8 @@ class MapPathfinder:
                 if tTeam == ct.get_team() and tType == EntityType.BARRIER:
                     if ct.can_destroy(nextPos):
                         ct.destroy(nextPos)
-                    return # dont want to increase stuckTurns for no reason
+                    else:
+                        return # dont want to increase stuckTurns for no reason
         if bestDir is not None and ct.can_move(bestDir):
             ct.move(bestDir)
             self.stuckTurns = 0
@@ -391,7 +376,8 @@ class MapPathfinder:
                     if ct.can_move(i):
                         movableDirs.append(i)
                 if len(movableDirs) > 0:
-                    ct.move(random.choice(movableDirs)) 
+                    ct.move(random.choice(movableDirs))
+    
     def returnUnvisited(self, ct: Controller, myLoc: Position):
         unvisitedPositions = []
         for x in range(self.mapW):
@@ -402,60 +388,5 @@ class MapPathfinder:
         if len(unvisitedPositions) > 0:
             return unvisitedPositions[0]
         return None
-    
     def getTileEnv (self, tile: Position):
         return self.fullMap[tile.x][tile.y]
-
-    def reflectTile(self, refType, tileX, tileY):
-        if refType == '180':
-            return self.mapW - tileX - 1, self.mapH - tileY - 1
-        elif refType == 'Vertical':
-            return tileX, self.mapH - tileY - 1
-        elif refType == 'Horizontal':
-            return self.mapW - tileX - 1, tileY
-        return None
-    
-    def checkSymmetry (self, ct: Controller):
-        removeSymmetries = []
-        if len(self.possibleSymmetry) > 1:
-            for possibleSym in self.possibleSymmetry:
-                for x in range(self.mapW):
-                    for y in range(self.mapH):
-                        if self.fullMap[x][y] == 2:
-                            rX, rY = self.reflectTile(possibleSym, x, y) 
-                            if not (0 <= rX < self.mapW and 0 <= rY < self.mapH):
-                                continue
-                            if self.fullMap[rX][rY] not in [2, -1]: # symmetry has been proven wrong!
-                                removeSymmetries.append(possibleSym)
-        for wrongSym in set(removeSymmetries):
-            if wrongSym in self.possibleSymmetry:
-                self.possibleSymmetry.remove(wrongSym)
-        if len(self.possibleSymmetry) == 1:
-            self.chosenSymmetry = self.possibleSymmetry[0]
-            if self.chosenSymmetry == '180':
-                ct.write_store(9, 3)
-            elif self.chosenSymmetry == 'Vertical':
-                ct.write_store(9, 1)
-            else:
-                ct.write_store(9, 2)
-    def updateMap(self, ct: Controller):
-        store9 = ct.read_store(9)
-        if store9 != 0:
-            if store9 == 3:
-                self.chosenSymmetry = '180'
-            elif store9 == 2:
-                self.chosenSymmetry = 'Horizontal'
-            else:
-                self.chosenSymmetry = 'Vertical'
-        for x in range(self.mapW):
-            for y in range(self.mapH):
-                if self.fullMap[x][y] != 2:
-                    continue
-                rX, rY = self.reflectTile(self.chosenSymmetry, x, y)
-                if 0 <= rX < self.mapW and 0 <= rY < self.mapH:
-                    if self.fullMap[rX][rY] != -1:
-                        continue # much cleaner than like a like with 6 indentations
-                    self.fullMap[rX][rY] = 2
-                    self.seenTiles[rX][rY] = True
-                    self.newTiles.append([Position(rX, rY), 2]) 
-                    self.mapChanged = True
