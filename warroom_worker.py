@@ -66,16 +66,18 @@ def api(path, body=None):
         return json.loads(r.read())
 
 
-def game(first, second, m, seed):
-    # HARD TIMEOUT: without it, one hung fcode game freezes the whole slot
-    # forever (observed: a match stuck 10+ min, queue never draining). Kill
-    # a game that runs past 90s and count it a draw so the slot moves on.
+def game(first, second, m, seed, replay_path=None):
+    # HARD TIMEOUT: one hung game must not freeze a slot. 240s (was 90 —
+    # long econ games on a slow box exceeded 90s under parallel load and
+    # got reported as fake draws).
+    cmd = [FCODE, "run", first, second, f"maps/{m}.map26",
+           "--seed", str(seed), "--tle", "10"]
+    if replay_path:
+        cmd += ["--replay", str(replay_path)]
     try:
         out = subprocess.run(
-            [FCODE, "run", first, second, f"maps/{m}.map26",
-             "--seed", str(seed), "--tle", "10"],
-            capture_output=True, encoding="utf-8", errors="replace",
-            cwd=ROOT, timeout=90).stdout or ""
+            cmd, capture_output=True, encoding="utf-8", errors="replace",
+            cwd=ROOT, timeout=240).stdout or ""
     except subprocess.TimeoutExpired:
         return {"map": m, "seed": seed, "winner": None, "cond": "timeout", "turn": 0}
     except Exception:
@@ -92,17 +94,40 @@ def run_job(job):
     for bot in (a, b):
         if not (ROOT / "bots" / bot / "main.py").is_file():
             print(f"  !! bots/{bot} missing on this machine - reporting empty")
-            return []
+            return [], []
     all_maps = sorted(p.stem for p in (ROOT / "maps").glob("*.map26"))
     mode = job.get("maps", "mini")
     pool = all_maps if mode == "full" else MAP_MODES.get(mode, MINI_MAPS)
     maps = [m for m in pool if m in all_maps]
     combos = [(x, y, m, s) for m in maps for s in range(1, job["seeds"] + 1)
               for x, y in ((a, b), (b, a))]
+    # MANUAL fights (queued by a person) keep replays for the visualizer;
+    # auto/round-robin/placement volume does not (too many, too big)
+    keep_replays = job.get("by", "auto") not in ("auto", "round-robin", "placement")
+    rdir = ROOT / "replays"
+    if keep_replays:
+        rdir.mkdir(exist_ok=True)
+    combos2 = []
+    for i, (x, y, m, s) in enumerate(combos):
+        rp = (rdir / f"{job['id']}_{i:02d}_{m}_s{s}.replay26") if keep_replays else None
+        combos2.append((x, y, m, s, rp))
     # submit all this match's games to the SHARED pool — total games in
     # flight across every slot is capped at PAR, so slots overlap cleanly
-    futs = [_GAME_POOL.submit(game, *c) for c in combos]
-    return [f.result() for f in futs]
+    futs = [_GAME_POOL.submit(game, *c) for c in combos2]
+    results = [f.result() for f in futs]
+    replays = []
+    if keep_replays:
+        import base64
+        for (x, y, m, s, rp) in combos2:
+            try:
+                if rp and rp.exists() and rp.stat().st_size < 3_000_000:
+                    b64 = base64.b64encode(rp.read_bytes()).decode()
+                    r = api("/api/upload", {"name": rp.name, "data": b64})
+                    if r.get("url"):
+                        replays.append({"name": f"{x} vs {y} on {m}", "url": r["url"]})
+            except Exception as e:
+                print(f"  replay upload skipped ({rp.name if rp else '?'}): {e}")
+    return results, replays
 
 
 def discover():
@@ -146,9 +171,10 @@ def match_slot(n):
                 continue
             print(f"[slot {n}] [{src}] {job['a']} vs {job['b']} "
                   f"({job.get('maps', 'std')})")
-            games = run_job(job)
+            games, replays = run_job(job)
             api("/api/report", {"id": job["id"], "a": job["a"], "b": job["b"],
-                                "games": games, "worker": wid})
+                                "games": games, "replays": replays,
+                                "worker": wid})
             wa = sum(1 for g in games if g["winner"] == job["a"])
             wb = sum(1 for g in games if g["winner"] == job["b"])
             print(f"  -> {job['a']} {wa} - {wb} {job['b']}")
