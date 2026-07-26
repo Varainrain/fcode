@@ -118,10 +118,7 @@ class Player:
             compact = ct.read_store(7)
             self.initTarget = Position(compact // 32, compact % 32)
         self.turnsAlive += 1
-        if self.mapPf.myNum != 5 or (self.turnsAlive < 20):
-            self.runBestState(ct, myLoc)
-        else:
-            self.closeRangeBestState(ct, myLoc)
+        self.runBestState(ct, myLoc)
     def runGunner (self, ct: Controller):
         curTarget = ct.get_gunner_target()
         myDir = ct.get_direction()
@@ -163,204 +160,6 @@ class Player:
                 if ct.can_rotate(bestDir):
                     ct.rotate(bestDir)
 
-    def closeRangeBestState(self, ct: Controller, myLoc: Position):
-        nearbyUnits = ct.get_nearby_entities() # both builder bots and buildings
-        actuallyNearbyUnits = []
-        closestCorners = []
-        tL = self.mapPf.teamCore
-        bL = self.mapPf.teamCore.add(Direction.SOUTH)
-        tR = self.mapPf.teamCore.add(Direction.EAST)
-        bR = self.mapPf.teamCore.add(Direction.SOUTH).add(Direction.EAST)
-        corners = [tL, bL, tR, bR]
-        for unit in nearbyUnits:
-            unitPos = ct.get_position(unit)
-            corners.sort(key=lambda corner: corner.distance_squared(unitPos))
-            smallestDist = corners[0].distance_squared(unitPos)
-            if smallestDist < 11: # max dist of 3 tiles and 1 to the side
-                actuallyNearbyUnits.append(unit)
-        
-        myTeam = ct.get_team()
-        # attack, max score of 10
-        attackScore = 0
-        attackPos = None
-        if self.attackBan == 0:
-            if ct.get_global_resources() > 60: # dont attack if u r broke and leave one bot for defense
-                for b in actuallyNearbyUnits: # looks at nearby enemies, and scored on entity type and distance
-                    bTeam = ct.get_team(b)
-                    buildingScore = 0
-                    if bTeam != myTeam:
-                        bPos = ct.get_position(b)
-                        bType = ct.get_entity_type(b)
-                        if bType in [EntityType.GUNNER, EntityType.SENTINEL]:
-                            buildingScore = 12
-                        elif bType in [EntityType.CORE]:
-                            buildingScore = 10
-                        elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
-                            buildingScore = 8
-                        elif bType == EntityType.BUILDER_BOT:
-                            buildingScore = 2
-                        else:
-                            buildingScore = 1
-                    else:
-                        continue
-                    dist = myLoc.distance_squared(bPos)
-                    buildingScore = buildingScore * (1 - dist/48)
-                    if buildingScore > attackScore:
-                        attackScore = buildingScore
-                        attackPos = bPos # no need to worry about this not being initialized, as it needs buildingScore > attackScore, so there must be a position
-                for b in ct.get_nearby_buildings(5):
-                    if ct.get_entity_type(b) == EntityType.GUNNER and ct.get_team(b) == myTeam:
-                        attackScore = 0
-                        self.attackBan = 4 + (ct.get_id() % 8)
-                        break
-        else:
-            self.attackBan -= 1
-
-        # heal, max score of 8
-        healScore = 0
-        healPos = None
-        for b in actuallyNearbyUnits: # scored on how low the unit is, distance, and entity type
-            bTeam = ct.get_team(b)
-            buildingScore = 0
-            if bTeam == myTeam:
-                bPos = ct.get_position(b)
-                bType = ct.get_entity_type(b)
-                if bType in [EntityType.CORE, EntityType.BUILDER_BOT]: # dont waste an entire state on just healing yourself
-                    buildingScore = 8
-                elif bType in [EntityType.GUNNER, EntityType.SENTINEL]:
-                    buildingScore = 6
-                elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
-                    buildingScore = 4 
-                else:
-                    buildingScore = 2
-            else:
-                continue
-            dist = myLoc.distance_squared(bPos)
-            cHP = ct.get_hp(b)
-            maxHP = ct.get_max_hp(b)
-            mHP = maxHP - cHP
-            if dist > 0:
-                buildingScore = buildingScore * (1 - dist/120) * (mHP/maxHP)
-                if buildingScore > healScore:
-                    healScore = buildingScore
-                    healPos = bPos
-
-        # route, max score of 6
-        routeScore = 0 # orphan harvesters + unfinished conveyor chains
-        routePos = None
-        routeDir = None
-        mapW = self.mapW
-        mapH = self.mapH
-        teamCore = self.mapPf.teamCore
-        if teamCore is not None:
-            for b in actuallyNearbyUnits:
-                bScore = 0
-                bPos = ct.get_position(b)
-                bType = ct.get_entity_type(b)
-                bDir = None
-                endTile = None
-                if bType == EntityType.HARVESTER and myLoc.distance_squared(bPos) < 16: # max score of 5 to prioritize cotninueing paths
-                    noTeamConv = True
-                    workingSpots = []
-                    for possibleDir in CARDINALS: # would have named it dir, but thats not allowed
-                        endTile = bPos.add(possibleDir)
-                        if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
-                            eId = ct.get_tile_building_id(endTile)
-                            if eId is None:
-                                workingSpots.append(endTile)
-                            elif ct.get_team(eId) == myTeam and ct.get_entity_type(eId) == EntityType.CONVEYOR:
-                                noTeamConv = False
-                    if noTeamConv and len(workingSpots) > 0:
-                        workingSpots.sort(key=lambda pos: pos.distance_squared(teamCore))
-                        bScore = max(1.6, 5 * max(0, (1 - (workingSpots[0].distance_squared(teamCore) / 100))) * max(0, (1 - myLoc.distance_squared(bPos)/60)))
-                        bDir = Direction.CENTRE
-                        endTile = workingSpots[0]
-                elif bType == EntityType.CONVEYOR:  
-                    if ct.get_team(b) == myTeam:
-                        bDir = ct.get_direction(b)
-                        endTile = bPos.add(bDir)
-                        if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
-                            eId = ct.get_tile_building_id(endTile)
-                            if eId is None:
-                                bScore = max(2, 6 * max(0, (1 - (endTile.distance_squared(teamCore) / 120))) * max(0, (1 - myLoc.distance_squared(bPos)/40)))
-                if bScore > routeScore:
-                    routeScore = bScore
-                    routePos = endTile
-                    routeDir = bDir
-
-        # harvest, max score of 3
-        harvestScore = 0
-        harvestPos = None
-        if teamCore is not None:
-            for tile in ct.get_nearby_tiles():
-                corners.sort(key=lambda corner: corner.distance_squared(tile))
-                if corners[0].distance_squared(tile) < 12:
-                    if self.mapPf.getTileEnv(tile) == 1: # since it checks all nearby tiles before choosing state, this is fine
-                        if ct.get_tile_building_id(tile) is None: 
-                            dist = teamCore.distance_squared(tile)
-                            tileScore = max(1.2, 3 * (1 - dist/160) * (1 - myLoc.distance_squared(tile)/120))
-                            if tileScore > harvestScore:
-                                harvestPos = tile
-                                harvestScore = tileScore
-                
-
-        # explore, max score of 1
-        exploreScore = 0.5
-
-        stateScores = [attackScore, healScore, harvestScore, routeScore, exploreScore]
-        stateScores.sort(key=lambda score: score, reverse=True)
-        bestScore = stateScores[0]
-        corners.sort(key=lambda corner: corner.distance_squared(myLoc))
-        if myLoc.distance_squared(corners[0]) > 10:
-            self.mapPf.moveTo(ct, self.mapPf.teamCore)
-            return
-        if bestScore == attackScore:
-            ct.draw_indicator_line(Position(0, 0), myLoc, 255, 0, 0)
-            self.attack(ct, attackPos)
-            return
-        elif bestScore == healScore:
-            ct.draw_indicator_line(Position(0, 0), myLoc, 0, 255, 0)
-            self.heal(ct, healPos)
-            return
-        elif bestScore == routeScore:
-            self.route(ct, routePos, routeDir)
-            return
-        elif bestScore == harvestScore:
-            self.harvest(ct, harvestPos)
-            return
-        else:
-            emptyTiles = []
-            if ct.get_global_resources() > 100:
-                teamGunnerSpots = []
-                for gunner in nearbyUnits:
-                    if ct.get_team(gunner) == myTeam and ct.get_entity_type(gunner) == EntityType.GUNNER:
-                        teamGunnerSpots.append(ct.get_position(gunner))
-                for tile in ct.get_nearby_tiles():
-                    corners.sort(key=lambda corner: corner.distance_squared(tile))
-                    if tile.distance_squared(corners[0]) < 11 and tile.distance_squared(myLoc) > 0:
-                        if ct.get_tile_env(tile) == Environment.EMPTY and ct.get_tile_building_id(tile) is None:
-                            teamGunnerSpots.sort(key=lambda gunner: gunner.distance_squared(tile))
-                            if len(teamGunnerSpots) < 1 or teamGunnerSpots[0].distance_squared(tile) > 5:
-                                emptyTiles.append(tile)
-                                ct.draw_indicator_dot(tile, 0, 100, 20)
-                emptyTiles.sort(key=lambda tile: tile.distance_squared(myLoc))
-                for tile in emptyTiles:
-                    if tile.distance_squared(myLoc) == 1:
-                        facing = min(CARDINALS, key=lambda d: tile.add(d).distance_squared(self.mapPf.teamCore))
-                        if ct.can_build_gunner(tile, facing.opposite()):
-                            ct.build_gunner(tile, facing.opposite())
-                            return
-                if len(emptyTiles) > 0:
-                    if emptyTiles[0].distance_squared(myLoc) > 1:
-                        self.mapPf.moveTo(ct, emptyTiles[0])
-                        return
-            else:
-                self.mapPf.moveTo(ct, self.mapPf.teamCore)
-
-
-
-
-
 
     def runBestState(self, ct: Controller, myLoc: Position):
         nearbyUnits = ct.get_nearby_entities() # both builder bots and buildings
@@ -377,14 +176,12 @@ class Player:
                     if bTeam != myTeam:
                         bPos = ct.get_position(b)
                         bType = ct.get_entity_type(b)
-                        if bType in [EntityType.GUNNER, EntityType.SENTINEL]:
-                            buildingScore = 12
-                        elif bType in [EntityType.CORE]:
+                        if bType in [EntityType.GUNNER, EntityType.SENTINEL, EntityType.CORE]:
                             buildingScore = 10
                         elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
                             buildingScore = 8
                         elif bType == EntityType.BUILDER_BOT:
-                            buildingScore = 2
+                            buildingScore = 4
                         else:
                             buildingScore = 1
                     else:
@@ -503,10 +300,8 @@ class Player:
         stateScores.sort(key=lambda score: score, reverse=True)
         bestScore = stateScores[0]
         if bestScore == attackScore:
-            ct.draw_indicator_line(Position(0, 0), myLoc, 255, 0, 0)
             self.attack(ct, attackPos)
         elif bestScore == healScore:
-            ct.draw_indicator_line(Position(0, 0), myLoc, 0, 255, 0)
             self.heal(ct, healPos)
         elif bestScore == routeScore:
             self.route(ct, routePos, routeDir)
@@ -542,6 +337,7 @@ class Player:
                             ct.destroy(gunnerSpot)
                             return
         self.mapPf.moveTo(ct, attackPos)
+
     def heal(self, ct: Controller, healPos: Position):
         myLoc = ct.get_position()
         if ct.can_heal(healPos):
