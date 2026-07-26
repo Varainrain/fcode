@@ -12,8 +12,8 @@ DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 CARDINALS = [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]
 
 openCost = 1       
-barrierCost = 8 # to be implemented later
-
+barrierCost = 8
+gunnerCost = 24 # gunners cost more, so higher
 
 tileTypes = { # limited to 4 types to maximize caching ability
     Environment.EMPTY: 0, # Only counts if they are passable, or have a team barrier on them
@@ -85,7 +85,7 @@ class MapPathfinder:
         if tileId is not None and not ct.is_tile_passable(tile):
             tTeam = ct.get_team(tileId)
             tType = ct.get_entity_type(tileId)
-            if tTeam != ct.get_team() or tType != EntityType.BARRIER:
+            if tTeam != ct.get_team() or (tType != EntityType.BARRIER and tType != EntityType.GUNNER):
                 return False
         return True
     def getNewTiles (self, ct: Controller):
@@ -170,6 +170,8 @@ class MapPathfinder:
                 tType = ct.get_entity_type(tileId)
                 if tTeam == ct.get_team() and tType == EntityType.BARRIER:
                     return barrierCost
+                elif tTeam == ct.get_team() and tType == EntityType.GUNNER:
+                    return gunnerCost
                 elif ct.is_tile_passable(tile) == False:
                     return 4096
         return openCost
@@ -240,6 +242,8 @@ class MapPathfinder:
                     return [8, 'working']  # empty
                 if tType == EntityType.BARRIER:
                     return [barrierCost, 'working']  
+                if tType == EntityType.GUNNER:
+                    return [gunnerCost, 'working']  
                 return [None, 'stuck']  # dont break other stuff
         return [1, 'working'] 
 
@@ -320,14 +324,24 @@ class MapPathfinder:
         if tileId is not None:
             tTeam = ct.get_team(tileId)
             tType = ct.get_entity_type(tileId)
-            if tTeam == ct.get_team() and tType == EntityType.BARRIER:
+            if tTeam == ct.get_team() and (tType == EntityType.BARRIER or tType == EntityType.GUNNER):
                 if ct.can_destroy(curEnd):
                     ct.destroy(curEnd)
                     return
         if ct.can_build_conveyor(curEnd, bestNextDir):
             ct.build_conveyor(curEnd, bestNextDir)
         else:
-            self.moveTo(ct, curEnd)
+            if myLoc == curEnd:
+                self.moveTo(ct, teamCore)
+            elif myLoc.distance_squared(curEnd) == 1:
+                return
+            elif myLoc.distance_squared(curEnd) == 2:
+                for d in CARDINALS:
+                    newLoc = myLoc.add(d)
+                    if newLoc.distance_squared(curEnd) == 1 and ct.can_move(d):
+                        ct.move(d)
+            else:
+                self.moveTo(ct, curEnd)
 
     def moveTo (self, ct: Controller, target: Position):
         myLoc = ct.get_position()
@@ -351,7 +365,7 @@ class MapPathfinder:
                     elif tileId is not None:
                         tTeam = ct.get_team(tileId)
                         tType = ct.get_entity_type(tileId)
-                        if tTeam == ct.get_team() and tType == EntityType.BARRIER:
+                        if tTeam == ct.get_team() and (tType == EntityType.BARRIER or tType == EntityType.GUNNER):
                             bestDir = d
                             bestDist = posDist
         if bestDir is not None:
@@ -360,7 +374,7 @@ class MapPathfinder:
             if tileId is not None:
                 tTeam = ct.get_team(tileId)
                 tType = ct.get_entity_type(tileId)
-                if tTeam == ct.get_team() and tType == EntityType.BARRIER:
+                if tTeam == ct.get_team() and (tType == EntityType.BARRIER or tType == EntityType.GUNNER):
                     if ct.can_destroy(nextPos):
                         ct.destroy(nextPos)
                     else:

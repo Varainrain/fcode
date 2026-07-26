@@ -57,7 +57,7 @@ n = len(jobs)
 print(f"BATTLE  {BOT_A} vs {BOT_B}  |  {len(ALL)} maps x {SEEDS} seeds x both sides = {n} games\n")
 
 rows, wins_a, wins_b = [], 0, 0
-with cf.ThreadPoolExecutor(max_workers=min(6, os.cpu_count() or 4)) as ex:
+with cf.ThreadPoolExecutor(max_workers=min(21, os.cpu_count() or 4)) as ex:
     for i, (m, first, second, seed, winner, cond, turn) in enumerate(
             ex.map(lambda j: game(*j), jobs), 1):
         rows.append([BOT_A, BOT_B, m, seed, first, winner, cond, turn])

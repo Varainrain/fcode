@@ -152,7 +152,7 @@ class Player:
                         else:
                             curScore += 1
                         if bbId is not None and ct.get_team(bbId) != myTeam:
-                            curScore += 2
+                            curScore += 4
                 if curScore > bestScore:
                     bestScore = curScore
                     bestDir = d
@@ -181,13 +181,13 @@ class Player:
                         elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
                             buildingScore = 8
                         elif bType == EntityType.BUILDER_BOT:
-                            buildingScore = 2
+                            buildingScore = 4
                         else:
                             buildingScore = 1
                     else:
                         continue
                     dist = myLoc.distance_squared(bPos)
-                    buildingScore = buildingScore * (1 - dist/40)
+                    buildingScore = buildingScore * (1 - dist/48)
                     if buildingScore > attackScore:
                         attackScore = buildingScore
                         attackPos = bPos # no need to worry about this not being initialized, as it needs buildingScore > attackScore, so there must be a position
@@ -222,10 +222,11 @@ class Player:
             cHP = ct.get_hp(b)
             maxHP = ct.get_max_hp(b)
             mHP = maxHP - cHP
-            buildingScore = buildingScore * (1 - dist/120) * (mHP/maxHP)
-            if buildingScore > healScore:
-                healScore = buildingScore
-                healPos = bPos
+            if dist > 0:
+                buildingScore = buildingScore * (1 - dist/120) * (mHP/maxHP)
+                if buildingScore > healScore:
+                    healScore = buildingScore
+                    healPos = bPos
 
         # route, max score of 6
         routeScore = 0 # orphan harvesters + unfinished conveyor chains
@@ -331,7 +332,7 @@ class Player:
                 if spotId is not None:            
                     spotTeam = ct.get_team(spotId)
                     spotType = ct.get_entity_type(spotId)
-                    if spotTeam == myTeam and spotType in [EntityType.BARRIER, EntityType.CONVEYOR]:
+                    if spotTeam == myTeam and spotType in [EntityType.BARRIER]:
                         if ct.can_destroy(gunnerSpot):
                             ct.destroy(gunnerSpot)
                             return
@@ -339,13 +340,18 @@ class Player:
 
     def heal(self, ct: Controller, healPos: Position):
         myLoc = ct.get_position()
-        if myLoc == healPos and ct.get_hp() < 40: # this means you are low, so run
-            self.mapPf.moveTo(ct, self.mapPf.teamCore)
         if ct.can_heal(healPos):
             ct.heal(healPos)
         else:
-            self.mapPf.moveTo(ct, healPos)
-                
+            if myLoc.distance_squared(healPos) > 2:
+                self.mapPf.moveTo(ct, healPos)
+            elif myLoc.distance_squared(healPos) > 1:
+                for d in CARDINALS:
+                    newLoc = myLoc.add(d)
+                    if newLoc.distance_squared(healPos) == 1 and ct.can_move(d):
+                        ct.move(d)
+            else:
+                self.mapPf.moveTo(ct, self.mapPf.teamCore)
     def route(self, ct: Controller, routePos: Position, routeDir: Direction):
         self.mapPf.routeConveyor(ct, routePos)
     def harvest(self, ct: Controller, harvestPos: Position):
