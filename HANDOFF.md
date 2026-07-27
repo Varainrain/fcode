@@ -8,6 +8,35 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🚨 THE LASTPOPPERIAN_ AUTOPSY — WE HAD THEM COMPLETELY WRONG (2026-07-27)
+Five of their wins parsed from replays (67fecf4c g1-4, 1d28bf18 g2), separating their HOME turrets from their ATTACK turrets by distance to OUR core:
+
+| map | their builders | home sentinel | 1st doorstep gun | attack guns | we die |
+|---|---|---|---|---|---|
+| aurora | 4 | t7 | t59 | 4 @ d3-5 diag | t90 |
+| strait | 4 | t13 | t59 | 3 @ d3-4 | t86 |
+| bridge | 3 | t4 | t82 | 4 @ d1-3 | t107 |
+| twins | 4 | t13 | t84 | 4 @ d3-5 all diag | t109 |
+| hive | 3 | t7 | t74 | 3 @ d2-4 | t100 |
+
+- **THEY ARE NOT A RUSHER.** krb (t29 waves) was the wrong proxy for every anti-rush measurement we made this week — including the tuning of oogerebus3, which is CURRENTLY ON THE LADDER at #2.
+- Their shape: 3-4 builders all game, ONE home sentinel at t4-13 (~4-5 tiles out, enemy-facing, covers the approach lane not the doorstep), heavy conveyor econ, then at **t45-70 one or two builders permanently leave the economy**, walk over, and seat 2-4 gunners at **manhattan 2-5, DIAGONALS PREFERRED** (our ring wall only denies orthogonals; a gunner 2 diagonal steps out still reaches). **They rebuild every gun we kill — bridge: same seat 12 times.** Core dies ~25 turns after the first seat lands.
+- **⚠ CORRECTION to my first read: they do NOT out-economy us.** On aurora they built 58 entities to our 92. We out-build them and lose anyway. The gap is not economy or builder count — it is that a scheduled, rebuilt siege converts to a core kill and our extra 34 buildings do not. Beating them means answering 2-4 rebuilt diagonal seats, nothing else.
+- **The arithmetic of that answer** (from GameConstants): builder attack = 2 dmg → 20 turns per 40hp gunner. Gunner = 10 dmg → 4 turns. **Seat a counter-gunner with line of sight; never plink with builders.** This is exactly the 2nd-place team's "Turret Takedown".
+- Clones live in `bots/lastpop` (on mech-v1's econ: 8% vs champion — too weak, econ never funds the siege) and `bots/lastpop2` (on the CHAMPION's econ + lean crew + home sentinel + scheduled siege). Fidelity target is ~60% vs frozen-erebus-v1.
+
+## 🐛 FOUR SILENT-FAILURE BUGS FOUND WHILE CLONING (2026-07-27) — grep the other bots
+1. **`store[0]` is off by one**: the core increments BEFORE the new builder ever runs, so the "first" builder reads 1, not 0. **mech-v1's idx-0 waller role therefore NEVER RAN** (part of its 4%).
+2. **Spawn-index race**: a builder born at t0 first runs at t1, by which point the core may have bumped the counter again — so any role derived from `read_store(0)` can land on the wrong bot. **oogerebus3 (on the ladder now) uses this pattern.** Fix used in lastpop2: claim jobs through a FREE store slot (8-15) instead.
+3. **Building on your own tile silently fails** (2.3). A bot that walks ONTO its target tile loops forever doing nothing. Require manhattan == 1 exactly.
+4. **`can_fire_from(spot, f, SENTINEL, enemy_core)` is always False** — the core is 20-38 tiles away, sentinel range^2 is 32. Gating a build on it means the building is never placed. Face the target instead of asking whether you can hit it.
+All four fail SILENTLY — no crash, no log, the unit just quietly does nothing.
+
+## 📊 ANTI-CLUMPING (canon-v1) — THE ONLY CHALLENGER LEFT STANDING (2026-07-27)
+`bots/canon-v1` = champion + `_canonicalFor()`: only the ally builder CLOSEST to a target acts on it (ties by id), computed from each bot's own vision with zero comms. **The champion has NO claim system at all** (grep: 0 hits; khaos has 12) — every builder independently decides to hit whatever it sees, and Oogway's `attackBan` is the crude stand-in (seeing ONE friendly gunner stops that builder attacking ANYTHING for 4-12 turns).
+**168-game results: 54% vs champion (kills 68-55), 64% vs krb (champion's own: 63%).** Real but small; 54% at n=168 is ±7.7 so still inside the unproven band.
+**`canon-v2` (canon-v1 + emergency defense) = 49% — the emergency-defense idea is now DEAD after four attempts.** The hypothesis that it failed only because every builder stampeded is FALSIFIED: with clumping fixed it still does not help. The `>120 Ti` gate is load-bearing for reasons beyond clumping. Do not try again.
+
 ## 📚 ALL CAMBRIDGE POSTMORTEMS ARE PUBLIC — including 2nd place (2026-07-27)
 `https://game.battlecode.cam/postmortems` lists NINE more besides Pantheon: Clankers, Jimboko, MFF1, Make_Fire, Tensor_Bot, The_Blades, cheesynachos, **something_else**, test. **"something else" IS the 2nd place team** (osteo/Jython/Coderz75) — the Pantheon caption "Pantheon (gold) and something else (silver)" is a team name, not placeholder text. Their repo `frkns/cambc26` is private (token returns "not found"), but the 21-page writeup is public. Ideas worth stealing:
 - **Turret Takedown:** answer an enemy turret by BUILDING A COUNTER-GUNNER with line of sight to it, placed adjacent to a harvester. Mechanically right for us too: builder = 2 dmg (20 turns to kill a 40hp gunner), gunner = 10 dmg (4 turns). This is the correct form of what oni's adjacent-fire was reaching for.
