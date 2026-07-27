@@ -164,13 +164,17 @@ class Player:
         # orthogonal conveyor ring does not deny a diagonal seat, and a
         # gunner two diagonal steps out still reaches). They then rebuild
         # forever — on bridge the same seat was replaced 12 times.
-        if self.sieger is None:
-            self.sieger = False
-            if ct.get_current_round() >= SIEGE_START:
-                claimed = ct.read_store(SIEGE_SLOT)
-                if claimed < SIEGE_CREW:
-                    ct.write_store(SIEGE_SLOT, claimed + 1)
-                    self.sieger = True
+        # decide ONLY once the siege round arrives — an earlier version
+        # latched every existing builder to False on its first turn (before
+        # t45), so only builders BORN after t45 could ever claim and the
+        # clone built zero attack gunners
+        if self.sieger is None and ct.get_current_round() >= SIEGE_START:
+            claimed = ct.read_store(SIEGE_SLOT)
+            if claimed < SIEGE_CREW:
+                ct.write_store(SIEGE_SLOT, claimed + 1)
+                self.sieger = True
+            else:
+                self.sieger = False
         if self.sieger:
             self.doSiege(ct, myLoc)
             return
@@ -425,7 +429,14 @@ class Player:
         # attack, max score of 10
         attackScore = 0
         attackPos = None
-        if self.attackBan == 0:
+        # DISCIPLINE — the clone's biggest missing trait. Measured on hive:
+        # the real lastpopperian_ won at t90 with FOUR gunners; this clone
+        # built EIGHTEEN and lost at t186, because it inherited the
+        # champion's opportunistic brawler reflex. Those 18 guns drained
+        # the titanium and the shared ammo pool that the deliberate siege
+        # needs (clone mined 950 vs the champion's 2040). They do not
+        # skirmish: guns are built by the SIEGE, and only by the siege.
+        if self.attackBan == 0 and self.sieger:
             if ct.get_global_resources() > 120 and ct.get_id() > 4: # dont attack if u r broke and leave one bot for defense
                 for b in nearbyUnits: # looks at nearby enemies, and scored on entity type and distance
                     bTeam = ct.get_team(b)
