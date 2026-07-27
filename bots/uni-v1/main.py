@@ -1,0 +1,620 @@
+"""Starter bot - a simple example to demonstrate usage of the Controller API.
+
+Each unit gets its own Player instance; the engine calls run() once per round.
+Use Controller.get_entity_type() to branch on what kind of unit you are.
+"""
+
+import random
+
+from fcode import Controller, Direction, EntityType, Environment, Position
+
+DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
+CARDINALS = [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]
+
+# duty-on-demand (see the DOORSTEP AUDIT block in runCore)
+DUTY_CHECK_LO = 20      # core audits its ring in this window
+DUTY_CHECK_HI = 26
+DUTY_TRIGGER = 3        # this many open ring tiles = the passive wall failed
+DUTY_CODE = 4242        # slot-7 signal (never a valid spawn target encoding)
+
+from mapPathfinding import *
+from initialSpawning import *
+anglePerDir = [
+    135, 108, 162, 90,
+    45, 72, 18, 0,
+    315, 288, 342, 270,
+    225, 252, 198, 180
+]
+spawnPoints = [
+    Position(-1, -1), Position(0, -1), Position(-1, 0), Position(0, -1), # tL
+    Position(1, -1), Position(0, -1), Position(1, 0), Position(1, 0), # tR
+    Position(1, 1), Position(0, 1), Position(1, 0), Position(0, 1), # bR
+    Position(-1, 1), Position(0, 1), Position(-1, 0), Position(-1, 0) # bL
+]
+directionMoves = [
+    Position(-6, -6), Position(-2, -6), Position(-6, -2), Position(0, -6), # tL
+    Position(6, -6), Position(2, -6), Position(6, -2), Position(6, 0), # tR
+    Position(6, 6), Position(2, 6), Position(6, 2), Position(0, 6), # bR
+    Position(-6, 6), Position(-2, 6), Position(-6, 2), Position(-6, 0) # bL
+]
+gunnerAttacks = [
+    Position(0, 1), Position(0, 2), Position(0, 3),
+    Position(0, -1), Position(0, -2), Position(0, -3),
+    Position(-1, 0), Position(-2, 0), Position(-3, 0),
+    Position(1, 0), Position(2, 0), Position(3, 0),
+    Position(-1, 1), Position(-2, 2),
+    Position(-1, -1), Position(-2, -2),
+    Position(1, 1), Position(2, 2),
+    Position(1, -1), Position(2, -2)
+]
+# slot 0 numSpawned, slot 1-6 map sharing, slot 7 initial target
+
+class Player:
+    def __init__(self):
+        self.mapPf = MapPathfinder()
+        self.initSpawn = initialSpawn()
+        self.numSpawned = 0
+        self.fiveDirections = None
+        self.initTarget = None
+        self.turnsAlive = 0
+        self.attackBan = 0
+        self.dutyOn = False   # set when the core signals an open doorstep
+        self.mapW = None
+        self.mapH = None
+        self._wallSet = None  # deny tiles around our core, computed once
+
+    def runCore(self, ct: Controller) -> None:
+        if self.numSpawned == 0:
+           self.fiveDirections =  self.initSpawn.setBestFive(ct)
+           ct.draw_indicator_dot(Position(0, 0), 204, 23, 123)
+        if self.fiveDirections and len(self.fiveDirections) > 0: # only the first 5 bots spawned should be there
+            spawnAngle = self.fiveDirections[0]
+            index = anglePerDir.index(spawnAngle)
+            myLoc = ct.get_position()
+            tL = myLoc
+            tR = myLoc.add(Direction.EAST)
+            bL = myLoc.add(Direction.SOUTH)
+            bR = myLoc.add(Direction.SOUTH).add(Direction.EAST)
+            coreCorners = [tL, tR, bR, bL]
+
+            spawnPos = Position(
+                coreCorners[index // 4].x + spawnPoints[index].x,
+                coreCorners[index // 4].y + spawnPoints[index].y
+            )
+            target = Position(spawnPos.x + directionMoves[index].x, spawnPos.y + directionMoves[index].y)
+            target = Position(
+                max(0, min(target.x, self.mapW - 1)),
+                max(0, min(target.y, self.mapH - 1))
+            )
+            if ct.can_spawn(spawnPos):
+                ct.spawn_builder(spawnPos)
+                self.numSpawned += 1
+                ct.write_store(0, self.numSpawned )
+                ct.write_store(7, target.x * 32 + target.y) #
+                self.fiveDirections.remove(spawnAngle) # so it doesnt spawn in the same spot twice.
+        globalAmmo = ct.get_global_ammo()
+        globalTitanium = ct.get_global_resources()
+
+        if globalTitanium > 80 + 60 * self.numSpawned:
+            for i in ct.get_nearby_tiles():
+                if ct.can_spawn(i):
+                    ct.spawn_builder(i)
+                    corners = [Position(0, 0), Position(self.mapW - 1, 0), Position(0, self.mapH - 1), Position(self.mapW - 1, self.mapH - 1)]
+                    corners.sort(key=lambda corner: corner.distance_squared(ct.get_position()))
+                    ct.write_store(7, corners[0].x * 32 + corners[0].y)
+                    break
+        if globalAmmo < 20 and globalTitanium > 100:
+            if ct.can_convert_ammo(20 - globalAmmo):
+                ct.convert_ammo(20 - globalAmmo)
+        # DOORSTEP AUDIT: at ~round 22, is the enemy-facing ring sealed?
+        # If the passive wall got it, we owe nothing. If it is still open,
+        # raise DUTY_CODE so one builder goes and does it. Written after
+        # the spawn block so it wins slot 7 for this turn; latched by the
+        # builders, so a single turn of signal is enough.
+        rnd = ct.get_current_round()
+        if DUTY_CHECK_LO <= rnd <= DUTY_CHECK_HI:
+            me = ct.get_position()
+            eg = Position(self.mapW - 1 - me.x, self.mapH - 1 - me.y)
+            cd = abs(me.x + 0.5 - eg.x) + abs(me.y + 0.5 - eg.y)
+            foot = {(me.x + a, me.y + b) for a in (0, 1) for b in (0, 1)}
+            open_tiles = 0
+            for x in range(me.x - 1, me.x + 3):
+                for y in range(me.y - 1, me.y + 3):
+                    if (x, y) in foot:
+                        continue
+                    if not (0 <= x < self.mapW and 0 <= y < self.mapH):
+                        continue
+                    if abs(x - eg.x) + abs(y - eg.y) > cd:
+                        continue        # home side stays open on purpose
+                    p = Position(x, y)
+                    try:
+                        if ct.get_tile_building_id(p) is not None:
+                            continue
+                        if ct.get_tile_env(p) != Environment.EMPTY:
+                            continue    # wall/ore already denies it
+                    except Exception:
+                        continue
+                    open_tiles += 1
+            if open_tiles >= DUTY_TRIGGER:
+                ct.write_store(7, DUTY_CODE)
+        
+    def run(self, ct: Controller) -> None:
+        # dev26: an uncaught exception PERMANENTLY destroys this unit (a
+        # CPU timeout only skips the turn) — one bad tile query must never
+        # cost a unit
+        try:
+            if self.mapW is None:
+                self.mapH = ct.get_map_height()
+                self.mapW = ct.get_map_width()
+            etype = ct.get_entity_type()
+            if etype == EntityType.CORE:
+                self.runCore(ct)
+            elif etype == EntityType.BUILDER_BOT:
+                self.builderBot(ct)
+            elif etype == EntityType.GUNNER:
+                self.runGunner(ct)
+        except Exception:
+            pass
+    def builderBot(self, ct: Controller):
+        myLoc = ct.get_position()
+        self.numSpawned = ct.read_store(0)
+        self.mapPf.setupMap(ct)
+        if self.initTarget is None: # set initial target for the first explore
+            compact = ct.read_store(7)
+            if compact == DUTY_CODE:      # slot 7 is carrying a signal, not a tile
+                self.initTarget = self.mapPf.teamCore or myLoc
+            else:
+                self.initTarget = Position(compact // 32, compact % 32)
+        self.turnsAlive += 1
+        # WALL DUTY: the first-spawned builder walls the enemy-side ring
+        # during rounds 6-45, then rejoins normal life. Skerry t55 autopsy:
+        # the passive wall needs foot traffic near the core, and on econ-
+        # spread maps every builder leaves instantly — zero wall, doorstep
+        # gunners at t29. One dedicated builder for ~40 rounds is bounded
+        # (the all-crew wall STATE starved the econ, 32% gate). Duty is
+        # picked by SPAWN ORDER via store slot 0 — entity ids interleave
+        # across teams, so an id threshold silently matched nobody as
+        # player B (t55 losses unchanged until this was fixed).
+        if self.turnsAlive == 1:
+            self.mySpawnIdx = ct.read_store(0)   # count at my birth = my index
+        # DUTY ON DEMAND — the point of uni-v1. Wall duty wins the rush
+        # matchup (85-100% vs krb) but costs ~11 points against everyone
+        # else, because one builder stops mining. So only pay it where it
+        # is actually needed: the CORE checks its own doorstep at ~round 22
+        # (it is the one unit that always sees the ring) and raises a flag
+        # only if the passive wall has failed to fill it. On maps with home
+        # traffic the ring is already sealed for free -> no duty, no cost.
+        # On skerry-type maps the ore spread empties home -> ring empty ->
+        # duty fires, ~40 rounds before their t86-110 kill window.
+        # (Reacting to SEEN enemies was tried and is always too late; this
+        # keys off our own wall state instead, so no detection is needed.)
+        if not self.dutyOn:
+            flag = ct.read_store(7)
+            if flag == DUTY_CODE:
+                self.dutyOn = True
+        if (self.dutyOn
+                and getattr(self, "mySpawnIdx", 99) <= 1
+                and ct.get_current_round() <= 80
+                and self.mapPf.teamCore is not None):
+            # FULL WALL DUTY — the measured design space: full duty = 85%
+            # vs the wave meta / 44% mirror; watchman = too late always;
+            # micro-duty = wave sidesteps (t62 kills). This bot is the
+            # ANTI-RUSH SPECIALIST; its sibling oogerebus is the
+            # mirror-strong generalist. Field per expected opponent.
+            if self.wallDuty(ct, myLoc):
+                return
+        self.runBestState(ct, myLoc)
+        # PASSIVE WALL (the kfort lesson, integrated the right way this
+        # time): walling is a SIDE EFFECT of a spare action next to a deny
+        # tile, never a destination. oogwip3/4 made it a state and starved
+        # the economy (32%/46% gates) — this version costs zero movement
+        # and zero state priority by construction.
+        self.passiveWall(ct, ct.get_position())
+
+    def wallDuty(self, ct: Controller, myLoc: Position) -> bool:
+        """One early builder's bounded job: wall the enemy-side ring with
+        core-facing conveyors, then hand back to normal life (returns False
+        when done). Home-side ring stays open — those are the core's only
+        heal positions (full seal gated 29%)."""
+        if getattr(self, "_dutyDone", False):
+            return False
+        tc = self.mapPf.teamCore
+        cx, cy = tc.x, tc.y
+        foot = {(cx + a, cy + b) for a in (0, 1) for b in (0, 1)}
+        eg = Position(self.mapW - 1 - cx, self.mapH - 1 - cy)
+        cd = abs(cx + 0.5 - eg.x) + abs(cy + 0.5 - eg.y)
+        todo = []
+        for x in range(cx - 1, cx + 3):
+            for y in range(cy - 1, cy + 3):
+                if (x, y) in foot:
+                    continue
+                if not (0 <= x < self.mapW and 0 <= y < self.mapH):
+                    continue
+                if abs(x - eg.x) + abs(y - eg.y) > cd:
+                    continue  # home side stays open
+                p = Position(x, y)
+                if not ct.is_in_vision(p):
+                    todo.append(p)
+                    continue
+                if ct.get_tile_building_id(p) is not None:
+                    continue
+                if self.mapPf.getTileEnv(p) in (1, 2, 3):
+                    continue
+                todo.append(p)
+        # FULL enemy-side ring — measured truth: 3-tile micro-duty just
+        # displaced the wave one tile over (8 identical t62 kills); only
+        # denying the whole half breaks it (skerry 69%, krb overall 85%)
+        todo.sort(key=lambda q: abs(q.x - eg.x) + abs(q.y - eg.y))
+        if not todo:
+            self._dutyDone = True
+            return False
+        if ct.get_global_resources() < 15:
+            return True   # hold near home while poor rather than wandering
+        if ct.can_act():
+            for p in todo:
+                if abs(myLoc.x - p.x) + abs(myLoc.y - p.y) != 1:
+                    continue
+                tgt = None
+                for d in CARDINALS:
+                    n = p.add(d)
+                    if (n.x, n.y) in foot:
+                        tgt = n
+                        break
+                if tgt is None:
+                    # ring corner: chain into an edge-ring conveyor that
+                    # already exists (never create a dead end — trunk trap)
+                    for d in CARDINALS:
+                        n = p.add(d)
+                        if not (0 <= n.x < self.mapW and 0 <= n.y < self.mapH):
+                            continue
+                        nId = ct.get_tile_building_id(n) if ct.is_in_vision(n) else None
+                        if (nId is not None and ct.get_team(nId) == ct.get_team()
+                                and ct.get_entity_type(nId) == EntityType.CONVEYOR):
+                            tgt = n
+                            break
+                if tgt is None:
+                    continue
+                f = p.direction_to(tgt)
+                if f in CARDINALS and ct.can_build_conveyor(p, f):
+                    ct.build_conveyor(p, f)
+                    return True
+        todo.sort(key=lambda q: myLoc.distance_squared(q))
+        self.mapPf.moveTo(ct, todo[0])
+        return True
+
+    def passiveWall(self, ct: Controller, myLoc: Position):
+        if not ct.can_act():
+            return  # this turn's action went to the real job
+        tc = self.mapPf.teamCore
+        if tc is None or ct.get_global_resources() < 60:
+            return
+        if self._wallSet is None:
+            cx, cy = tc.x, tc.y
+            foot = {(cx + a, cy + b) for a in (0, 1) for b in (0, 1)}
+            eg = Position(self.mapW - 1 - cx, self.mapH - 1 - cy)
+            cd = abs(cx + 0.5 - eg.x) + abs(cy + 0.5 - eg.y)
+            s = set()
+            for x in range(cx - 1, cx + 3):        # enemy-side ring + ties
+                for y in range(cy - 1, cy + 3):    # (home side stays open:
+                    if (x, y) in foot:             # spawn exit + the only
+                        continue                   # core-heal positions)
+                    if abs(x - eg.x) + abs(y - eg.y) <= cd:
+                        s.add((x, y))
+            for o in (0, 1):                       # cardinal rays d2-3
+                for d in (2, 3):
+                    s.update([(cx - d, cy + o), (cx + 1 + d, cy + o),
+                              (cx + o, cy - d), (cx + o, cy + 1 + d)])
+            for a in (0, 1):                       # 2-step diagonals (8-way
+                for b in (0, 1):                   # facing since 2.3)
+                    for dx, dy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                        s.add((cx + a + 2 * dx, cy + b + 2 * dy))
+            self._wallSet = {(x, y) for (x, y) in s
+                             if 0 <= x < self.mapW and 0 <= y < self.mapH}
+        foot = {(tc.x + a, tc.y + b) for a in (0, 1) for b in (0, 1)}
+        for d in CARDINALS:
+            wp = myLoc.add(d)
+            if (wp.x, wp.y) not in self._wallSet:
+                continue
+            if not ct.is_in_vision(wp) or ct.get_tile_building_id(wp) is not None:
+                continue
+            if self.mapPf.getTileEnv(wp) in (1, 2, 3):  # ore/wall/blocked
+                continue
+            # face coreward, and NEVER build a dead end: output must be the
+            # core or an existing own conveyor (a dead-end wall conveyor
+            # swallows every harvest chain routed into it)
+            target = None
+            for d2 in CARDINALS:
+                nxt = wp.add(d2)
+                if (nxt.x, nxt.y) in foot:
+                    target = nxt
+                    break
+            if target is None:
+                best = None
+                for d2 in CARDINALS:
+                    nxt = wp.add(d2)
+                    if not (0 <= nxt.x < self.mapW and 0 <= nxt.y < self.mapH):
+                        continue
+                    if not ct.is_in_vision(nxt):
+                        continue
+                    nId = ct.get_tile_building_id(nxt)
+                    if nId is None or ct.get_team(nId) != ct.get_team():
+                        continue
+                    if ct.get_entity_type(nId) != EntityType.CONVEYOR:
+                        continue
+                    dd = abs(nxt.x - tc.x) + abs(nxt.y - tc.y)
+                    if best is None or dd < best[0]:
+                        best = (dd, nxt)
+                if best is not None:
+                    target = best[1]
+            if target is None:
+                continue
+            facing = wp.direction_to(target)
+            if facing in CARDINALS and ct.can_build_conveyor(wp, facing):
+                ct.build_conveyor(wp, facing)
+                return
+    def runGunner (self, ct: Controller):
+        curTarget = ct.get_gunner_target()
+        myDir = ct.get_direction()
+        myPos = ct.get_position()
+        myTeam = ct.get_team()
+        if curTarget is not None:
+            targetId = ct.get_tile_building_id(curTarget)
+            bbId = ct.get_tile_builder_bot_id(curTarget) 
+            if bbId is not None and ct.get_team(bbId) == myTeam:
+                return # dont kill your own bot
+            if targetId is not None and ct.get_team(targetId) != ct.get_team():
+                if ct.can_fire(curTarget):
+                    ct.fire(curTarget)
+                    return
+        if ct.get_global_resources() > 60:
+            bestScore = 0
+            bestDir = myDir # so you only rotate when you need to
+            for d in DIRECTIONS:
+                curScore = 0
+                for tile in ct.get_attackable_tiles_from(myPos, d, EntityType.GUNNER):
+                    tileId = ct.get_tile_building_id(tile)
+                    bbId = ct.get_tile_builder_bot_id(tile) 
+                    if tileId is not None and ct.get_team(tileId) != myTeam:
+                        tType = ct.get_entity_type(tileId)
+                        if tType in [EntityType.GUNNER, EntityType.SENTINEL]:
+                            curScore += 10
+                        elif tType == EntityType.CORE:
+                            curScore += 8
+                        elif tType in [EntityType.LAUNCHER, EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
+                            curScore += 4
+                        else:
+                            curScore += 1
+                        if bbId is not None and ct.get_team(bbId) != myTeam:
+                            curScore += 2
+                if curScore > bestScore:
+                    bestScore = curScore
+                    bestDir = d
+            if bestDir != myDir:
+                if ct.can_rotate(bestDir):
+                    ct.rotate(bestDir)
+
+
+    def runBestState(self, ct: Controller, myLoc: Position):
+        nearbyUnits = ct.get_nearby_entities() # both builder bots and buildings
+        myTeam = ct.get_team()
+
+        # attack, max score of 10
+        attackScore = 0
+        attackPos = None
+        if self.attackBan == 0:
+            if ct.get_global_resources() > 120 and ct.get_id() > 4: # dont attack if u r broke and leave one bot for defense
+                for b in nearbyUnits: # looks at nearby enemies, and scored on entity type and distance
+                    bTeam = ct.get_team(b)
+                    buildingScore = 0
+                    if bTeam != myTeam:
+                        bPos = ct.get_position(b)
+                        bType = ct.get_entity_type(b)
+                        if bType in [EntityType.GUNNER, EntityType.SENTINEL, EntityType.CORE]:
+                            buildingScore = 10
+                        elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
+                            buildingScore = 8
+                        elif bType == EntityType.BUILDER_BOT:
+                            buildingScore = 2
+                        else:
+                            buildingScore = 1
+                    else:
+                        continue
+                    dist = myLoc.distance_squared(bPos)
+                    buildingScore = buildingScore * (1 - dist/40)
+                    if buildingScore > attackScore:
+                        attackScore = buildingScore
+                        attackPos = bPos # no need to worry about this not being initialized, as it needs buildingScore > attackScore, so there must be a position
+                for b in ct.get_nearby_buildings(5):
+                    if ct.get_entity_type(b) == EntityType.GUNNER and ct.get_team(b) == myTeam:
+                        attackScore = 0
+                        self.attackBan = 4 + (ct.get_id() % 8)
+                        break
+        else:
+            self.attackBan -= 1
+
+        # heal, max score of 8
+        healScore = 0
+        healPos = None
+        for b in nearbyUnits: # scored on how low the unit is, distance, and entity type
+            bTeam = ct.get_team(b)
+            buildingScore = 0
+            if bTeam == myTeam:
+                bPos = ct.get_position(b)
+                bType = ct.get_entity_type(b)
+                if bType in [EntityType.CORE, EntityType.BUILDER_BOT]: # dont waste an entire state on just healing yourself
+                    buildingScore = 8
+                elif bType in [EntityType.GUNNER, EntityType.SENTINEL]:
+                    buildingScore = 6
+                elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
+                    buildingScore = 4 
+                else:
+                    buildingScore = 2
+            else:
+                continue
+            dist = myLoc.distance_squared(bPos)
+            cHP = ct.get_hp(b)
+            maxHP = ct.get_max_hp(b)
+            mHP = maxHP - cHP
+            buildingScore = buildingScore * (1 - dist/120) * (mHP/maxHP)
+            if buildingScore > healScore:
+                healScore = buildingScore
+                healPos = bPos
+
+        # route, max score of 6
+        routeScore = 0 # orphan harvesters + unfinished conveyor chains
+        routePos = None
+        routeDir = None
+        mapW = self.mapW
+        mapH = self.mapH
+        teamCore = self.mapPf.teamCore
+        if teamCore is not None:
+            for b in nearbyUnits:
+                bScore = 0
+                bPos = ct.get_position(b)
+                bType = ct.get_entity_type(b)
+                bDir = None
+                endTile = None
+                if bType == EntityType.HARVESTER and myLoc.distance_squared(bPos) < 16: # max score of 5 to prioritize cotninueing paths
+                    noTeamConv = True
+                    workingSpots = []
+                    for possibleDir in CARDINALS: # would have named it dir, but thats not allowed
+                        endTile = bPos.add(possibleDir)
+                        if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
+                            eId = ct.get_tile_building_id(endTile)
+                            if eId is None:
+                                workingSpots.append(endTile)
+                            elif ct.get_team(eId) == myTeam and ct.get_entity_type(eId) == EntityType.CONVEYOR:
+                                noTeamConv = False
+                    if noTeamConv and len(workingSpots) > 0:
+                        workingSpots.sort(key=lambda pos: pos.distance_squared(teamCore))
+                        bScore = max(1.6, 5 * max(0, (1 - (workingSpots[0].distance_squared(teamCore) / 100))) * max(0, (1 - myLoc.distance_squared(bPos)/60)))
+                        bDir = Direction.CENTRE
+                        endTile = workingSpots[0]
+                elif bType == EntityType.CONVEYOR:  
+                    if ct.get_team(b) == myTeam:
+                        bDir = ct.get_direction(b)
+                        endTile = bPos.add(bDir)
+                        if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
+                            eId = ct.get_tile_building_id(endTile)
+                            if eId is None:
+                                bScore = max(2, 6 * max(0, (1 - (endTile.distance_squared(teamCore) / 120))) * max(0, (1 - myLoc.distance_squared(bPos)/40)))
+                if bScore > routeScore:
+                    routeScore = bScore
+                    routePos = endTile
+                    routeDir = bDir
+
+        # harvest, max score of 3
+        harvestScore = 0
+        harvestPos = None
+        if teamCore is not None:
+            for tile in ct.get_nearby_tiles():
+                if self.mapPf.getTileEnv(tile) == 1: # since it checks all nearby tiles before choosing state, this is fine
+                    if ct.get_tile_building_id(tile) is None: 
+                        dist = teamCore.distance_squared(tile)
+                        tileScore = max(1.2, 3 * (1 - dist/160) * (1 - myLoc.distance_squared(tile)/120))
+                        if tileScore > harvestScore:
+                            harvestPos = tile
+                            harvestScore = tileScore
+            
+
+        # explore, max score of 1
+        exploreScore = 0
+        if ct.get_current_round() < 12:
+            explorePos = self.initTarget
+            exploreScore = 1
+        else:
+            explorePos = self.mapPf.returnUnvisited(ct, myLoc)
+            if explorePos is not None:
+                exploreScore = 1
+            else:
+                exploreScore = 0.4 # exploring isnt as important then
+        stateScores = [attackScore, healScore, harvestScore, routeScore, exploreScore]
+        stateScores.sort(key=lambda score: score, reverse=True)
+        bestScore = stateScores[0]
+        if bestScore == attackScore:
+            self.attack(ct, attackPos)
+        elif bestScore == healScore:
+            self.heal(ct, healPos)
+        elif bestScore == routeScore:
+            self.route(ct, routePos, routeDir)
+        elif bestScore == harvestScore:
+            self.harvest(ct, harvestPos)
+        else:
+            self.explore(ct, explorePos)
+    def attack(self, ct: Controller, attackPos: Position):
+        myLoc = ct.get_position()
+        myTeam = ct.get_team()
+        mapW = self.mapW
+        mapH = self.mapH
+        for d in CARDINALS:
+            gunnerSpot = myLoc.add(d)
+            dist = attackPos.distance_squared(gunnerSpot)
+            if dist < 10 and dist != 5 and 0 <= gunnerSpot.x < mapW and 0 <= gunnerSpot.y < mapH:
+                spotId = ct.get_tile_building_id(gunnerSpot)
+                if spotId is None:
+                    gunnerDir = gunnerSpot.direction_to(attackPos)
+                    if ct.can_build_gunner(gunnerSpot, gunnerDir):
+                        ct.build_gunner(gunnerSpot, gunnerDir)
+                    return # you might be able to build next turn tho, so leave as is
+        for d in CARDINALS: # try destorying after you exhaust all possible build opportunities
+            gunnerSpot = myLoc.add(d)
+            dist = attackPos.distance_squared(gunnerSpot)
+            if dist < 10 and dist != 5:
+                spotId = ct.get_tile_building_id(gunnerSpot)
+                if spotId is not None:            
+                    spotTeam = ct.get_team(spotId)
+                    spotType = ct.get_entity_type(spotId)
+                    if spotTeam == myTeam and spotType in [EntityType.BARRIER, EntityType.CONVEYOR]:
+                        if ct.can_destroy(gunnerSpot):
+                            ct.destroy(gunnerSpot)
+                            return
+        self.mapPf.moveTo(ct, attackPos)
+
+    def heal(self, ct: Controller, healPos: Position):
+        myLoc = ct.get_position()
+        if myLoc == healPos and ct.get_hp() < 40: # this means you are low, so run
+            self.mapPf.moveTo(ct, self.mapPf.teamCore)
+            return # act-xor-move: fleeing IS this turn, healing would no-op
+        if ct.can_heal(healPos):
+            ct.heal(healPos)
+        else:
+            self.mapPf.moveTo(ct, healPos)
+                
+    def route(self, ct: Controller, routePos: Position, routeDir: Direction):
+        self.mapPf.routeConveyor(ct, routePos)
+    def harvest(self, ct: Controller, harvestPos: Position):
+        myLoc = ct.get_position()
+        dist = harvestPos.distance_squared(myLoc)
+        if dist > 2:
+            self.mapPf.moveTo(ct, harvestPos)
+            return
+        elif dist == 2:
+            for d in CARDINALS:
+                nextPos = myLoc.add(d)
+                if nextPos.distance_squared(harvestPos) == 1 and ct.can_move(d):
+                    ct.move(d)
+                    break
+            return
+        elif dist == 0:
+            for d in CARDINALS:
+                if ct.can_move(d):
+                    ct.move(d)
+                    break
+            return
+        if ct.can_build_harvester(harvestPos):
+            ct.build_harvester(harvestPos)
+    def explore(self, ct: Controller, explorePos: Position):
+        myLoc = ct.get_position()
+        # FINISHER: nothing in vision, bank full, game aging -> march at the
+        # mirrored enemy core instead of sightseeing. The brawler reflex
+        # (attack state) takes over the moment their stuff enters vision, so
+        # this converts slow suffocation wins into core kills and rescues
+        # would-be tiebreak games.
+        if (ct.get_current_round() > 50 and ct.get_global_resources() > 150
+                and self.mapPf.teamCore is not None and ct.get_id() > 4):
+            tc = self.mapPf.teamCore
+            explorePos = Position(self.mapW - 1 - tc.x, self.mapH - 1 - tc.y)
+        elif explorePos is None:
+            corners = [Position(0, 0), Position(self.mapW - 1, 0), Position(0, self.mapH - 1), Position(self.mapW - 1, self.mapH - 1)]
+            explorePos = corners[ct.get_current_round() // 20 % 4]
+        self.mapPf.moveTo(ct, explorePos)
