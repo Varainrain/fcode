@@ -276,9 +276,9 @@ class MapPathfinder:
             bTeam = ct.get_team(b)
             bType = ct.get_entity_type(b)
             if bTeam == myTeam and bType == EntityType.CONVEYOR:
-                cost = 8 if ct.get_stored_resource(b) is None else 40
+                cost = 10 if ct.get_stored_resource(b) is None else 48
                 if bPos.distance_squared(closestCorner) > myLoc.distance_squared(closestCorner):
-                    cost += 24
+                    cost += 32
                 if cost < self.conveyorMap[bPos.x][bPos.y][0]:
                         self.conveyorMap[bPos.x][bPos.y] = [cost, 'done']
                         buckets[cost].append(bPos)
@@ -393,14 +393,17 @@ class MapPathfinder:
                     ct.move(random.choice(movableDirs))
     
     def returnUnvisited(self, ct: Controller, myLoc: Position):
+        curRound = ct.get_current_round()
+        if self.myNum < 2 and (curRound // 50) % 5 > 1:
+            return self.teamCore
         unvisitedPositions = []
         for x in range(self.mapW):
             for y in range(self.mapH):
                 if not self.seenTiles[x][y]:
                     unvisitedPositions.append(Position(x, y))
-        unvisitedPositions.sort(key=lambda pos: pos.distance_squared(myLoc))
         if len(unvisitedPositions) > 0:
-            return unvisitedPositions[0]
+            weights = [1.0 / ((pos.distance_squared(myLoc) * pos.distance_squared(myLoc)) + 1) for pos in unvisitedPositions]
+            return random.choices(unvisitedPositions, weights=weights, k=1)[0]
         return None
     def getTileEnv (self, tile: Position):
         return self.fullMap[tile.x][tile.y]
