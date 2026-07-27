@@ -169,7 +169,7 @@ class Player:
         attackScore = 0
         attackPos = None
         if self.attackBan == 0:
-            if ct.get_global_resources() > 100: # dont attack if u r broke and leave one bot for defense
+            if ct.get_global_resources() > 120 and ct.get_id() > 4: # dont attack if u r broke and leave one bot for defense
                 for b in nearbyUnits: # looks at nearby enemies, and scored on entity type and distance
                     bTeam = ct.get_team(b)
                     buildingScore = 0
@@ -177,7 +177,7 @@ class Player:
                         bPos = ct.get_position(b)
                         bType = ct.get_entity_type(b)
                         if bType in [EntityType.GUNNER, EntityType.SENTINEL, EntityType.CORE]:
-                            buildingScore = 11
+                            buildingScore = 10
                         elif bType in [EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.SPLITTER]:
                             buildingScore = 8
                         elif bType == EntityType.BUILDER_BOT:
@@ -379,5 +379,5 @@ class Player:
         myLoc = ct.get_position()
         if explorePos is None:
             corners = [Position(0, 0), Position(self.mapW - 1, 0), Position(0, self.mapH - 1), Position(self.mapW - 1, self.mapH - 1)]
-            explorePos = corners[(ct.get_current_round() // 16) % 4]
+            explorePos = corners[ct.get_current_round() // 20 % 4]
         self.mapPf.moveTo(ct, explorePos)
