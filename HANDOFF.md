@@ -8,6 +8,11 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🛑 SEAT DENIAL — REJECTED, AND WHY WE ARE BLOCKED (2026-07-27, bots/seatdeny)
+Champion + deny every tile a gunner could hit our core FROM (asked of the engine via `can_fire_from` per tile/facing, so it is exact and survives ray-rule changes), filled with core-facing conveyors, nearest first, 2 builders, until t90. Conveyor is 3 Ti so the whole zone is ~100 Ti of the 500 we start with — walling was never expensive in TITANIUM, only in builder turns.
+**Result: 44% vs champion (costs 6 pts) and 64% vs lastpop2 — but the CHAMPION ITSELF scores 67% vs lastpop2.** No benefit, real cost. REJECT.
+**⚠ THE REAL BLOCKER: our clone is too weak to be a test instrument.** lastpop2 is 33% vs the champion, so the champion beats it ~67% whether or not it defends the seats — the experiment cannot discriminate. **Until a clone reaches ~55-60% vs frozen-erebus-v1, no anti-siege fix can be validated locally, and every "fix" is a guess measured against the wrong opponent.** Making the clone faithful is the prerequisite for all further defensive work, not a side quest.
+
 ## 🚨 THE LASTPOPPERIAN_ AUTOPSY — WE HAD THEM COMPLETELY WRONG (2026-07-27)
 Five of their wins parsed from replays (67fecf4c g1-4, 1d28bf18 g2), separating their HOME turrets from their ATTACK turrets by distance to OUR core:
 
