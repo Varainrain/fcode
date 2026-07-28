@@ -8,6 +8,18 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## ✅ THE AUGUST 1 DECISION TABLE — controlled 168-game gates, not the ladder (2026-07-28)
+
+| bot | vs frozen-erebus-v1 | **vs lastpop2 (siege clone)** | vs krb | verdict |
+|---|---|---|---|---|
+| **oogerebus3** | 44% (mirror tax) | **69%** (kills 107-51) | 85% | **KEEP ON THE LADDER — best vs the only team beating us** |
+| OogwayOld | **58%** (strongest overall) | 46% | 55% | best generalist, WORST vs them |
+| frozen-erebus-v1 | - | 55% | 63% | the verified all-rounder |
+| orion (OogwayOld+anti-clump) | 57% | - | - | 47% vs its own base = no gain |
+
+**THE CALL: leave oogerebus3 up.** It pays a 44% mirror tax against our own brawlers, which is why it looks mid on the ladder — but it wins the ONLY matchup that decides our placing, 69% with a 2:1 kill ratio. My earlier worry that it was tuned against the wrong proxy (krb, a t29 rusher) was WRONG and is now measured: the same wall that stops a rush also stops the t45-70 siege.
+**Field by matchup, never by ELO.** The strongest bot overall (OogwayOld) is the worst of the three against lastpopperian_.
+
 ## 👑👑 OOGWAYOLD IS THE STRONGEST BOT WE HAVE — AND WE BUILT ON THE WRONG BRANCH (2026-07-28)
 **`OogwayOld` beats `frozen-erebus-v1` (=oogerebus, our "champion") 58% over 168 games (kills 75-62).** First bot all session to beat it at a trustworthy sample. It is **382 lines to oogerebus's 470** — every kfort/krb feature and fix we added to the OogwayWIP branch netted out NEGATIVE.
 **Oogway told us this in commit 61e29d8 ("OogwayWIP is somehow worse than OogwayOld") and nobody measured it**, so the whole oogerebus line was built on the branch he had already flagged as worse.
