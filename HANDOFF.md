@@ -8,6 +8,20 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 👑👑 OOGWAYOLD IS THE STRONGEST BOT WE HAVE — AND WE BUILT ON THE WRONG BRANCH (2026-07-28)
+**`OogwayOld` beats `frozen-erebus-v1` (=oogerebus, our "champion") 58% over 168 games (kills 75-62).** First bot all session to beat it at a trustworthy sample. It is **382 lines to oogerebus's 470** — every kfort/krb feature and fix we added to the OogwayWIP branch netted out NEGATIVE.
+**Oogway told us this in commit 61e29d8 ("OogwayWIP is somehow worse than OogwayOld") and nobody measured it**, so the whole oogerebus line was built on the branch he had already flagged as worse.
+**⚠ BUT IT IS A SPLIT, NOT A COR ONATION — matchup matters more than overall strength:**
+
+| bot | vs frozen-erebus-v1 | **vs lastpop2 (the siege clone)** | vs krb |
+|---|---|---|---|
+| **OogwayOld** | **58%** (best overall) | **46%** (WORST where it counts) | 55% |
+| frozen-erebus-v1 | — | **55%** | 63% |
+
+**The bot that wins the ladder is NOT the bot that beats the team beating us.** Field by matchup, not by ELO.
+- `bots/orion` = OogwayOld + anti-clumping: **47% vs plain OogwayOld = NO GAIN.** Anti-clumping gave 54% on the oogerebus line and nothing here — **a mechanism that helps one coherent design does nothing for another.** 17th confirmation of that rule today.
+- **The arena ladder is NOISE, do not design from it.** uni-v1 read 71% vs frozen-erebus-v1 there (21 games) and 52% in a controlled 168-game gate. Byte-identical bots read 67-33. Most matrix cells have <6 games. ELO rewards beating whoever you were matched with.
+
 ## 🛑 SEAT DENIAL — REJECTED, AND WHY WE ARE BLOCKED (2026-07-27, bots/seatdeny)
 Champion + deny every tile a gunner could hit our core FROM (asked of the engine via `can_fire_from` per tile/facing, so it is exact and survives ray-rule changes), filled with core-facing conveyors, nearest first, 2 builders, until t90. Conveyor is 3 Ti so the whole zone is ~100 Ti of the 500 we start with — walling was never expensive in TITANIUM, only in builder turns.
 **Result: 44% vs champion (costs 6 pts) and 64% vs lastpop2 — but the CHAMPION ITSELF scores 67% vs lastpop2.** No benefit, real cost. REJECT.
