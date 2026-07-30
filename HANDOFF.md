@@ -15,7 +15,7 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 |---|---|---|
 | OogwayOld (previous best) | **61%** | 95-60 |
 | frozen-erebus-v1 (verified champion) | **67%** | 101-49 (2:1) |
-| lastpop2 siege clone | 44% @ 84g (4-seed verify running) | — |
+| lastpop2 siege clone | **45% @ 168g — VERIFIED WEAKNESS** | 71-92 |
 
 His own words on the process: "crazy how like 90% of my changes ruined the bot like only 2 ones that actually helped" — independently the same finding as our 17-rejection week. The 2 that helped, kept; the rest, reverted. That discipline is WHY it is #1.
 **V87 RECOMMENDATION: base = OogwayNEW** for the general field; **oogerebus3 stays the lastpopperian_ matchup weapon** (69% vs the siege clone vs OogwayNEW's ~44%). The family blind spot (core-snipe siege) is intact in the rework — do not submit NEW into a lastpopperian_ bracket without a plan.
