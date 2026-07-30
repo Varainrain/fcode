@@ -8,6 +8,13 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🔧 ENGINE 2.3.2.dev29 + DYNAMIC MAP POOL (2026-07-30)
+- **`pip install -i https://test.pypi.org/simple/ fcode==2.3.2.dev29`** — verified: GameConstants UNCHANGED from dev26, key bots run clean. This update is platform plumbing, not rules.
+- **⚠ THE MAP POOL IS NOW SERVER-CONTROLLED AND CAN ROTATE WITHOUT NOTICE** ("easier map rotations" — George). **Run `fcode maps sync` before ANY gate session**, or you are measuring on a stale pool. `fcode maps list` flags out-of-date locals.
+- **jackpot was MODIFIED in this sync** (1 of 21 changed) — it was one of our two repeat-loss maps vs lastpopperian_ (oni's ledger: 0-3). Per-map history for jackpot predating 2026-07-30 is void.
+- Old dev26 maps backed up in `maps_dev26_backup/`.
+- **⚠ VPS WORKER still runs the old engine + old maps** — needs `pip install` + `fcode maps sync` in C:code and a task restart, or arena results silently diverge from ladder reality.
+
 ## ✅ THE AUGUST 1 DECISION TABLE — controlled 168-game gates, not the ladder (2026-07-28)
 
 | bot | vs frozen-erebus-v1 | **vs lastpop2 (siege clone)** | vs krb | verdict |
