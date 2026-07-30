@@ -8,6 +8,13 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🛡️ THE IJTI BARRIER SPEC — measured from 12 games with barrier placements (2026-07-30)
+Three commitments, not one mechanism (this is why aegis-v1 failed with just the third):
+1. **GARRISON: builders live at home.** Enemy turret appears near their core t34 -> barrier t36. t37 -> t38. Response in 1-2 turns because the bodies are already within ~4 of the core. (Our aegis triggered t58 then walked 10+ turns.)
+2. **PRE-ARMOR: on dangerous maps, barriers at t15-21** — before ANY enemy turret exists — at manhattan 2-4 from their core, the seat/lane zone. ~15 Ti to make every future attack worse.
+3. **REBUILD LOOP: replace broken barriers every ~4 turns under fire** (observed chain: t855/858/868/872/876/879 same spot, d3). Economics: attacker pays 3 shots/6 ammo to break 30hp; Ijti repays 3 Ti + one builder-action. With any income the wall is effectively infinite — attacker bleeds ammo into a regenerating shield while Ijti's fat econ (h7-13) wins the t1000 tiebreak.
+NOTE (from Oogway's own pathfinding comment): **own-team BARRIERS ARE PASSABLE to own units** — unlike conveyor walls, barrier armor does not choke your own movement or heal access. This is why Ijti can armor the ring without the 29% full-seal trap.
+
 ## ⚗️ AEGIS (REACTIVE LANE BARRIER) — BUILT, MEASURED, REJECTED: THE ABSORB PATTERN IS A THESIS, NOT A PATCH (2026-07-30, bots/aegis-v1)
 prime-a + Ijti's visible mechanism: when an enemy turret aims at our core, nearby builders drop a barrier on the firing ray (opportunistic, no claims, greedy-step fallback because mapPf.moveTo dead-ends against our own ring conveyors — instrumented v1 stood 2 tiles short for 7 turns while the core died).
 **Result: 43% vs the siege clone — baseline prime-a is 45%. No effect.** Mechanically it works (triggers t58, builds); strategically it is arithmetic dust: by the time a turret is visible at the doorstep the core bleeds 10-20hp/turn and one barrier absorbs 30hp = ~3 turns against a ~25-turn kill clock.
