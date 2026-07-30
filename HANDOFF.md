@@ -8,6 +8,22 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🔍 IJTI AUTOPSY — THE #2 TEAM WINS BY *LOSING* THE RACE (2026-07-30)
+15 games parsed (Ijti v31/33 vs our v90 x2 matches, vs lastpopperian_ v20). Metric: turn of FIRST core damage (the race) vs who wins.
+
+**Ijti's signature — in most wins they take the first core hit and win anyway:**
+- vs lastpopperian_ (1-4 loss for the sniper): lastpop landed first core damage at t35/55/55 in g1-3 — **and Ijti won those games at t218/285/236**. The sniper that cores our bots ~25 turns after first contact cannot finish Ijti at all.
+- vs our v90: two games where WE hit first (t181, t52) and they still won (t369, t317).
+- **How they survive: (1) BARRIERS placed in the firing lanes as ablative armor** (2-12 per game — nobody else on the ladder builds barriers; 3 Ti, 30hp each, and a gunner does 10/shot, so one barrier eats 3 shots), **(2) core healing** (games run 150+ turns after first core damage; builder heal is 4hp/1Ti), **(3) the biggest harvester economies we have measured (h7-13)** so they win any tiebreak (both their t1000 games ended as titanium wins).
+- Their kills are slow grinds: t208-732. They never blitz. One exception: skerry t81 vs our v90 — they CAN race on small maps.
+
+**Our v90 (oni's) profile from the same games: a race machine** — first core damage t51-84 in EVERY game, 180-292 cumulative gunners, 14-45 builders. It beats Ijti by overwhelming before the grind matters (current form: 3 straight match wins), loses when Ijti absorbs the first wave (c66c7d7e: 1-4 with the SAME versions — map-draw dependent).
+
+**THE TOP-3 META IS A CONFIRMED TRIANGLE: v90 race-machine ≥ Ijti (map-dependent) > lastpopperian_ sniper > everything of ours except oogerebus3/v90.**
+
+**THE UNEXPLOITED AXIS — nobody on our team has ever gated "survive the first hit":** all 18 of our rejected experiments were walls or attack tweaks. Ijti proves absorb-and-grind beats the sniper meta. Cheapest within-design version: REACTIVE barrier in the firing lane once the core takes its first hit (the attacker's ray path is known at that moment) + keep home builders healing. Barrier math: 3 Ti buys 3 absorbed shots; heal math: 2 adjacent healers = 8hp/turn vs one gunner's 10/turn — barriers + 2 healers outlast a 2-gun siege. Candidate for ONI's chassis (v90) as a within-design change, not a transplant.
+CAVEAT: 1-2 matches per pairing; per-map splits unsettled. But "loser dealt first core damage and lost" appears 5 times across 15 games — the race model (oni's diagnosis) holds for everyone EXCEPT Ijti, which is exactly what makes them #2.
+
 ## 🏁 THE "COMBINE THE BEST QUALITIES" EXPERIMENT — RAN CLEAN, ANSWER IS NO (2026-07-30)
 Tried the obvious thing deliberately and measured it:
 - **prime-a = OogwayNEW + crash armor**: armor is a pure bug fix (dev26+: uncaught exception = PERMANENT unit death; NEW shipped with ZERO try/except). Probe: NEW throws zero exceptions in 6 instrumented games, so prime-a ≡ NEW in practice and the armor is free insurance (its 43% @ 84g screen is noise by construction — armor can only ever SAVE a unit). **SHIP PRIME-A AS V87.**
