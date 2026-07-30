@@ -8,6 +8,19 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 👑👑👑 OOGWAYNEW — THE NEW #1, VERIFIED (2026-07-30, engine dev29, synced pool)
+**Oogway's rework is the strongest bot the team owns, at 168-game samples:**
+
+| OogwayNEW vs | result | kills |
+|---|---|---|
+| OogwayOld (previous best) | **61%** | 95-60 |
+| frozen-erebus-v1 (verified champion) | **67%** | 101-49 (2:1) |
+| lastpop2 siege clone | 44% @ 84g (4-seed verify running) | — |
+
+His own words on the process: "crazy how like 90% of my changes ruined the bot like only 2 ones that actually helped" — independently the same finding as our 17-rejection week. The 2 that helped, kept; the rest, reverted. That discipline is WHY it is #1.
+**V87 RECOMMENDATION: base = OogwayNEW** for the general field; **oogerebus3 stays the lastpopperian_ matchup weapon** (69% vs the siege clone vs OogwayNEW's ~44%). The family blind spot (core-snipe siege) is intact in the rework — do not submit NEW into a lastpopperian_ bracket without a plan.
+**shield-v1 (oni) on dev29: 50% vs champion (ZERO mirror tax — first defensive addition all week that costs nothing) and 57% vs the siege clone (champion's own: 55%).** Harvester shields are free and mildly helpful; candidate for merging into OogwayNEW ONLY with a fresh gate (mechanisms have not transplanted 17/17 times).
+
 ## 🔧 ENGINE 2.3.2.dev29 + DYNAMIC MAP POOL (2026-07-30)
 - **`pip install -i https://test.pypi.org/simple/ fcode==2.3.2.dev29`** — verified: GameConstants UNCHANGED from dev26, key bots run clean. This update is platform plumbing, not rules.
 - **⚠ THE MAP POOL IS NOW SERVER-CONTROLLED AND CAN ROTATE WITHOUT NOTICE** ("easier map rotations" — George). **Run `fcode maps sync` before ANY gate session**, or you are measuring on a stale pool. `fcode maps list` flags out-of-date locals.
