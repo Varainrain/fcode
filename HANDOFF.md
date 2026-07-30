@@ -2,6 +2,72 @@
 
 Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/florent-league-workflow.md` first (auto-loaded), then this, then the top of `florent-code-league.md` for the full IC3D bot history.
 
+## PERMANENT ITERATION POLICY
+
+Plan before every non-trivial iteration. Diagnose losses across maps and
+unrelated opponents as general weakness categories; never tune by map name,
+dimensions, side order, or opponent identity. Build hypotheses independently
+from the frozen baseline, require mechanism tests plus graduated parent and
+multi-opponent gates, and stack only winners one at a time with a full re-gate
+after each addition. Preserve root/active artifacts and require explicit user
+approval for upload, queueing, replacement, or activation. See `WORKFLOW.md`
+for the mandatory evidence ladder.
+
+## CURRENT LOCAL CANDIDATE (2026-07-29, `bots/generalist-v3`, not uploaded)
+
+- **Generalist v3 = live v89 source + one bounded emergency countertrade.**
+  The existing single nearby responder is unchanged during ordinary threats.
+  Only when at least two visible turrets really hit the core, no fully safe
+  counter exists, and the builder stand is outside every attack pattern may it
+  place one gun whose seat is covered by at most one turret. The generic
+  120-Ti reserve is waived only for that trade. Openings, economy, siege,
+  spawning, roles, stores, map logic, and distant builders are unchanged.
+- Replay diagnosis: 8/14 live v89 losses across Ijti, Oogway, and
+  lastpopperian_ had multi-turret home pressure. The old bounded planner found
+  valid plans but all 15 pool-wide attempts were blocked at 74-90 Ti by the
+  reserve. The exception produced **4 real builds from 20 plans** in a
+  16-game champion/Showdown mechanism sample, including destroyed-gun rebuilds
+  at 85/59/37 Ti. Second-family builds remain **unconfirmed**: lastpop2 reached
+  the planner but never completed the route; do not overstate causality.
+- Dev29 gates, 21 maps x 4 seeds x both sides:
+  **90-78 (54%, kills 79-69) vs live-v89 source**;
+  **135-33 (80%, 120-21) vs champion**;
+  **153-15 (91%, 147-14) vs lastpop2**;
+  **146-22 (87%, 143-15) vs OogwayOld**.
+  Fresh live-v89-source controls were 74% / 89% / 85%, so all five-point
+  regression floors pass. Only the champion gain has mechanism support;
+  treat the other small gains as variance.
+- Frozen/package: `bots/generalist-v3`, `generalist-v3.zip`, and
+  `generalist_v3_results.json` (four Python files at ZIP root). Dev29
+  compilation/import, deterministic tests, protocol tests, package identity,
+  root-v88 identity, and `git diff --check` pass. The mandated legacy
+  `eval_chain.py` attempt fails before evaluation because that loader does not
+  add an external multi-file bot to `sys.path` (`ModuleNotFoundError:
+  symmetry`); it is non-authoritative.
+- Rejected this cycle: sequential responder retargeting (77-91 parent,
+  kills 70-81); three healer-suppression placements (targets detected but
+  zero builds); bounded countertrade without the reserve exception (plans but
+  zero builds). Do not stack or revive them without new replay evidence.
+- Root sources and `bot.zip` remain frozen v88. No upload, queue, activation,
+  or root replacement was performed. A remote inactive test requires fresh
+  user approval.
+
+## LIVE SUBMISSION BASELINE (`bots/generalist-v2`, Erebus v89)
+
+- The user uploaded/activated v89. Downloaded submission
+  `C:\Users\subodh\Downloads\fcode-gate-artifacts\v89-submission.zip` has the
+  same four uncompressed files as `bots/generalist-v2` / `generalist-v2.zip`.
+  First observed 40 live games: **26-14** (Ijti 15-10, lastpopperian_ 3-2,
+  Oogway 3-2, Atlas 5-0). Replays:
+  `C:\Users\subodh\Downloads\fcode-gate-artifacts\v89-live-replays`.
+- v89 = frozen v88 + one exact nearby responder + surgical Sieger-2
+  counter-battery. Fresh dev29 controls: **74% champion / 89% lastpop2 /
+  85% OogwayOld**.
+- Historical v88 remains `bots/core-sniper-v1` and the unchanged root
+  `main.py`/modules/`bot.zip`; its old controls were 77%/79%/85%.
+- Both WSL environments run `fcode 2.3.2.dev29`; the active map pool is
+  synced. `bots/champion` remains hash-checked through `live_baseline.json`.
+
 ## ⭐ OOGEREBUS — FIRST GATE-PASSED IMPROVEMENT OF OOGWAY'S BOT (2026-07-24 evening, repo 99534e2, bots/oogerebus, GATEKEPT — not for ladder)
 - **56% vs stock oogwip (PROMOTE, 32-29 kills), 62% vs krb (no regression).** = stock oogwip + passive siege-tile wall + dev26 crash armor + finisher march + heal-flee fix + print removal + vision guards.
 - **THE integration lesson (4th attempt won): the wall must be a PASSIVE — a spare-action side effect when a deny tile happens to be ortho-adjacent — never a state.** State-based walls (oogwip3/4: 32%/46%) starve his dual-purpose econ/defense crew. Passive = zero travel, zero priority competition. Wall set cached once (`_wallSet`): enemy-side ring+ties, cardinal rays d2-3, 2-step diagonals; core-facing conveyors, never-a-dead-end chaining rule.
