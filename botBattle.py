@@ -5,9 +5,11 @@ Prints per-map results and overall win rates.
 
 Usage:
   python botBattle.py <botA> <botB> [seeds=4]
+  python botBattle.py <botA> <botB> <start_seed> <end_seed>
 
   python botBattle.py OogwayWIP khaos
   python botBattle.py OogwayWIP khaos 2
+  python botBattle.py OogwayWIP khaos 10 12
 """
 import concurrent.futures as cf
 import os
@@ -24,7 +26,12 @@ if len(args) < 2:
     sys.exit(__doc__)
 BOT_A = args[0]
 BOT_B = args[1]
-SEEDS = int(args[2]) if len(args) > 2 else 4
+if len(args) >= 4:
+    START_SEED, END_SEED = int(args[2]), int(args[3])
+elif len(args) == 3:
+    START_SEED, END_SEED = 1, int(args[2])
+else:
+    START_SEED, END_SEED = 1, 4
 
 if BOT_A == BOT_B:
     sys.exit("both bots are the same name")
@@ -51,10 +58,10 @@ def game(first, second, m, seed):
     return m, first, second, seed, mo.group(1), mo.group(2), int(mo.group(3))
 
 
-jobs = [(a, b, m, s) for m in ALL for s in range(1, SEEDS + 1)
+jobs = [(a, b, m, s) for m in ALL for s in range(START_SEED, END_SEED + 1)
         for a, b in ((BOT_A, BOT_B), (BOT_B, BOT_A))]
 n = len(jobs)
-print(f"BATTLE  {BOT_A} vs {BOT_B}  |  {len(ALL)} maps x {SEEDS} seeds x both sides = {n} games\n")
+print(f"BATTLE  {BOT_A} vs {BOT_B}  |  {len(ALL)} maps x seeds {START_SEED}-{END_SEED} x both sides = {n} games\n")
 
 rows, wins_a, wins_b = [], 0, 0
 with cf.ThreadPoolExecutor(max_workers=min(21, os.cpu_count() or 4)) as ex:
