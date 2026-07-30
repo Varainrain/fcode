@@ -8,6 +8,12 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🏁 THE "COMBINE THE BEST QUALITIES" EXPERIMENT — RAN CLEAN, ANSWER IS NO (2026-07-30)
+Tried the obvious thing deliberately and measured it:
+- **prime-a = OogwayNEW + crash armor**: armor is a pure bug fix (dev26+: uncaught exception = PERMANENT unit death; NEW shipped with ZERO try/except). Probe: NEW throws zero exceptions in 6 instrumented games, so prime-a ≡ NEW in practice and the armor is free insurance (its 43% @ 84g screen is noise by construction — armor can only ever SAVE a unit). **SHIP PRIME-A AS V87.**
+- **prime-b = prime-a + oogerebus3's wall duty** (the 69% anti-siege, ported via free store slot 8 to dodge the spawn-index race): **37% vs OogwayNEW (kills 27-52), 57% vs the siege clone.** The duty that is worth +24 on the oogerebus chassis buys +12 on NEW's and costs 13 in the mirror. **18th transplant failure, now measured in BOTH directions across chassis.**
+**FINAL DOCTRINE: the top bot is a PORTFOLIO, not a merge — prime-a (v87, the field) + oogerebus3 (the lastpopperian_ sidearm, 69%). Qualities are load-bearing inside their own design and dead weight outside it. Stop trying to move them.**
+
 ## 👑👑👑 OOGWAYNEW — THE NEW #1, VERIFIED (2026-07-30, engine dev29, synced pool)
 **Oogway's rework is the strongest bot the team owns, at 168-game samples:**
 
