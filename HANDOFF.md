@@ -8,6 +8,12 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## ⚗️ AEGIS (REACTIVE LANE BARRIER) — BUILT, MEASURED, REJECTED: THE ABSORB PATTERN IS A THESIS, NOT A PATCH (2026-07-30, bots/aegis-v1)
+prime-a + Ijti's visible mechanism: when an enemy turret aims at our core, nearby builders drop a barrier on the firing ray (opportunistic, no claims, greedy-step fallback because mapPf.moveTo dead-ends against our own ring conveyors — instrumented v1 stood 2 tiles short for 7 turns while the core died).
+**Result: 43% vs the siege clone — baseline prime-a is 45%. No effect.** Mechanically it works (triggers t58, builds); strategically it is arithmetic dust: by the time a turret is visible at the doorstep the core bleeds 10-20hp/turn and one barrier absorbs 30hp = ~3 turns against a ~25-turn kill clock.
+**WHY IJTI'S VERSION WORKS AND OURS CANNOT: theirs is the whole bot, not a reflex.** Pre-placed barriers across the game (2-12), heal posture that keeps them alive 150+ turns past first core damage, the fattest harvester econ on the ladder funding both, counter-fire. "Never die" is their design thesis. Extracting the one visible artifact = 19th single-mechanism graft failure.
+**FOR ONI (v90 is NOT in the repo — push it if you want this gated for real):** adopting absorb means adopting it as a design goal inside your chassis — pre-placed lane armor near home + heal posture + tiebreak-winning econ — not bolting on my 60 lines. bots/aegis-v1 kept as the measured negative so nobody rebuilds it.
+
 ## 🔍 IJTI AUTOPSY — THE #2 TEAM WINS BY *LOSING* THE RACE (2026-07-30)
 15 games parsed (Ijti v31/33 vs our v90 x2 matches, vs lastpopperian_ v20). Metric: turn of FIRST core damage (the race) vs who wins.
 
