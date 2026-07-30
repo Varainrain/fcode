@@ -8,6 +8,14 @@ Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/flore
 - Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
 - Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
+## 🏰 BASTION — FROM-SCRATCH "NEVER DIE" CONCEPT BOT: THE THESIS HELD, THE CHASSIS DIDN'T (2026-07-30, bots/bastion)
+Full Ijti spec composed from scratch on the mech-v1 skeleton: 2-builder garrison via claim slots (heal core -> lane barrier w/ natural rebuild loop -> counter-SEAT gunner -> pre-armor diagonal seat zone at t15 -> hold leash), mech econ, capped t100 seat siege.
+**Screens: 21% vs lastpop2 / 1% vs prime-a (kills 1-72) / 21% vs krb. REJECTED.**
+- The absorb itself showed real signal where games reached it: atoll WON t243 (prime-a dies there t72), skerry survived to t140 (vs t76). Dying 2x slower, sometimes not at all.
+- **But ENGINE QUALITY DOMINATES THESIS.** The mech-class skeleton (BFS + naive econ, ~500 lines) loses everywhere else before absorb matters: 1-72 kills vs the Oogway engine (Dijkstra sharing, tuned state scorer, initial spawn book, ~950 lines). For calibration, raw mech-v1 was 4-6% — the thesis quadrupled it and it is still nowhere.
+- **CONCLUSION for "build a new concept from scratch": a thesis is necessary but not sufficient — it needs a competitive chassis underneath.** Ijti's absorb runs on an engine as good as Oogway's. Our real options: (a) oni/Oogway adopt the absorb spec (pushed, 935bf5b) INSIDE their engines as a design goal; (b) any future from-scratch bot must budget for engine work first (pathing, econ, state scoring), thesis second.
+- bastion kept as the measured artifact; do not iterate it on this skeleton.
+
 ## 🛡️ THE IJTI BARRIER SPEC — measured from 12 games with barrier placements (2026-07-30)
 Three commitments, not one mechanism (this is why aegis-v1 failed with just the third):
 1. **GARRISON: builders live at home.** Enemy turret appears near their core t34 -> barrier t36. t37 -> t38. Response in 1-2 turns because the bodies are already within ~4 of the core. (Our aegis triggered t58 then walked 10+ turns.)
