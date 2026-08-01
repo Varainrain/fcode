@@ -165,6 +165,44 @@ The MECHANISM is locally reproducible even though the win rate is not: mirror
 games hit the same heal-lock (`sprint` t350, core B took 490 and healed 490 =
 100%). Measure it with `heal_audit.py` (new, offline, no API needed).
 
+## The delivery thesis: eight experiments, all rejected, one architecture wall
+
+The kill budget from GameConstants: core 500 HP, gunner 10 dmg / 2 ammo on a
+1-turn cooldown, ammo converts 1:1 once per team per turn and is usable the same
+turn. A kill is 50 shots = 100 ammo + 10 guns = **200 Ti against a 500 bank**.
+Ten guns in the band end a game in 5 turns of fire; Pantheon's median game is 58
+turns, so ~55 of them are logistics. That framing is right, and every attempt to
+exploit it still failed. What each one cost us is the useful part:
+
+| experiment | vs shipped B | cause |
+|---|---|---|
+| `exp_core_pressure` (gun placement radius) | 46%, 43% vs rush | own-half guns ARE defensive value |
+| `exp_relay` (launcher road, grafted) | 33% | road delayed first gun t35 -> t58 |
+| `strike-v1` (delivery-first, no econ) | 27% | 100% placement but only 1.9 guns - starved |
+| `strike-mass` (12 builders, no econ) | 13% | same starvation, worse |
+| `strike-econ` (lean supply line) | not gated | harvester code never fired: store slot 1 collides with the map-share channel, and beeline paths never pass ore |
+| `spar_pantheon` (all siege + damped econ) | 49%, kills 79-79 | allocation gain and economy loss cancel exactly |
+| `exp_swarm` (all siege, econ untouched) | - | harvesters still went to 0.0: econ lives in the non-sieger branch |
+| `exp_siege3` (three siegers) | - | 1 building, 0 titanium collected, dead t62 |
+
+**The wall: role allocation and economy are the same knob.** Economy work happens
+only in the non-sieger branch, so every builder moved to delivery is a builder
+removed from income. 2 siegers -> 4.6 guns + 4.0 harvesters; 3 siegers -> 0 and
+0; all siegers -> 4.5 and 0. Pantheon gets 18.7 guns on the enemy core from an
+economy the same size as ours (4.1 harvesters), which means their builders farm
+AND deliver. That is architectural, not a parameter, and no variant of this
+engine reached it.
+
+Verified engine facts worth keeping regardless:
+- `launch(bot_pos, target)` throws a friendly builder: pickup range 1-2 tiles,
+  throw up to 7, 1-turn cooldown, 20 Ti base (cost scales per launcher).
+  Launchers spaced ~6 apart give one hop per turn. WE BUILD ZERO; so does
+  Pantheon (0 in 25 games); SmartFridge builds ~1 at t17-18 mid-map.
+- Ammo is 1:1 with titanium, once per team per turn, usable immediately.
+- Whether an ENEMY builder can be launched is UNRESOLVED - the probe returned 0
+  legal targets for enemies, but also 0 for the friendly control in the same
+  run, so it proves nothing.
+
 ## Open lead for generalist-v3
 
 Action order follows entity id, and id is assigned at spawn — so **spawn timing
