@@ -1,0 +1,64 @@
+{
+  "engine": "fcode, version 2.3.1.dev27 (historical full gates)",
+  "validation_status": "full dev29 regate required before upload or promotion",
+  "dev29_smoke": {
+    "engine": "fcode, version 2.3.2.dev29",
+    "map_pool": 21,
+    "updated_map": "jackpot",
+    "opponent": "core-sniper-v1",
+    "games": 8,
+    "wins": 4,
+    "losses": 4,
+    "core_kills": 4,
+    "core_kills_against": 2
+  },
+  "bot": "generalist-v2",
+  "source": "exp_generalist_stack",
+  "components": {
+    "local_responder": "accepted",
+    "surgical_counter_battery": "accepted",
+    "spawn_discipline": "rejected_mechanism_gate",
+    "adaptive_stall_pause": "rejected_parent_gate"
+  },
+  "full_gates": [
+    {
+      "opponent": "core-sniper-v1",
+      "games": 168,
+      "wins": 102,
+      "losses": 66,
+      "core_kills": 94,
+      "core_kills_against": 58
+    },
+    {
+      "opponent": "champion",
+      "games": 168,
+      "wins": 137,
+      "losses": 31,
+      "core_kills": 124,
+      "core_kills_against": 21
+    },
+    {
+      "opponent": "lastpop2",
+      "games": 168,
+      "wins": 151,
+      "losses": 17,
+      "core_kills": 145,
+      "core_kills_against": 15
+    },
+    {
+      "opponent": "OogwayOld",
+      "games": 168,
+      "wins": 148,
+      "losses": 20,
+      "core_kills": 147,
+      "core_kills_against": 12
+    }
+  ],
+  "sha256": {
+    "main.py": "3A0E83FA5AD9FA4C2D1736733BC3A8FA862CC5F1821A9C4FF9AB3A291E04DECF",
+    "initialSpawning.py": "E6D48213A505729ED98BBBC1B55623484BC83B202B2E78D4FA9E929686D40BB6",
+    "mapPathfinding.py": "971A102A26E8792E6B0FED6FE8F7710641FD1D03D299322F97423A43342AE4A6",
+    "symmetry.py": "8C4AB5843AB90F8C0907E261E2049B75588BC88BFB8CEEA2CC236E3CD10CD9A1",
+    "generalist-v2.zip": "64C26B303B1D9AE531A5EC9E69EBB92DF364E13C6ABF15E72A9C218D8AF83F3C"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "bot": "meta-generalist-v1",
+  "status": "local frozen candidate; not uploaded, queued, active, or copied to root",
+  "engine": "fcode 2.3.2.dev29 local; production engine/session still needs fresh verification",
+  "parent": "bots/exp_trans_40 (production-v8 source lineage)",
+  "change": "gunners target enemy builders on the engine's separate builder layer and score them at the existing weight of 2",
+  "gates": [
+    {
+      "opponent": "exp_trans_40",
+      "games": 336,
+      "wins": 200,
+      "core_kills_for": 181,
+      "core_kills_against": 127,
+      "candidate_titanium_collected_mean": 819.1,
+      "opponent_titanium_collected_mean": 718.0
+    },
+    {
+      "opponent": "spar_rush",
+      "games": 168,
+      "wins": 88,
+      "core_kills_for": 81,
+      "core_kills_against": 64,
+      "control": "exp_trans_40 won 92/168 with kills 85-64; treat as neutral/slightly negative"
+    },
+    {
+      "opponent": "oogbest-v6",
+      "games": 168,
+      "wins": 86,
+      "core_kills_for": 83,
+      "core_kills_against": 67
+    }
+  ],
+  "sha256": {
+    "main.py": "A9EC959ECAE2E0B11EDB3DAA89AD3A3CD480196C903FEB543F8059B76C2D965C",
+    "initialSpawning.py": "E6D48213A505729ED98BBBC1B55623484BC83B202B2E78D4FA9E929686D40BB6",
+    "mapPathfinding.py": "971A102A26E8792E6B0FED6FE8F7710641FD1D03D299322F97423A43342AE4A6",
+    "symmetry.py": "8C4AB5843AB90F8C0907E261E2049B75588BC88BFB8CEEA2CC236E3CD10CD9A1",
+    "meta-generalist-v1.zip": "4F94E7301B99EC34283C82F6FAFDE7C61F03135C9702F4792AE3D3BC6642EE07"
+  }
+}

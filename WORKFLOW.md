@@ -10,8 +10,8 @@ promotions by data instead of vibes.
 main.py, ...              <- historical root package; may differ from live
 bots/
   champion/               <- frozen, hash-verified reference opponent
-  generalist-v2/          <- exact live-v89 source
-  generalist-v3/          <- next locally passing candidate
+  exp_trans_40/           <- shipped-v8 source lineage / current frozen parent
+  meta-generalist-v1/     <- current local frozen candidate
   <yourbot>/              <- your experiment: a folder with main.py (+ any modules)
 maps/                     <- the current 21-map league pool (.map26)
 gate.py                   <- the promotion gate
@@ -69,8 +69,8 @@ them without reviving them under a new name.
 
 ## Making a change
 
-1. Copy the exact frozen parent named in `HANDOFF.md`:
-   `cp -r bots/generalist-v2 bots/mybot`.
+1. Copy the exact frozen candidate named in `HANDOFF.md`:
+   `cp -r bots/meta-generalist-v1 bots/mybot`.
 2. Hack on `bots/mybot/`.
 3. Sanity-run one game: `fcode run mybot champion maps/duel.map26 --seed 1 --tle 10`
 4. Run the gate: `python gate.py mybot`
@@ -119,14 +119,15 @@ rush. It found a hole 500+ games against our own lineage had completely hidden:
 
 | vs `spar_rush` | win rate | core kills |
 |---|---|---|
-| `generalist-v3` (the live bot) | **39%** (CI 32-46) | 58-91 |
-| `exp_early_siege` | 49-52% (two runs) | 70-78 / 79-71 |
+| historical `generalist-v3` | **39%** (CI 32-46) | 58-91 |
+| shipped-v8 source `exp_trans_40` | 55% (168) | 85-64 |
+| `meta-generalist-v1` | 52% (168) | 81-64 |
 
 A candidate that only ever fights our own lineage is being measured against an
 archetype that no longer exists at the top of the ladder. Run both:
 
 ```
-python gate.py <candidate> generalist-v3 8 quiet   # 336 games, the real bar
+python gate.py <candidate> meta-generalist-v1 8 quiet # 336 games, local parent
 python gate.py <candidate> spar_rush 4 quiet       # does it survive a rush?
 ```
 

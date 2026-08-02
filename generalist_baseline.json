@@ -1,0 +1,80 @@
+{
+  "engine": "fcode, version 2.3.1.dev27",
+  "bot": "core-sniper-v1",
+  "seeds": 16,
+  "both_sides": true,
+  "cells": [
+    {
+      "opponent": "champion",
+      "map": "string",
+      "games": 32,
+      "wins": 19,
+      "core_kills": 0,
+      "core_kills_against": 3,
+      "turn_1000_games": 29,
+      "mean_collected_differential": 1386.2,
+      "mean_candidate_units": 22.3,
+      "mean_opponent_units": 20.2
+    },
+    {
+      "opponent": "champion",
+      "map": "bridge",
+      "games": 32,
+      "wins": 12,
+      "core_kills": 4,
+      "core_kills_against": 10,
+      "turn_1000_games": 18,
+      "mean_collected_differential": -1038.4,
+      "mean_candidate_units": 17.5,
+      "mean_opponent_units": 23.0
+    },
+    {
+      "opponent": "lastpop2",
+      "map": "string",
+      "games": 32,
+      "wins": 27,
+      "core_kills": 22,
+      "core_kills_against": 0,
+      "turn_1000_games": 10,
+      "mean_collected_differential": 570.3,
+      "mean_candidate_units": 24.4,
+      "mean_opponent_units": 4.1
+    },
+    {
+      "opponent": "lastpop2",
+      "map": "bridge",
+      "games": 32,
+      "wins": 23,
+      "core_kills": 21,
+      "core_kills_against": 3,
+      "turn_1000_games": 8,
+      "mean_collected_differential": 590.3,
+      "mean_candidate_units": 20.9,
+      "mean_opponent_units": 4.1
+    },
+    {
+      "opponent": "OogwayOld",
+      "map": "string",
+      "games": 32,
+      "wins": 11,
+      "core_kills": 3,
+      "core_kills_against": 1,
+      "turn_1000_games": 28,
+      "mean_collected_differential": -2059.7,
+      "mean_candidate_units": 21.0,
+      "mean_opponent_units": 23.5
+    },
+    {
+      "opponent": "OogwayOld",
+      "map": "bridge",
+      "games": 32,
+      "wins": 17,
+      "core_kills": 15,
+      "core_kills_against": 8,
+      "turn_1000_games": 9,
+      "mean_collected_differential": -223.4,
+      "mean_candidate_units": 14.5,
+      "mean_opponent_units": 13.2
+    }
+  ]
+}
