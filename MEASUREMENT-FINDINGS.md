@@ -203,6 +203,34 @@ Verified engine facts worth keeping regardless:
   legal targets for enemies, but also 0 for the friendly control in the same
   run, so it proves nothing.
 
+
+## THE PATTERN, confirmed across four top teams (2026-08-02)
+
+Profiled in games AGAINST US, so it is like-for-like on map and matchup:
+
+| team | 1st gun | guns on OUR core | conveyors | harvesters | barriers | vs us |
+|---|---|---|---|---|---|---|
+| **Oogway (us)** | t24 | **2.2** | 13.4 | 3.0 | 0.0 | - |
+| Orizon (#3) | t18 | 16.0 | 8.0 | 1.9 | 0.2 | 13-2 |
+| Prompt Engineers (#4) | t26 | 14.0 | 3.2 | 1.0 | 0.0 | 17-3 |
+| The Flotte Experience (#5) | t22 | 6.5 | **0.0** | **0.0** | 5.7 | 22-3 |
+| Pantheon (#1) | t22 | 18.7 | 17.7 | 4.1 | 39.8 | 10-5 (v6) |
+
+Every team above us lands 3-8x more guns on our core than we land on theirs, and
+every one runs a LEANER economy. Flotte builds no economy at all - zero
+conveyors, zero harvesters, barriers instead - and beats us 22-3 while LOSING to
+OopsGotYourElo 5-15, a team we beat 70%. That is a specific counter to us, not a
+strength gap.
+
+RETRACTION: I earlier dismissed guns-on-core as "churn" because Pantheon's guns
+live 8 turns and ours live 30. That compared Pantheon against top opponents with
+our bot against my own failed variants - not like for like. Four teams measured
+in games against us all show the same gap. The metric is real; the dismissal was
+wrong, and the sixteen rejected experiments failed on EXECUTION, not thesis.
+
+Flotte is the existence proof that zero economy works, which is exactly what
+strike-v1 attempted (27%, 1.9 guns) and botched.
+
 ## Open lead for generalist-v3
 
 Action order follows entity id, and id is assigned at spawn — so **spawn timing
