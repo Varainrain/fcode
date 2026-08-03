@@ -1,0 +1,33 @@
+# oarena — local bot league for the Florent Code League (fcode).
+# State lives in ./.oarena/ ; delete that directory to start over.
+
+bots_dir = "bots"       # every sub-directory holding main.py is a bot
+maps_dir = "maps"       # official *.map26 maps
+extra_maps_dir = "more_maps"      # generated/local *.map26 maps
+# state_dir = "/absolute/shared/.oarena"  # optional shared league state
+# deactivate_missing_bots = false        # partial bot catalogs must opt out
+# bot_sync_mode = "verify-only"           # verify hashes; never rewrite shared bot rows
+
+workers        = 0      # parallel games; 0 = one per CPU core
+tle_ms         = 50     # profiling-friendly local per-turn limit; platform uses 10 (0 = off)
+game_timeout_s = 300    # hard wall-clock kill for a single game
+
+# Which maps a match plays when you don't pass -m. Empty = every map in both directories.
+maps        = []
+mirror      = true      # play every (map, seed) twice with sides swapped
+seed_policy = "random"  # random | fixed
+seed        = 1         # base seed when seed_policy = "fixed"
+
+coinflip_is_draw = true   # the engine's coinflip tiebreak carries no skill signal
+python_dont_write_bytecode = false  # pass PYTHONDONTWRITEBYTECODE=1 to game workers
+
+replay_budget_mb = 512  # oldest replays are pruned past this; "unlimited" disables pruning
+sigma_reinflate  = 0.5  # on source change, sigma is lifted back to at least 0.5 * sigma0
+ui_theme         = "dark" # dashboard theme; saved by the UI and shared by every server port
+
+[trueskill]
+mu        = 25.0
+sigma     = 8.333333333333334
+tau       = 0.08333333333333333
+draw_prob = 0.02
+# beta    = 4.166666666666667   # defaults to sigma / 2

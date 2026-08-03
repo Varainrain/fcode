@@ -1,0 +1,910 @@
+"""Starter bot - a simple example to demonstrate usage of the Controller API.
+
+Each unit gets its own Player instance; run() is called once per round.
+Use Controller.get_entity_type() to branch on what kind of unit you are.
+"""
+
+# If the core goes below 400 health, and sees a gunner attacking it, it will immediately send a 'recall' order in the next unused slot, where the other bots will walk back to team core, scored based on their distance to it. Synergizes well with OogwayTestExplore
+# and spend up titanium to get to 50 ammo, stopping when it has 20 titanium left
+
+from fcode import Controller, Direction, EntityType, Environment, Position
+
+DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
+CARDINALS = [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]
+CORE_BUILDER_CONGESTION_LIMIT = 6
+ROUTE_STALL_ROUNDS = 24
+ROUTE_COMMIT_MAX_LINKS = 4
+# LAUNCH PAD, done Pantheon's way. Traced from their 0-5 sweep of our v22:
+#   launcher built at t1, 3-4 tiles from their own core
+#   t2 builder (3,4)->(4,10) d7   t3 (2,4)->(4,10) d8
+#   t4 (4,4)->(1,6)  d5           t5 (4,15)->(1,17) d5
+# They build the pad on TURN ONE and throw every newly spawned builder 7-8 tiles
+# on the 1-turn cooldown, several to the same staging tile. Their first gun
+# lands t13; ours lands t22-31 because our builders walk.
+# Two earlier attempts failed for implementation reasons, not because the
+# mechanic is wrong: v1 gated the pad behind `resources > 120` AND the defender
+# role so it went up late, and placed it 1-2 tiles from the core instead of the
+# 3-4 where spawning builders actually stand. v2 added routing and still sat at
+# t22 - and accidentally built 6 pads, proving pad COUNT was never the issue.
+# Timing and placement were.
+LAUNCHPAD_ROUND_LIMIT = 8     # pad goes up immediately or not at all
+LAUNCHPAD_MIN_D = 2           # far enough out that spawned builders reach it
+LAUNCHPAD_MAX_D = 4
+LAUNCH_MIN_GAIN = 3
+# v3 got the pad right - one, at t1, 2-4 tiles out - and still launched ZERO
+# times. Cause: every entity gets its own Player, and LAUNCHERS NEVER CALL
+# setupMap(), so a launcher's mapPf.enemyCorePos is permanently None and the
+# throw routine returned immediately. (mapPathfinding.py notes the same trap for
+# gunners.) Builders do have the map, so they publish the target here and the
+# launcher reads it. Slots 0-8 are taken: 0 numSpawned, 1-6 map share, 7 team
+# core, 8 symmetry mask.
+ENEMY_CORE_SLOT = 9
+# v4 launched 8.5 times a game starting t2 - mechanically identical to Pantheon -
+# and first gun still went t24 -> t26. The pad throws ANY builder in pickup
+# range, and in the opening that is mostly the economy crew, so we were flinging
+# harvesters and routers across the map. Attackers now walk onto the pad
+# deliberately and the launcher only throws a builder that is standing on the
+# claim tile, so economy units working near the core are never picked up.
+LAUNCH_CLAIM_SLOT = 10
+# v5 launched 17.1x/game (Pantheon: 3-4) and gated 40%: attackers drifted back
+# inside the claim radius and rode again and again, and the round trip cost more
+# than the 7 tiles bought. v6 tried a one-ride-per-builder flag and collapsed to
+# 0.8 launches, because the flag was set when a builder CLAIMED and only one
+# claim per turn survives the single slot - everyone who lost the race marked
+# itself done and never retried.
+# The geometry does the job without a flag: only throw to a tile that lands the
+# builder OUTSIDE the claim radius. A thrown builder is then never eligible
+# again, so each rides once, and nobody is disqualified by losing a race.
+# Slot 7 already holds our own core, which is what a map-less launcher needs.
+TEAM_CORE_SLOT = 7
+LAUNCH_MIN_EXIT = 7
+# THE BOLT. Pantheon's thrown builder never touches the pad again: t3:14, then
+# 13,12,11,10,9,8,7,6,5 - one tile a turn, straight in, first gun t13.
+# Ours re-entered the ride logic every time it drifted back inside the radius,
+# so v5 rode 17x/game (gate 40%), v7 8.8x (gate 38%), v8 deadlocked at the pad
+# for 80 turns and v9 oscillated 21<->22 all game.
+# The ride is therefore a ONE-SHOT IN THE OPENING, not a state: a builder may
+# try for the pad only in its first few rounds of life, and once it stops trying
+# - thrown, timed out, whatever - it marches and never looks back.
+# NO DETOUR. v10 traced b3 bouncing 22<->21<->22 for ten turns without ever
+# reaching the pad: mapPf.moveTo dead-ends against our OWN conveyor ring (our
+# conveyors are not passable to us - HANDOFF records the same bug costing aegis
+# 7 turns "2 tiles short"). And Pantheon never walks to their pad anyway: their
+# builders are thrown from (3,4), (2,4), (4,4) with their core at (2,2) - they
+# SPAWN in pickup range. So a rider must never divert; it claims only if it is
+# already beside the pad on its way out, otherwise it marches.
+LAUNCH_RIDE_WINDOW = 10      # rounds of a builder's life it may seek the pad
+LAUNCH_WAIT_LIMIT = 2          # must land at least this far from our own core
+
+from mapPathfinding import *
+
+# slot 0 numSpawned, slot 1-6 map sharing, slot 7 teamCore loc (for gunners), slot 8 symmetry (mapPathfinding)
+
+
+def extraSpawnAllowed(numSpawned, globalTitanium, nearbyFriendlyBuilders):
+    """Preserve the four-role opening, then stop feeding a crowded core."""
+    return (numSpawned < 4 or
+            (globalTitanium > 360 and
+             nearbyFriendlyBuilders < CORE_BUILDER_CONGESTION_LIMIT))
+
+
+def coreFootprintManhattan(pos: Position, core: Position) -> int:
+    return min(
+        abs(pos.x - (core.x + dx)) + abs(pos.y - (core.y + dy))
+        for dx in (0, 1) for dy in (0, 1)
+    )
+
+
+class Player:
+    def __init__(self):
+        self.mapPf = MapPathfinder()
+        self.numSpawned = 0
+        self.mapW = None
+        self.mapH = None
+        self.defendHome = None
+        self.rideDone = False
+        self.rideWait = 0
+        self.myAge = 0
+        self.visitedCenter = False
+        self.routeTarget = None
+        self.routeBestDistance = None
+        self.routeLastProgressRound = 0
+        # A builder remembers only conveyor edges it personally observed as
+        # draining. Missing edges are eligible for repair only when their live
+        # downstream suffix still provably reaches the core.
+        self.knownConnectedConveyors = {}
+
+    def distToCore(self, ct: Controller, pos: Position):
+        myLoc = ct.get_position()
+        tL = myLoc
+        tR = myLoc.add(Direction.EAST)
+        bL = myLoc.add(Direction.SOUTH)
+        bR = myLoc.add(Direction.SOUTH).add(Direction.EAST)
+        coreCorners = [tL, tR, bR, bL]
+        coreCorners.sort(key=lambda coreCorner: coreCorner.distance_squared(pos))
+        return coreCorners[0].distance_squared(pos)
+
+    def runCore(self, ct: Controller) -> None:
+        myLoc = ct.get_position()
+
+        nearbyOres = []
+        for tile in ct.get_nearby_tiles():
+            if ct.get_tile_env(tile) == Environment.ORE_TITANIUM:
+                nearbyOres.append(tile)
+        nearbyOres.sort(key=lambda ore: self.distToCore(ct, ore))
+
+        globalAmmo = ct.get_global_ammo()
+        globalTitanium = ct.get_global_resources()
+
+        myTeam = ct.get_team()
+        nearbyFriendlyBuilders = sum(
+            1 for unitId in ct.get_nearby_units()
+            if (ct.get_team(unitId) == myTeam and
+                ct.get_entity_type(unitId) == EntityType.BUILDER_BOT)
+        )
+        if extraSpawnAllowed(self.numSpawned, globalTitanium, nearbyFriendlyBuilders):
+            spawnableTiles = []
+            for tile in ct.get_nearby_tiles():
+                if ct.can_spawn(tile):
+                    spawnableTiles.append(tile)
+            if spawnableTiles:
+                mapCenter = Position(self.mapW // 2, self.mapH // 2)
+                if self.numSpawned % 2 == 0: # attacking bots
+                    spawnableTiles.sort(key=lambda spawnableTile: spawnableTile.distance_squared(mapCenter))
+                    closestTile = spawnableTiles[0]
+                    ct.spawn_builder(closestTile)
+                    self.numSpawned += 1
+                elif self.numSpawned % 2 == 1: # eco/defense bot
+                    sortTarget = nearbyOres[0] if nearbyOres else mapCenter
+                    spawnableTiles.sort(key=lambda spawnableTile: spawnableTile.distance_squared(sortTarget))
+                    closestTile = spawnableTiles[0]
+                    ct.spawn_builder(closestTile)
+                    self.numSpawned += 1
+            ct.write_store(0, self.numSpawned) # used so bots know their roles
+        ct.write_store(7, myLoc.x * 32 + myLoc.y)
+        convertAmount = min(16 - globalAmmo, globalTitanium - 28)
+        if convertAmount > 0 and ct.can_convert_ammo(convertAmount):
+            ct.convert_ammo(convertAmount)
+        
+    def run(self, ct: Controller) -> None:
+        if self.mapW is None:
+            self.mapH = ct.get_map_height()
+            self.mapW = ct.get_map_width()
+
+        etype = ct.get_entity_type()
+        if etype == EntityType.CORE:
+            self.runCore(ct)
+        elif etype == EntityType.BUILDER_BOT:
+            self.builderBot(ct)
+        elif etype == EntityType.GUNNER:
+            self.runGunner(ct)
+        elif etype == EntityType.LAUNCHER:
+            self.runLauncher(ct)
+
+    def _publish_enemy_core(self, ct: Controller) -> None:
+        """Share the target so map-less entities (launchers) can use it."""
+        target = self.mapPf.enemyCorePos
+        if target is None:
+            for cand in self.mapPf.allEnemyCore.values():
+                target = cand
+                break
+        if target is None:
+            return
+        ct.write_store(ENEMY_CORE_SLOT, target.x * 32 + target.y)
+
+    def runLauncher(self, ct: Controller) -> None:
+        """Throw any friendly builder in pickup range toward their core.
+
+        Reads the target from the store: a launcher has no map of its own.
+        """
+        compact = ct.read_store(ENEMY_CORE_SLOT)
+        if compact == 0:
+            return
+        target = Position(compact // 32, compact % 32)
+        me = ct.get_position()
+        myTeam = ct.get_team()
+        tiles = ct.get_attackable_tiles_from(me, Direction.NORTH, EntityType.LAUNCHER)
+        if not tiles:
+            return
+        claim = ct.read_store(LAUNCH_CLAIM_SLOT)
+        if claim == 0:
+            return                     # nobody is asking for a ride this turn
+        want = Position(claim // 32, claim % 32)
+        for uid in ct.get_nearby_units():
+            if (ct.get_team(uid) != myTeam
+                    or ct.get_entity_type(uid) != EntityType.BUILDER_BOT):
+                continue
+            bot = ct.get_position(uid)
+            if bot.x != want.x or bot.y != want.y:
+                continue               # only the builder that claimed the ride
+            here = abs(bot.x - target.x) + abs(bot.y - target.y)
+            homeCompact = ct.read_store(TEAM_CORE_SLOT)
+            home = (Position(homeCompact // 32, homeCompact % 32)
+                    if homeCompact else None)
+            best, bestD = None, here - LAUNCH_MIN_GAIN
+            for t in tiles:
+                if home is not None:
+                    if abs(t.x - home.x) + abs(t.y - home.y) < LAUNCH_MIN_EXIT:
+                        continue       # too short: they would ride again
+                d = abs(t.x - target.x) + abs(t.y - target.y)
+                if d < bestD and ct.can_launch(bot, t):
+                    best, bestD = t, d
+            if best is not None:
+                ct.launch(bot, best)
+                return
+
+    def _build_launchpad(self, ct: Controller, myLoc: Position) -> bool:
+        """Turn-one pad, 2-4 tiles out on the enemy side. Any builder, no role."""
+        if ct.get_current_round() > LAUNCHPAD_ROUND_LIMIT or not ct.can_act():
+            return False
+        teamCore = self.mapPf.teamCore
+        if teamCore is None:
+            return False
+        target = self.mapPf.enemyCorePos
+        if target is None:
+            for cand in self.mapPf.allEnemyCore.values():
+                target = cand
+                break
+        if target is None:
+            return False
+        myTeam = ct.get_team()
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) == myTeam
+                    and ct.get_entity_type(b) == EntityType.LAUNCHER):
+                return False          # one is enough; vision covers the home area
+        best = None
+        for d in CARDINALS:
+            spot = myLoc.add(d)
+            dc = abs(spot.x - teamCore.x) + abs(spot.y - teamCore.y)
+            if not (LAUNCHPAD_MIN_D <= dc <= LAUNCHPAD_MAX_D):
+                continue
+            if not ct.can_build_launcher(spot):
+                continue
+            key = abs(spot.x - target.x) + abs(spot.y - target.y)
+            if best is None or key < best[0]:
+                best = (key, spot)
+        if best is None:
+            return False
+        ct.build_launcher(best[1])
+        return True
+
+    def builderBot(self, ct: Controller):
+        myLoc = ct.get_position()
+        self.mapPf.setupMap(ct)
+        self._publish_enemy_core(ct)
+        if self._build_launchpad(ct, myLoc):
+            return
+        if self.mapPf.myNum % 2 == 1: # attacking
+            # pathfind to enemy core. if it isnt known pathfind to center of map.
+            # once the enemy core is known, calculate all possible tiles that are empty and you can place a gunner on such that it would attack the enemy core
+            # score them by their distance, and the number of enemy gunners attacking those tiles (if it has more than 1, dont count it)
+            # pathfind to the one with the highest score, and place a gunner there
+            # if there are no such spots, the create a gunner to target enemy gunners, scoring based on distance to enemy core, and the best valid spots. 
+            # valid spots are scored based on their proximity to the builder bot, as number of enemy gunners attacking them (also limited to one.)
+            # continue, until your titanium drops below 80
+            self.runAttack(ct)
+        elif self.mapPf.myNum == 4 or self.mapPf.myNum == 6: # defending
+            # always stand on a tile adjacent to the core, and try to be as close to the center of the map as possible
+            # (bot 4 stays as close to the center as possible, bot 6 as far as possible)
+            # builds gunners to counter enemy gunners/sentinels only (never enemy builders) - otherwise heals the core
+            self.runDefend(ct)
+        else: # economy
+            # go around the map, routing conveyors back to the core.
+            # routing/harvesting is priority number 2, first priority, is if you ever see and enemy gunner, either attack it or heal it based on if that gunner is being attacked or not.
+            self.runEco(ct)
+
+    def _claim_ride(self, ct: Controller, myLoc: Position) -> bool:
+        """One shot at the pad in the opening, then bolt and never come back."""
+        self.myAge += 1
+        if self.rideDone or self.myAge > LAUNCH_RIDE_WINDOW:
+            return False
+        teamCore = self.mapPf.teamCore
+        target = self.mapPf.enemyCorePos
+        if target is None:
+            for cand in self.mapPf.allEnemyCore.values():
+                target = cand
+                break
+        if teamCore is None or target is None:
+            return False
+        if abs(myLoc.x - teamCore.x) + abs(myLoc.y - teamCore.y) > 6:
+            return False               # already out on the map; keep marching
+        myTeam = ct.get_team()
+        pad = None
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) == myTeam
+                    and ct.get_entity_type(b) == EntityType.LAUNCHER):
+                pad = ct.get_position(b)
+                break
+        if pad is None:
+            return False
+        d = abs(myLoc.x - pad.x) + abs(myLoc.y - pad.y)
+        if d > 2:
+            self.rideDone = True       # not beside it - march, never detour
+            return False
+        self.rideWait += 1
+        if self.rideWait > LAUNCH_WAIT_LIMIT:
+            self.rideDone = True       # pad is busy - march, permanently
+            return False
+        ct.write_store(LAUNCH_CLAIM_SLOT, myLoc.x * 32 + myLoc.y)
+        return True                    # stand still this turn and get thrown
+
+    def runAttack(self, ct: Controller):
+        myLoc = ct.get_position()
+        if self.mapPf.enemyCorePos is None:
+            mapCenter = Position(self.mapW // 2, self.mapH // 2)
+            if not self.visitedCenter:
+                if ct.get_current_round() > 20 or myLoc.distance_squared(mapCenter) < 12:
+                    self.visitedCenter = True
+                else:
+                    self.mapPf.moveTo(ct, mapCenter)
+                    return
+            candidates = list(self.mapPf.allEnemyCore.values())
+            if candidates:
+                target = candidates[(self.mapPf.myNum // 2) % len(candidates)]
+                self.mapPf.moveTo(ct, target)
+            else:
+                corners = [Position(1, 1), Position(self.mapW - 2, 1),
+                           Position(1, self.mapH - 2), Position(self.mapW - 2, self.mapH - 2)]
+                target = corners[(self.mapPf.myNum // 2) % len(corners)]
+                self.mapPf.moveTo(ct, target)
+            return
+        else:
+            if self._claim_ride(ct, myLoc):
+                return
+            if ct.get_global_resources() >= 80:
+                gunnerStuff = self.findGunnerSpot(ct)
+                if gunnerStuff:
+                    gunnerSpot, gunnerDir = gunnerStuff
+                    if ct.can_build_gunner(gunnerSpot, gunnerDir):
+                        ct.build_gunner(gunnerSpot, gunnerDir)
+                        return
+                    myDist = myLoc.distance_squared(gunnerSpot)
+                    if myDist < 1:
+                        self.mapPf.moveTo(ct, self.mapPf.teamCore)
+                    elif myDist > 1:
+                        self.mapPf.moveTo(ct, gunnerSpot)
+                    return
+            self.mapPf.moveTo(ct, self.mapPf.enemyCorePos)
+
+    def findGunnerSpot(self, ct):
+        enemyCoverage = self.enemyTurretCoverage(ct)
+        coreAttackers = self.getAttackableTiles(ct)
+        bestAttacker = None
+        bestScore = None
+        myLoc = ct.get_position()
+        enemyCore = self.mapPf.enemyCorePos
+        for spotPos, spotDir in coreAttackers:
+            if not ct.is_in_vision(spotPos):
+                continue
+            if ct.get_tile_building_id(spotPos) is not None:
+                continue
+            if ct.get_tile_env(spotPos) != Environment.EMPTY:
+                continue
+            seatCov = enemyCoverage.get((spotPos.x, spotPos.y), 0)
+            if seatCov > 1:
+                continue
+            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))
+            if bestScore is None or score < bestScore:
+                bestScore = score
+                bestAttacker = (spotPos, spotDir)
+        return bestAttacker
+
+    def getAttackableTiles(self, ct):
+        enemyCore = self.mapPf.enemyCorePos
+        coreCorners = [
+            enemyCore, enemyCore.add(Direction.EAST), enemyCore.add(Direction.SOUTH),
+            enemyCore.add(Direction.SOUTH).add(Direction.EAST)]
+        coreAttackers = set()
+        for corner in coreCorners:
+            for spot in self.mapPf.gunnerSpots(corner, self.mapW, self.mapH, True):
+                coreAttackers.add((spot[0], spot[1]))
+        return coreAttackers
+
+    def enemyTurretCoverage(self, ct: Controller) -> dict:
+        enemyCoverage = {}
+        myTeam = ct.get_team()
+        for b in ct.get_nearby_buildings():
+            bType = ct.get_entity_type(b)
+            if ct.get_team(b) == myTeam or bType not in (EntityType.GUNNER, EntityType.SENTINEL):
+                continue
+            bPos = ct.get_position(b)
+            curDir = ct.get_direction(b)
+            facings = DIRECTIONS if bType == EntityType.GUNNER else [curDir]
+            for d in facings:
+                weight = 1.0 if d == curDir else 0.5
+                dx, dy = d.delta()
+                maxK = 3 if d in CARDINALS else 2
+                x, y = bPos.x, bPos.y
+                for _ in range(maxK):
+                    x += dx
+                    y += dy
+                    if not (0 <= x < self.mapW and 0 <= y < self.mapH):
+                        break
+                    enemyCoverage[(x, y)] = enemyCoverage.get((x, y), 0) + weight
+                    tilePos = Position(x, y)
+                    if not ct.is_in_vision(tilePos):
+                        break
+                    if ct.get_tile_env(tilePos) == Environment.WALL:
+                        break
+                    if ct.get_tile_building_id(tilePos) is not None:
+                        break
+                    if ct.get_tile_builder_bot_id(tilePos) is not None:
+                        break
+        return enemyCoverage
+
+    def coreThreatSpots(self, ct: Controller):
+        compact = ct.read_store(7)
+        teamCore = Position(compact // 32, compact % 32)
+        corners = [teamCore, teamCore.add(Direction.EAST), teamCore.add(Direction.SOUTH),
+                   teamCore.add(Direction.SOUTH).add(Direction.EAST)]
+        spots = set()
+        for corner in corners:
+            for spotPos, spotDir in self.mapPf.gunnerSpots(corner, self.mapW, self.mapH, blocked=False):
+                spots.add((spotPos.x, spotPos.y, spotDir))
+        return spots
+
+    def runGunner(self, ct: Controller):
+        curTarget = ct.get_gunner_target()
+        myDir = ct.get_direction()
+        myPos = ct.get_position()
+        myTeam = ct.get_team()
+        if curTarget is not None:
+            targetId = ct.get_tile_building_id(curTarget)
+            bbId = ct.get_tile_builder_bot_id(curTarget)
+            if bbId is not None and ct.get_team(bbId) == myTeam:
+                return # dont kill your own bot
+            enemyBuilding = targetId is not None and ct.get_team(targetId) != myTeam
+            enemyBuilder = bbId is not None and ct.get_team(bbId) != myTeam
+            if enemyBuilding or enemyBuilder:
+                if ct.can_fire(curTarget):
+                    ct.fire(curTarget)
+                    return
+        threatSpots = self.coreThreatSpots(ct)
+        directionScores = []
+        bestDir = myDir
+        bestIsCoreDefense = False
+        for directionIndex, d in enumerate(DIRECTIONS):
+            coreHits = 0
+            coreThreatHits = 0
+            gunnerHits = 0
+            otherHits = 0
+            for tile in ct.get_attackable_tiles_from(myPos, d, EntityType.GUNNER):
+                tileId = ct.get_tile_building_id(tile)
+                if tileId is not None and ct.get_team(tileId) != myTeam:
+                    tType = ct.get_entity_type(tileId)
+                    if tType == EntityType.CORE:
+                        coreHits += 1
+                    elif tType in [EntityType.GUNNER, EntityType.SENTINEL]:
+                        gunnerHits += 1
+                        if tType == EntityType.GUNNER and (tile.x, tile.y, ct.get_direction(tileId)) in threatSpots:
+                            coreThreatHits += 1
+                    else:
+                        otherHits += 1
+            # Keep core pressure first, then preserve guns that are actively
+            # stopping a core shot. Prefer the current facing on exact ties so
+            # equivalent targets do not burn 10 Ti rotating back and forth.
+            score = (coreHits, coreThreatHits, gunnerHits, otherHits)
+            directionScores.append((
+                score,
+                1 if d == myDir else 0,
+                -directionIndex,
+                d,
+                coreThreatHits > 0,
+            ))
+        if directionScores:
+            _, _, _, bestDir, bestIsCoreDefense = max(directionScores)
+        if bestDir != myDir:
+            floor = 25 if bestIsCoreDefense else 60
+            if ct.get_global_resources() > floor and ct.can_rotate(bestDir):
+                ct.rotate(bestDir)
+
+    def runDefend(self, ct: Controller):
+        myLoc = ct.get_position()
+        myTeam = ct.get_team()
+        covered = self.coveredTiles(ct)
+        enemyGunners = []
+        for b in ct.get_nearby_buildings():
+            if ct.get_team(b) != myTeam and ct.get_entity_type(b) in (EntityType.GUNNER, EntityType.SENTINEL):
+                enemyGunners.append(ct.get_position(b))
+        uncovered = [g for g in enemyGunners if (g.x, g.y) not in covered]
+        if uncovered:
+            uncovered.sort(key=lambda g: g.distance_squared(myLoc))
+            target = uncovered[0]
+            if self.buildGunnerFor(ct, target):
+                return
+            self.mapPf.moveTo(ct, target)
+            return
+        self.healCore(ct)
+
+    def getDefendHome(self, ct: Controller):
+        if self.defendHome is not None:
+            return self.defendHome
+        teamCore = self.mapPf.teamCore
+        if teamCore is None:
+            return None
+        center = Position(self.mapW // 2, self.mapH // 2)
+        covered = self.coveredTiles(ct)
+        candidates = []
+        fallback = []
+        for dx in range(-1, 3):
+            for dy in range(-1, 3):
+                if 0 <= dx <= 1 and 0 <= dy <= 1: # skip the 2x2 core itself
+                    continue
+                tile = Position(teamCore.x + dx, teamCore.y + dy)
+                if not (0 <= tile.x < self.mapW and 0 <= tile.y < self.mapH):
+                    continue
+                if self.mapPf.getTileEnv(tile) > 1: # wall or unpassable
+                    continue
+                if ct.get_tile_building_id(tile) is not None:
+                    continue
+                fallback.append(tile)
+                if (tile.x, tile.y) not in covered: # never block a team gunner line
+                    candidates.append(tile)
+        if self.mapPf.myNum == 4:
+            candidates.sort(key=lambda tile: tile.distance_squared(center)) # 4th bot: closest to center
+            fallback.sort(key=lambda tile: tile.distance_squared(center))
+        else:
+            candidates.sort(key=lambda tile: tile.distance_squared(center), reverse=True) # 6th bot: farthest
+            fallback.sort(key=lambda tile: tile.distance_squared(center), reverse=True)
+        if candidates:
+            self.defendHome = candidates[0]
+        elif fallback:
+            self.defendHome = fallback[0]
+        return self.defendHome
+
+    def healCore(self, ct: Controller, home=None):
+        myLoc = ct.get_position()
+        teamCore = self.mapPf.teamCore
+        if teamCore is None:
+            return
+        coreTiles = [teamCore, teamCore.add(Direction.EAST),
+                     teamCore.add(Direction.SOUTH),
+                     teamCore.add(Direction.SOUTH).add(Direction.EAST)]
+        for tile in coreTiles:
+            if myLoc.distance_squared(tile) == 1 and ct.can_heal(tile):
+                ct.heal(tile)
+                return
+        if home is None:
+            home = self.getDefendHome(ct)
+        if home is not None and myLoc != home:
+            self.mapPf.moveTo(ct, home)
+
+    def buildGunnerFor(self, ct: Controller, target: Position) -> bool:
+        myLoc = ct.get_position()
+        myTeam = ct.get_team()
+        for d in CARDINALS:
+            spot = myLoc.add(d)
+            dist = target.distance_squared(spot)
+            if dist < 10 and dist != 5 and 0 <= spot.x < self.mapW and 0 <= spot.y < self.mapH:
+                if ct.get_tile_building_id(spot) is None:
+                    gunnerDir = spot.direction_to(target)
+                    if self.rayBlockedByTeam(ct, spot, target, gunnerDir, myTeam):
+                        continue
+                    if ct.can_build_gunner(spot, gunnerDir):
+                        ct.build_gunner(spot, gunnerDir)
+                        return True
+        for d in CARDINALS: # try destroying a team barrier in the way
+            spot = myLoc.add(d)
+            dist = target.distance_squared(spot)
+            if dist < 10 and dist != 5 and 0 <= spot.x < self.mapW and 0 <= spot.y < self.mapH:
+                spotId = ct.get_tile_building_id(spot)
+                if spotId is not None:
+                    if ct.get_team(spotId) == myTeam and ct.get_entity_type(spotId) == EntityType.BARRIER:
+                        if ct.can_destroy(spot):
+                            ct.destroy(spot)
+                            return True
+        return False
+
+    def coveredTiles(self, ct: Controller) -> set:
+        covered = set()
+        myTeam = ct.get_team()
+        for b in ct.get_nearby_buildings():
+            if ct.get_team(b) != myTeam:
+                continue
+            bType = ct.get_entity_type(b)
+            if bType in (EntityType.GUNNER, EntityType.SENTINEL):
+                bPos = ct.get_position(b)
+                bDir = ct.get_direction(b)
+                for t in ct.get_attackable_tiles_from(bPos, bDir, bType):
+                    covered.add((t.x, t.y))
+        return covered
+
+    def rayBlockedByTeam(self, ct: Controller, gunnerSpot: Position, attackPos: Position, d: Direction, myTeam) -> bool:
+        dx, dy = d.delta()
+        x, y = gunnerSpot.x + dx, gunnerSpot.y + dy
+        for _ in range(max(self.mapW, self.mapH)):
+            if (x, y) == (attackPos.x, attackPos.y):
+                return False
+            if not (0 <= x < self.mapW and 0 <= y < self.mapH):
+                return False
+            if self.mapPf.getTileEnv(Position(x, y)) == 2:
+                return True
+            bId = ct.get_tile_building_id(Position(x, y))
+            if bId is not None and ct.get_team(bId) == myTeam:
+                return True
+            x += dx
+            y += dy
+        return False
+
+    def runEco(self, ct: Controller):
+        myLoc = ct.get_position()
+        myTeam = ct.get_team()
+        covered = self.coveredTiles(ct)
+        enemyGunners = []
+        visibleDamagedCore = False
+        for b in ct.get_nearby_buildings():
+            bTeam = ct.get_team(b)
+            bType = ct.get_entity_type(b)
+            if bTeam == myTeam and bType == EntityType.CORE:
+                visibleDamagedCore = ct.get_hp(b) < ct.get_max_hp(b)
+            elif bTeam != myTeam and bType in (EntityType.GUNNER, EntityType.SENTINEL):
+                enemyGunners.append(ct.get_position(b))
+        uncovered = [g for g in enemyGunners if (g.x, g.y) not in covered]
+        if uncovered:
+            uncovered.sort(key=lambda g: g.distance_squared(myLoc))
+            target = uncovered[0]
+            if self.buildGunnerFor(ct, target):
+                return
+            self.mapPf.moveTo(ct, target)
+            return
+        # Fixed defenders own covered threats. An economy builder joins healing
+        # only when it can see that the friendly core is actually damaged;
+        # otherwise the inherited heal helper merely recalled it home after a
+        # failed heal and could suppress economy forever under harmless guns.
+        if enemyGunners and visibleDamagedCore:
+            self.healCore(ct, home=self.mapPf.teamCore)
+            return
+        if self.repairFormerlyConnectedTrunk(ct, myLoc, myTeam):
+            return
+        if self.resumeCommittedRoute(ct):
+            return
+        if self.routeConveyorTask(ct, myLoc, myTeam):
+            return
+        if self.routeHarvesterTask(ct, myLoc, myTeam):
+            return
+        if self.harvestTask(ct, myLoc, myTeam):
+            return
+        if self.mapPf.teamCore is not None:
+            self.mapPf.moveTo(ct, self.mapPf.teamCore)
+
+    def clearCommittedRoute(self):
+        self.routeTarget = None
+        self.routeBestDistance = None
+        self.routeLastProgressRound = 0
+
+    def observeConnectedConveyors(self, ct: Controller, myTeam):
+        convDirs, _, convSafe = self.mapPf.classifyConveyors(ct, myTeam)
+        for key, data in convDirs.items():
+            if convSafe.get(key, False):
+                self.knownConnectedConveyors[key] = (data[0], data[1])
+        return convDirs, convSafe
+
+    def repairCandidate(self, ct: Controller, myLoc, myTeam, convDirs, convSafe):
+        """Return one exact destroyed edge from a formerly draining trunk.
+
+        A missing edge is useful only when it still has a live producer on its
+        upstream side and its output joins a currently proven suffix. This
+        excludes abandoned branches and the broad long-route behavior that
+        already lost its economy gate.
+        """
+        core = self.mapPf.teamCore
+        coreTiles = {
+            core, core.add(Direction.EAST), core.add(Direction.SOUTH),
+            core.add(Direction.SOUTH).add(Direction.EAST),
+        }
+        candidates = []
+        for key, (pos, direction) in self.knownConnectedConveyors.items():
+            if key in convDirs or not ct.is_in_vision(pos):
+                continue
+            if ct.get_tile_building_id(pos) is not None:
+                continue
+            output = pos.add(direction)
+            outputKey = output.x * 32 + output.y
+            downstreamLive = output in coreTiles or (
+                outputKey in convDirs and convSafe.get(outputKey, False))
+            if not downstreamLive:
+                continue
+
+            upstreamCount = 0
+            loadedUpstream = 0
+            for data in convDirs.values():
+                if data[0].add(data[1]) == pos:
+                    upstreamCount += 1
+                    loadedUpstream += 1 if data[2] else 0
+            for d in CARDINALS:
+                source = pos.add(d)
+                if not (0 <= source.x < self.mapW and 0 <= source.y < self.mapH):
+                    continue
+                if not ct.is_in_vision(source):
+                    continue
+                sourceId = ct.get_tile_building_id(source)
+                if (sourceId is not None and ct.get_team(sourceId) == myTeam and
+                        ct.get_entity_type(sourceId) == EntityType.HARVESTER):
+                    upstreamCount += 1
+            if upstreamCount == 0:
+                continue
+            score = (-loadedUpstream, -upstreamCount,
+                     myLoc.distance_squared(pos), coreFootprintManhattan(pos, core), key)
+            candidates.append((score, pos, direction))
+        if not candidates:
+            return None
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1], candidates[0][2]
+
+    def repairFormerlyConnectedTrunk(self, ct: Controller, myLoc, myTeam) -> bool:
+        if self.mapPf.teamCore is None:
+            return False
+        convDirs, convSafe = self.observeConnectedConveyors(ct, myTeam)
+        candidate = self.repairCandidate(ct, myLoc, myTeam, convDirs, convSafe)
+        if candidate is None:
+            return False
+        target, direction = candidate
+        # Never walk, reserve a role, or publish a claim for repair. Rebuild the
+        # exact productive edge only when this builder can do it immediately;
+        # otherwise normal routing/economy continues unchanged this turn.
+        if ct.can_build_conveyor(target, direction):
+            ct.build_conveyor(target, direction)
+            self.knownConnectedConveyors[target.x * 32 + target.y] = (
+                target, direction)
+            return True
+        return False
+
+    def commitRoute(self, ct: Controller, target: Position) -> bool:
+        if coreFootprintManhattan(target, self.mapPf.teamCore) > ROUTE_COMMIT_MAX_LINKS:
+            self.mapPf.routeConveyor(ct, target)
+            return True
+        self.routeTarget = target
+        self.routeBestDistance = None
+        self.routeLastProgressRound = ct.get_current_round()
+        return self.resumeCommittedRoute(ct)
+
+    def resumeCommittedRoute(self, ct: Controller) -> bool:
+        """Resume an interrupted conveyor head until it drains or truly stalls."""
+        if self.routeTarget is None or self.mapPf.teamCore is None:
+            return False
+        core = self.mapPf.teamCore
+        coreTiles = {
+            core, core.add(Direction.EAST), core.add(Direction.SOUTH),
+            core.add(Direction.SOUTH).add(Direction.EAST),
+        }
+        myTeam = ct.get_team()
+        currentRound = ct.get_current_round()
+
+        # Walk through an already-built visible suffix immediately. This keeps
+        # the commitment at the first missing link instead of camping on an
+        # earlier conveyor after combat or healing interrupted the route.
+        for _ in range(self.mapW + self.mapH):
+            target = self.routeTarget
+            if not (0 <= target.x < self.mapW and 0 <= target.y < self.mapH):
+                self.clearCommittedRoute()
+                return False
+            if target in coreTiles:
+                self.clearCommittedRoute()
+                return False
+            if not ct.is_in_vision(target):
+                break
+            targetId = ct.get_tile_building_id(target)
+            if targetId is None:
+                break
+            if (ct.get_team(targetId) == myTeam and
+                    ct.get_entity_type(targetId) == EntityType.CONVEYOR):
+                self.routeTarget = target.add(ct.get_direction(targetId))
+                self.routeBestDistance = None
+                self.routeLastProgressRound = currentRound
+                continue
+            self.clearCommittedRoute()
+            return False
+
+        target = self.routeTarget
+        myLoc = ct.get_position()
+        distance = myLoc.distance_squared(target)
+        if self.routeBestDistance is None or distance < self.routeBestDistance:
+            self.routeBestDistance = distance
+            self.routeLastProgressRound = currentRound
+        elif currentRound - self.routeLastProgressRound >= ROUTE_STALL_ROUNDS:
+            self.clearCommittedRoute()
+            return False
+
+        if not ct.is_in_vision(target):
+            self.mapPf.moveTo(ct, target)
+            return True
+
+        self.mapPf.routeConveyor(ct, target)
+        # routeConveyor may move us while trying to obtain a legal build stand.
+        # Re-check vision before querying the old head after that move.
+        if not ct.is_in_vision(target):
+            return True
+        targetId = ct.get_tile_building_id(target)
+        if (targetId is not None and ct.get_team(targetId) == myTeam and
+                ct.get_entity_type(targetId) == EntityType.CONVEYOR):
+            self.routeTarget = target.add(ct.get_direction(targetId))
+            self.routeBestDistance = None
+            self.routeLastProgressRound = currentRound
+        return True
+
+    def routeConveyorTask(self, ct: Controller, myLoc, myTeam) -> bool:
+        mapW, mapH = self.mapW, self.mapH
+        teamCore = self.mapPf.teamCore
+        if teamCore is None:
+            return False
+        bestScore, bestEnd = 0, None
+        for b in ct.get_nearby_buildings():
+            if ct.get_team(b) != myTeam or ct.get_entity_type(b) != EntityType.CONVEYOR:
+                continue
+            bPos = ct.get_position(b)
+            endTile = bPos.add(ct.get_direction(b))
+            if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
+                if ct.get_tile_building_id(endTile) is None:
+                    bScore = max(2, 6 * max(0, (1 - endTile.distance_squared(teamCore) / 120)) * max(0, (1 - myLoc.distance_squared(bPos) / 40)))
+                    if bScore > bestScore:
+                        bestScore = bScore
+                        bestEnd = endTile
+        if bestEnd is not None:
+            return self.commitRoute(ct, bestEnd)
+        return False
+
+    def routeHarvesterTask(self, ct: Controller, myLoc, myTeam) -> bool:
+        mapW, mapH = self.mapW, self.mapH
+        teamCore = self.mapPf.teamCore
+        if teamCore is None:
+            return False
+        bestScore, bestEnd = 0, None
+        for b in ct.get_nearby_buildings():
+            if ct.get_team(b) != myTeam or ct.get_entity_type(b) != EntityType.HARVESTER:
+                continue
+            bPos = ct.get_position(b)
+            if myLoc.distance_squared(bPos) >= 16:
+                continue
+            noTeamConv = True
+            workingSpots = []
+            for possibleDir in CARDINALS:
+                endTile = bPos.add(possibleDir)
+                if 0 <= endTile.x < mapW and 0 <= endTile.y < mapH and ct.is_in_vision(endTile) and ct.is_tile_passable(endTile):
+                    eId = ct.get_tile_building_id(endTile)
+                    if eId is None:
+                        workingSpots.append(endTile)
+                    elif ct.get_team(eId) == myTeam and ct.get_entity_type(eId) == EntityType.CONVEYOR:
+                        noTeamConv = False
+            if noTeamConv and len(workingSpots) > 0:
+                workingSpots.sort(key=lambda pos: pos.distance_squared(teamCore))
+                bScore = max(1.6, 5 * max(0, (1 - workingSpots[0].distance_squared(teamCore) / 100)) * max(0, (1 - myLoc.distance_squared(bPos) / 60)))
+                if bScore > bestScore:
+                    bestScore = bScore
+                    bestEnd = workingSpots[0]
+        if bestEnd is not None:
+            return self.commitRoute(ct, bestEnd)
+        return False
+
+    def harvestTask(self, ct: Controller, myLoc, myTeam) -> bool:
+        teamCore = self.mapPf.teamCore
+        if teamCore is None:
+            return False
+        enemyThreatened = self.mapPf.enemyTurretThreatenedTiles(ct)
+        bestScore, bestTile = 0, None
+        # scan the whole shared map, not just what's currently in this bot's own vision -
+        # otherwise ore another bot broadcast over the store slots is never actually visited
+        for x in range(self.mapW):
+            for y in range(self.mapH):
+                if self.mapPf.fullMap[x][y] != 1:
+                    continue
+                tile = Position(x, y)
+                if ct.is_in_vision(tile) and ct.get_tile_building_id(tile) is not None:
+                    continue
+                if (x, y) in enemyThreatened:
+                    continue
+                dist = teamCore.distance_squared(tile)
+                tileScore = max(1.2, 3 * (1 - dist / 160) * (1 - myLoc.distance_squared(tile) / 220))
+                if tileScore > bestScore and ct.get_global_resources() > dist / 7:
+                    bestScore = tileScore
+                    bestTile = tile
+        if bestTile is None:
+            return False
+        if ct.can_build_harvester(bestTile):
+            ct.build_harvester(bestTile)
+            return True
+        if bestTile.distance_squared(myLoc) > 1:
+            self.mapPf.moveTo(ct, bestTile)
+        elif bestTile.distance_squared(myLoc) < 1:
+            self.mapPf.moveTo(ct, teamCore)
+        return True
+    
