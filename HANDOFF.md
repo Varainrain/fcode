@@ -99,7 +99,20 @@ floor, not targeting priority. `exp_v17_gunner_control` fixes exactly these.
 | vs `meta-generalist-v1` | **144/168 (86%)** | 142/168 (85%) | **142-19** vs 140-25 |
 
 The candidate passes deterministic targeting/tie/priority tests, compiles, and
-completed a smoke game. It has not been packaged, uploaded, or activated.
+completed a smoke game. It was packaged byte-identically as submission v18
+`v17 gun-control candidate` (ZIP SHA-256
+`416FAB58A9EBA8F22735EAC0A5E1339617F125E5AD9B7CD26174CEDDB5B77359`).
+The CLI automatically activated v18 on upload; v17 was immediately restored as
+active. Treat upload as activation-capable in future workflows.
+
+Five v18 unranked series pinned to the opponent versions from the loss sample
+scored **22/25**: Pantheon 5-0, Askar City 5-0, team lazy 3-2,
+CtrlAltDefeat 4-1, and the one piece 5-0. Replays are in
+`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/v18-unranked/`.
+All three losses were multi-gunner core destructions: team lazy on Showdown and
+Runestone, plus a turn-990 Sweden loss to CtrlAltDefeat where 200 core damage
+was fully healed. This confirms early races and healed/stalled Sweden remain
+the live failure categories.
 
 ## Conveyor iteration on production engine 2.3.3
 
@@ -296,6 +309,7 @@ Before any new remote action: install/authenticate the production CLI, run
    do not stack it before it beats v17 and preserves the gun-control candidate.
 4. Investigate the Sprint healed-stalemate and Sweden zero-damage replay
    categories separately. Do not change map behavior by map name/dimensions.
-5. No upload, queue, activation, or root replacement without fresh approval.
+5. v18 is uploaded but inactive; v17 remains ladder-active. No activation or
+   root replacement without fresh approval.
 
 No external action is authorized by this handoff.
