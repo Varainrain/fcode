@@ -130,6 +130,7 @@ def audit_replay(path, metadata, team_id):
     core_shots_by_round = defaultdict(Counter)
     core_attack_sources = defaultdict(Counter)
     near_home_turret_builds = defaultdict(int)
+    near_home_turret_build_rounds = defaultdict(list)
     near_enemy_turret_builds = defaultdict(int)
     builder_deaths_before_core_damage = defaultdict(int)
 
@@ -161,6 +162,7 @@ def audit_replay(path, metadata, team_id):
                     if distance_sq_to_tiles(pos, core_tiles(
                             entities[cores[team]]["pos"])) <= 36:
                         near_home_turret_builds[team] += 1
+                        near_home_turret_build_rounds[team].append(round_index)
                     if distance_sq_to_tiles(pos, core_tiles(
                             entities[cores[1 - team]]["pos"])) <= 36:
                         near_enemy_turret_builds[team] += 1
@@ -232,6 +234,13 @@ def audit_replay(path, metadata, team_id):
         key for key in core_attack_sources[our_team]
         if key[0] == enemy_team
     }
+    home_attacker_types = Counter(key[1] for key in home_attackers)
+    home_shots_by_type = Counter()
+    for key, count in core_attack_sources[our_team].items():
+        if key[0] == enemy_team:
+            home_shots_by_type[key[1]] += count
+    first_home_round = first_core_shot.get(our_team)
+    our_home_build_rounds = near_home_turret_build_rounds[our_team]
     return {
         "match": match["id"][:8],
         "opponent": opponent,
@@ -263,6 +272,8 @@ def audit_replay(path, metadata, team_id):
         "first_home_shot": first_core_shot.get(our_team),
         "first_enemy_core_shot": first_core_shot.get(enemy_team),
         "home_attacker_count": len(home_attackers),
+        "home_attacker_types": dict(home_attacker_types),
+        "home_shots_by_type": dict(home_shots_by_type),
         "our_core_attacker_count": len(our_attackers),
         "max_home_shots_round": max(
             core_shots_by_round[our_team].values(), default=0
@@ -271,6 +282,15 @@ def audit_replay(path, metadata, team_id):
             core_shots_by_round[enemy_team].values(), default=0
         ),
         "our_near_home_turrets": near_home_turret_builds[our_team],
+        "our_home_turrets_before_first_shot": sum(
+            first_home_round is not None and round_number < first_home_round
+            for round_number in our_home_build_rounds
+        ),
+        "our_home_turrets_within_10_rounds": sum(
+            first_home_round is not None
+            and first_home_round <= round_number <= first_home_round + 10
+            for round_number in our_home_build_rounds
+        ),
         "enemy_near_home_turrets": near_home_turret_builds[enemy_team],
         "our_forward_turrets": near_enemy_turret_builds[our_team],
         "enemy_forward_turrets": near_enemy_turret_builds[enemy_team],

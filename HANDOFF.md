@@ -1,24 +1,25 @@
 # FCode production handoff
 
-Updated 2026-08-02. Read this before changing a bot. `AGENTS.md` contains the
+Updated 2026-08-03. Read this before changing a bot. `AGENTS.md` contains the
 iteration rules; `WORKFLOW.md` contains the gate protocol.
 
 ## Current decision
 
-- Strongest local candidate: `bots/meta-generalist-v1`.
-- Parent: `bots/exp_trans_40`, the shipped-v8 source lineage.
-- Only change: gunners now recognize enemy builders on the engine's separate
-  builder layer. The parent fired/rotated only when an enemy building occupied
-  the tile; a lone delivery builder was invisible.
-- Frozen package: `meta-generalist-v1.zip`; manifest:
-  `meta_generalist_v1_results.json`.
-- Local only. It has not been uploaded, queued, activated, or copied to root.
+- Frozen ladder control: `bots/live-v17-control`, downloaded byte-for-byte from
+  active production submission `v17 (dumb bot v6)`. Original archive:
+  `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/v17-live.zip`.
+- Latest observed production status on 2026-08-03: Erebus rank #3/92, rating
+  1777, 287 matches, latest ten series 10W-0L.
+- Current local candidate: `bots/exp_v17_gunner_control`. It changes only
+  gunner target/facing control and decisively beat exact v17; details below.
+- `meta-generalist-v1` remains the exact archived v9 control, but is no longer
+  the parent for new work.
 - Root `main.py` / `bot.zip` remain the historical v88 package and are dirty in
   git from prior user work. Do not replace them without explicit approval.
-- Production status cannot be queried with the current CLI session: the local
-  WSL environment is staging `fcode 2.3.2.dev29` and its session is expired.
-  The user says the real competition has started. Re-authenticate/update before
-  any remote verification and never describe local dev29 gates as production.
+- Local WSL is production `fcode 2.3.3` with all 21 maps and an authenticated
+  production session. The ten completed v9 ladder series (50 games) are in
+  `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v9-20260802-1830/`.
+  Gates below distinguish old dev29 evidence from new 2.3.3 evidence.
 
 ## Candidate evidence
 
@@ -67,11 +68,81 @@ SHA-256:
 | `exp_siege_on_sight` | shipped live v2; 67%/336 vs v3, 52% vs rush |
 | `exp_recall2` | soft v6 recall; hard recall rejected |
 | `exp_trans_40` | shipped v8 lineage; economy stops at t40; 60%/504 vs recall parent, but live top-five trade rather than clear gain |
-| `meta-generalist-v1` | current local candidate; gunner builder-layer bug fix |
+| `meta-generalist-v1` | archived v9 control; gunner builder-layer bug fix |
+| `live-v17-control` | active v17; four-builder rush/defense/economy chassis; rank #3 at freeze |
+| `exp_v17_gunner_control` | validated v17 successor candidate; local only |
 
-The exact active production version must be verified after re-authentication.
-Commit messages say transition40 was shipped as v8; do not infer activation from
-the local root files.
+## Live v17 replay audit and candidate
+
+Thirty ladder games from the six series actually played by v17 were downloaded
+to `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/`.
+The sample was 23-7 against Pantheon, Askar City, team lazy, CtrlAltDefeat,
+the one piece, and Powered by SmartFridge.
+
+All seven losses were core destruction under multiple enemy gunners. Five were
+early races ending on turns 28-68; one Sprint game lost on turn 301 after 580
+enemy-core damage was partly healed; one Sweden game lost on turn 575 after
+building 52 gunners but never damaging the enemy core. Only one or two home
+turrets existed before the first incoming shot in every loss. This indicates
+three remaining categories: early gun-line control, healed/stalled conversion,
+and rare enemy-core discovery/pathing failure.
+
+Source audit found three general gunner bugs: v17 ignored lone enemy builders;
+equal target scores could rotate away from the current line and waste 10 Ti;
+and a gun countering a real core-threatening gun received only a lower spend
+floor, not targeting priority. `exp_v17_gunner_control` fixes exactly these.
+
+| Production 2.3.3 gate | Candidate | Exact v17 control | Candidate core kills |
+|---|---:|---:|---:|
+| head-to-head | **200/336 (59.5%)** | 136/336 | **187-128** |
+| vs `oogbest-v6` | **145/168 (86%)** | 140/168 (83%) | **143-18** vs 139-25 |
+| vs `meta-generalist-v1` | **144/168 (86%)** | 142/168 (85%) | **142-19** vs 140-25 |
+
+The candidate passes deterministic targeting/tie/priority tests, compiles, and
+completed a smoke game. It has not been packaged, uploaded, or activated.
+
+## Conveyor iteration on production engine 2.3.3
+
+Live observation and local replay audits confirmed the parent can build many
+conveyors while leaving harvesters unserved. Causes in the inherited router:
+any adjacent conveyor counts as connected, arbitrary visible conveyors are
+merge sinks, and the round-40 cutoff abandons incomplete paths. Defensive
+conveyors can also form wrong-facing loops.
+
+`conveyor_audit.py` now reports facing-proven connections, dead ends, cycles,
+backfeeding roots, served harvesters, and post-round-40 construction from
+`.replay26` files.
+
+| Experiment | Parent result | Long-game result | Decision |
+|---|---:|---:|---|
+| `exp_connected_economy` | 3/12, kills 3-9 | broad rewrite | reject: opening changed |
+| `exp_late_route_repair` | 83/168, kills 64-79 | 19/25; Ti 4838-2785 | mechanism pass, combat fail |
+| `exp_late_route_idle` | 81/168, kills 64-77 | 17/27; Ti 4017-3496 | reject |
+| `exp_stalemate_route_repair` | 82/168, kills 70-71 | 12/26; Ti 3528-3565 | round 300 too late |
+| `exp_waller_route_repair` | rush screen 2/12 | hot scan from round 1 | reject: CPU/hot-path pollution |
+| `exp_waller_route_light` | **256/504 (50.8%)**, kills **210-211** | **45/81**, Ti **3328-3245** | hold: misses kill gate by one |
+| `exp_route_integrity` | 85/168, kills 71-74 | Sweden 7/8 | reject: topology guard became a specialist trade |
+| `exp_waller_route_reserve` | fast 5/12, kills 5-7 | not gated | reject before full gate |
+
+The final lightweight mechanism observes the graph only on the non-attacking
+waller after round 120, defers to healing, repairs at most eight links, merges
+only into a facing-proven empty trunk, and can rebuild one orphan-rooted cycle
+link. It is the only branch worth revisiting, but it is **not promoted**: the
+declared parent gate required nonnegative core kills. No unrelated-family gate,
+ZIP, upload, activation, or root replacement was performed.
+
+The downloaded production v9 archive is byte-identical to
+`bots/meta-generalist-v1` across all four Python sources. The audited 95 ladder
+games produced 43 wins and 52 losses; 49 losses were core destruction and 46
+of those had multi-turret home pressure. In the newest 45 games, 23 of 24 core
+losses had multiple attackers and 23 were gunner-only. No enemy builder was
+adjacent to the core when the first core shot landed in any of the 49 losses,
+so builder-chasing and broad recall are misdiagnoses. At
+round 40, mean served-harvester fraction was 79% in wins and 73% in losses.
+Both titanium losses had incomplete networks; one contained a four-conveyor
+cycle trapping a seven-link disconnected branch. Routing is real but secondary,
+so neither rejected route variant should
+be promoted over the exact active source.
 
 ## Current meta evidence
 
@@ -122,6 +193,33 @@ Earlier measured negatives still stand: permanent guards, global hard recalls,
 full-ring sealing, attack-gate removal, launcher highways, from-scratch bastion,
 all-sieger allocation, and broad `attackBan` rewrites.
 
+### Architecture-ceiling experiments
+
+The follow-up home-defense cycle is closed. These were deliberately small
+mechanism probes; none is a promotion candidate.
+
+| Experiment | Key result | Decision |
+|---|---|---|
+| `exp_meta_multi_recall` | 47%/168, kills 64-78 | reject |
+| `exp_meta_recall450` | 43%/168, kills 57-83 | reject |
+| `exp_meta_safe_counter60` | 52% parent, 52% rush, 45% Oogbest | reject: opponent regression >5 pp |
+| `exp_meta_damage_sequential` | 49%/168, kills 71-72 | reject |
+| `exp_meta_damage_sequential400` | 49%/168, kills 70-69 | reject: misses parity |
+| `exp_meta_counter_tend` | 51%/168 | reject: -739 mean Ti in round-1000 subset |
+| `exp_meta_counter_tend6` | 47%/168, kills 63-78 | reject |
+| `exp_meta_counter_tend8` | 52% parent; 51% rush | incomplete Oogbest gate; not promoted |
+| `exp_dynamic_fronts` | 92/168 parent; 93/168 rush; 89/168 Oogbest | first consistent architectural gain, but only +1.8 to +3.6 pp; hold, do not promote |
+
+The repeated tradeoffs establish a chassis ceiling. `exp_dynamic_fronts`
+replaces the single responder with up to three distinct pressure/coverage-sized
+front assignments, preserves two local economy builders, latches both siegers
+on offense, and bounds countergun maintenance to eight heals. It improved all
+three tested families and core-kill margins, but the effect is still modest:
+parent 92-76 (kills 74-62), rush 93-75 (82-64), Oogbest 89-79 (84-63).
+Therefore fixed ownership was one real problem, not the whole problem. Stop
+tuning recall HP, reserve thresholds, or heal counts; the next experiment must
+also replace unbounded extra spawning and the universal round-40 gun churn.
+
 ## Architecture and store protocol
 
 `exp_trans_40` / `meta-generalist-v1` are mostly memoryless state scorers with
@@ -155,8 +253,8 @@ builders.
 ## Engine and measurement gotchas
 
 - Local WSL venv: `~/.venvs/fcode`; activate it before tests/gates.
-- Current local CLI: `fcode 2.3.2.dev29` staging. Production has started; update
-  and sync production maps before trusting new gates.
+- Current local CLI: production `fcode 2.3.3`; all 21 maps are present and the
+  remote session is authenticated.
 - Bot `random` is not seeded by engine `--seed`; identical serial games can
   flip. Use 168 for clear deltas and 336 for close ones.
 - Per-map gate rows are noisy and gate side labels are unreliable. Use aggregate
@@ -190,17 +288,14 @@ Before any new remote action: install/authenticate the production CLI, run
 
 ## Next steps
 
-1. Do not mutate `meta-generalist-v1`; branch experiments from it.
-2. With explicit user approval only, authenticate production and upload the ZIP
-   as inactive. Do not activate.
-3. Run multiple unranked series against diverse live opponents, not only Ijti.
-   Download every replay. Require nonnegative kills and evidence that enemy
-   delivery builders are actually being shot in more than one opponent family.
-4. If production confirms the candidate, ask separately before root replacement
-   or activation.
-5. Next local hypotheses should come from fresh production losses. Prefer source
-   correctness bugs or narrowly reactive observable-state fixes. Do not revisit
-   the rejected allocation, ammo, armor-rebuild, or breacher branches without
-   new multi-opponent evidence.
+1. Keep root, exact v17 control, and the active submission unchanged.
+2. Treat `exp_v17_gunner_control` as the only current promotion candidate.
+   Two independent parent blocks passed (104/168 and 96/168). Isolate its three
+   submechanisms only if further attribution is worth delaying packaging.
+3. Test exact core-threatening-turret filtering for defender 4 independently;
+   do not stack it before it beats v17 and preserves the gun-control candidate.
+4. Investigate the Sprint healed-stalemate and Sweden zero-damage replay
+   categories separately. Do not change map behavior by map name/dimensions.
+5. No upload, queue, activation, or root replacement without fresh approval.
 
 No external action is authorized by this handoff.
