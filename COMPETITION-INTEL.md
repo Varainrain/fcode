@@ -1,3 +1,4 @@
+
 # 👑 OUR BEST BOT IS v9 "pls codex" — AND IT IS NOT CLOSE (2026-08-03)
 Downloaded oni's deployed v9 from prod (`fcode submission download 9`) and gated it
 against our entire local line, 84 games each on dev29 + synced pool:
@@ -26,6 +27,14 @@ The one prod win pattern: atoll t949 grind (unit-cap econ absorb). erebus shelf
 now holds v10=prime-a, v11=oogerebus3 as inactive options; **v9 stays active.**
 ⚠ `fcode submission upload` AUTO-ACTIVATES — always `submission activate 9` after
 shelving anything (this bit me for ~2 minutes of ladder time today).
+
+
+## Verified: v9 > staging v90 too (61%, kills 44-28, 84g) — THE BEST BOT IS ALREADY ACTIVE
+Screened prod v9 against staging v90 "see more" (oni's last pre-competition staging bot):
+v9 wins 61%. Chain complete: v9 > v90 > everything in the repo. **No upload needed — v9 is deployed.**
+Per-map hint for the pipeline: v90 BEATS v9 on the small maps — duel 0/4, twins 0/4, sprint 1/4,
+string 1/4, sweden 1/4. v9's edge is the mid/large maps. A small-map regression happened
+between v90 and v9; whatever changed, the old behavior was better there.
 
 # ⚔️ PANTHEON AUTOPSY — fresh 0-5, challenged them directly (2026-08-03)
 
