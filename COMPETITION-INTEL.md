@@ -1,3 +1,11 @@
+# 🚀 UPDATE: v13 "_OogwayRush" IS THE NEW BEST — AND IT IS ALREADY ACTIVE (2026-08-03 01:30)
+Oogway shipped v12/v13 tonight mid-session. Gated immediately: **v13 beats v9 69% (kills 57-24, 84g).**
+Kills nop at t25 — faster than khaos's fabled t29. The best-bot chain is now:
+**v13 (rush) > v9 (codex) > v90stg > everything in the repo.** v13 active = correct deployment, now verified.
+v13's weak maps: quarry 0/4, sweden 1/4, crossfire/duel/jackpot/runestone/string/twins/vase 2/4 — the rush
+carries the rest. Note the meta echo: Orizon (#3, 1736) is also a pure rush — Oogway independently built
+the answer to the same meta. Whether rush clears the absorb teams above (Pantheon/CAD) is the open question;
+scout via the unrated pipeline after v13 has some ladder history.
 
 # 👑 OUR BEST BOT IS v9 "pls codex" — AND IT IS NOT CLOSE (2026-08-03)
 Downloaded oni's deployed v9 from prod (`fcode submission download 9`) and gated it
