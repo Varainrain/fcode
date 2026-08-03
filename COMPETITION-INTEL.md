@@ -1,3 +1,20 @@
+## v13 FULL GATE MATRIX — the rush flattens everything, including the anti-rush wall (2026-08-03 03:50)
+Requested by Oogway ("might want to gate that against our other bots"). 84 games each, dev29, synced pool:
+
+| v13 "_OogwayRush" vs | result | kills |
+|---|---|---|
+| v9 "pls codex" (oni) | 69% | 57-24 |
+| **oogerebus3 (the anti-rush wall specialist)** | **93%** | **78-3** |
+| prime-a (OogwayNEW+armor, best of the old line) | 92% | 77-7 |
+| lastpop2 (siege clone) | 95% | 80-4 |
+
+**The headline: the wall that stopped krb at 85% does NOT stop this rush (7%).** Why: oogerebus3's
+wall duty starts round 6 and needs ~40 rounds to seal the ring — v13 kills at t25. It is simply
+faster than any defense we have ever built. That has two edges: (a) it will farm the whole
+midfield of the real ladder; (b) whoever above us CAN survive t25 (the absorb teams — Pantheon,
+CtrlAltDefeat, per their profiles) will be the only teams that matter. v13's weak maps stand:
+quarry 0/4, sweden 1/4 vs v9.
+
 # 🚀 UPDATE: v13 "_OogwayRush" IS THE NEW BEST — AND IT IS ALREADY ACTIVE (2026-08-03 01:30)
 Oogway shipped v12/v13 tonight mid-session. Gated immediately: **v13 beats v9 69% (kills 57-24, 84g).**
 Kills nop at t25 — faster than khaos's fabled t29. The best-bot chain is now:
