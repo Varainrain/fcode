@@ -16,7 +16,8 @@ Fresh production-engine gates (21 maps, four seeds, both sides):
 | vs `meta-generalist-v1` | 144/168 | 142/168 | candidate 142-19; control 140-25 |
 
 Deterministic tests are in `tests/test_v17_gunner_control.py`. This is a local
-candidate packaged as submission v18 (`v17 gun-control candidate`). Five
-unranked series against replay-loss opponents scored 22/25: Pantheon 5-0,
-Askar City 5-0, team lazy 3-2, CtrlAltDefeat 4-1, and the one piece 5-0.
-Production v17 was restored as the active ladder submission after queueing.
+candidate packaged as submission v18 (`v17 gun-control candidate`). Eight
+unranked series against replay-loss opponents scored 34/40. The first batch was
+Pantheon 5-0, Askar City 5-0, team lazy 3-2, CtrlAltDefeat 4-1, and the one
+piece 5-0; repeats were SmartFridge 3-2, team lazy 4-1, and CtrlAltDefeat 5-0.
+v18 was explicitly promoted to the active ladder submission on 2026-08-03.

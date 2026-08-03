@@ -105,14 +105,15 @@ completed a smoke game. It was packaged byte-identically as submission v18
 The CLI automatically activated v18 on upload; v17 was immediately restored as
 active. Treat upload as activation-capable in future workflows.
 
-Five v18 unranked series pinned to the opponent versions from the loss sample
-scored **22/25**: Pantheon 5-0, Askar City 5-0, team lazy 3-2,
-CtrlAltDefeat 4-1, and the one piece 5-0. Replays are in
+Eight v18 unranked series pinned to opponent versions from the loss sample
+scored **34/40**. Batch one: Pantheon 5-0, Askar City 5-0, team lazy 3-2,
+CtrlAltDefeat 4-1, and the one piece 5-0. Batch two: SmartFridge 3-2,
+team lazy 4-1, and CtrlAltDefeat 5-0. Replays are in
 `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/v18-unranked/`.
-All three losses were multi-gunner core destructions: team lazy on Showdown and
-Runestone, plus a turn-990 Sweden loss to CtrlAltDefeat where 200 core damage
-was fully healed. This confirms early races and healed/stalled Sweden remain
-the live failure categories.
+and its `v18-unranked-repeat/` sibling. All six losses were multi-gunner core
+destructions. Five were early races on Showdown, Runestone, Sprint, or Atoll;
+one was a turn-990 Sweden loss where 200 damage was fully healed. This confirms
+early gun races and healed/stalled Sweden remain the live failure categories.
 
 ## Conveyor iteration on production engine 2.3.3
 
@@ -309,7 +310,7 @@ Before any new remote action: install/authenticate the production CLI, run
    do not stack it before it beats v17 and preserves the gun-control candidate.
 4. Investigate the Sprint healed-stalemate and Sweden zero-damage replay
    categories separately. Do not change map behavior by map name/dimensions.
-5. v18 is uploaded but inactive; v17 remains ladder-active. No activation or
-   root replacement without fresh approval.
+5. The user explicitly promoted v18 on 2026-08-03; it is ladder-active. Root
+   remains unchanged and still requires separate approval.
 
 No external action is authorized by this handoff.
