@@ -1,5 +1,12 @@
 # Late Route Repair experiment
 
+**Mechanism pass, promotion reject.** Production-engine 2.3.3 parent gate:
+83/168 (49.4%), core kills 64-79. In the 25 round-1000 games it won 19, with
+mean collected titanium 4,838 versus 2,785. The repair solves the long-game
+failure but its score-six claim diverts too many combat turns. Do not promote;
+the follow-up must prefer the parent's non-attacking waller and let ordinary
+brawlers repair only while idle.
+
 Parent: frozen `meta-generalist-v1` (reported live on ladder).
 
 This is the narrowed successor to rejected `exp_connected_economy`, whose

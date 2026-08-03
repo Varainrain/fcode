@@ -116,7 +116,28 @@ def topology(core, entities, team):
         if output not in footprint and output not in conveyors:
             dead_ends.add(position)
 
+    cycle_components = set()
+    cycle_conveyors = set()
+    for start in conveyors:
+        path = []
+        path_index = {}
+        position = start
+        while position in conveyors:
+            if position in path_index:
+                cycle = frozenset(path[path_index[position]:])
+                cycle_components.add(cycle)
+                cycle_conveyors.update(cycle)
+                break
+            path_index[position] = len(path)
+            path.append(position)
+            facing = conveyors[position]["facing"]
+            delta = DIRECTION_DELTA.get(facing)
+            if delta is None:
+                break
+            position = (position[0] + delta[0], position[1] + delta[1])
+
     served = set()
+    backfeed_roots = set()
     for harvester in harvesters:
         for position, record in conveyors.items():
             if abs(position[0] - harvester[0]) + abs(position[1] - harvester[1]) != 1:
@@ -125,6 +146,8 @@ def topology(core, entities, team):
             if delta is None:
                 continue
             output = (position[0] + delta[0], position[1] + delta[1])
+            if output == harvester:
+                backfeed_roots.add((harvester, position))
             if output != harvester and position in connected:
                 served.add(harvester)
                 break
@@ -133,6 +156,9 @@ def topology(core, entities, team):
         "connected": len(connected),
         "disconnected": len(conveyors) - len(connected),
         "dead_ends": len(dead_ends),
+        "cycles": len(cycle_components),
+        "cycle_conveyors": len(cycle_conveyors),
+        "backfeed_roots": len(backfeed_roots),
         "harvesters": len(harvesters),
         "served": len(served),
         "orphan_positions": sorted(harvesters - served),

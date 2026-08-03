@@ -1,0 +1,25 @@
+{
+  "bot": "exp_waller_route_light",
+  "status": "mechanism pass; promotion hold; not packaged, uploaded, activated, or copied to root",
+  "engine": "fcode 2.3.3 production package; 21 local maps; remote session expired",
+  "parent": "meta-generalist-v1",
+  "mechanism": "waller-only heal-gated facing-aware orphan conveyor repair from round 120; graph scan off ordinary builders' hot path",
+  "parent_gate_blocks": [
+    {"games": 168, "wins": 83, "core_kills_for": 67, "core_kills_against": 74},
+    {"games": 168, "wins": 86, "core_kills_for": 70, "core_kills_against": 68},
+    {"games": 168, "wins": 87, "core_kills_for": 73, "core_kills_against": 69}
+  ],
+  "parent_gate_combined": {
+    "games": 504,
+    "wins": 256,
+    "win_rate": 0.5079,
+    "core_kills_for": 210,
+    "core_kills_against": 211,
+    "round_1000_games": 81,
+    "round_1000_wins": 45,
+    "round_1000_candidate_titanium_collected_mean": 3328.1,
+    "round_1000_parent_titanium_collected_mean": 3244.6
+  },
+  "rush_screen": {"opponent": "spar_rush", "games": 12, "wins": 7, "core_kills_for": 7, "core_kills_against": 5},
+  "decision": "hold because the declared parent gate required nonnegative core-kill differential; unrelated-family gates and packaging were not run"
+}

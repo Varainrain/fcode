@@ -8,10 +8,16 @@ iteration rules; `WORKFLOW.md` contains the gate protocol.
 - Frozen ladder control: `bots/live-v17-control`, downloaded byte-for-byte from
   active production submission `v17 (dumb bot v6)`. Original archive:
   `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/v17-live.zip`.
-- Latest observed production status on 2026-08-03: Erebus rank #3/92, rating
-  1777, 287 matches, latest ten series 10W-0L.
-- Current local candidate: `bots/exp_v17_gunner_control`. It changes only
-  gunner target/facing control and decisively beat exact v17; details below.
+- Latest observed production status on 2026-08-03: Erebus rank #1/92, rating
+  1907 after 322 matches, active v22, latest ten 9W-1L. Submission v22 was
+  activated with explicit user approval; keep it active after future uploads.
+- Current production bot: `bots/exp_v21_eco_release_only_damaged`
+  (submission v22, ID `5861c003-13a8-48c4-bc42-fe01445c6245`). It combines
+  v20 route completion, v21 spare-opportunity productive-edge repair, and a
+  bounded economy/defense ownership fix. All local gates and the 50-game
+  remote threshold pass. Updated Pantheon v14 remains a severe 1-9 weakness,
+  but pinned v18 also scored 0-5 on the same five maps. v22 is active; root
+  remains unchanged.
 - `meta-generalist-v1` remains the exact archived v9 control, but is no longer
   the parent for new work.
 - Root `main.py` / `bot.zip` remain the historical v88 package and are dirty in
@@ -71,6 +77,10 @@ SHA-256:
 | `meta-generalist-v1` | archived v9 control; gunner builder-layer bug fix |
 | `live-v17-control` | active v17; four-builder rush/defense/economy chassis; rank #3 at freeze |
 | `exp_v17_gunner_control` | validated v17 successor candidate; local only |
+| `exp_v18_spawn_route_proof` | submission v19; facing-proven merges; inactive; remote 33-17 |
+| `exp_v19_near_core_finish` | submission v20; bounded route completion; inactive; remote 14-11 |
+| `exp_v20_opportunistic_trunk_repair` | submission v21; no-travel exact edge repair; remote 14-11; superseded by v22 |
+| `exp_v21_eco_release_only_damaged` | submission v22; current active production bot; remote 30-20 |
 
 ## Live v17 replay audit and candidate
 
@@ -114,6 +124,187 @@ and its `v18-unranked-repeat/` sibling. All six losses were multi-gunner core
 destructions. Five were early races on Showdown, Runestone, Sprint, or Atoll;
 one was a turn-990 Sweden loss where 200 damage was fully healed. This confirms
 early gun races and healed/stalled Sweden remain the live failure categories.
+
+## v18 follow-up audit and spawn candidate
+
+The 40 v18 unrated replays contain no evidence of our units dying from uncaught
+exceptions. The remaining failures exposed home-gun races and one long-game
+resource leak: the Sweden loss spawned 56 builders versus 24 while converting
+only 200 enemy-core damage. Production 2.3.3 also documents builder build/heal
+range as orthogonal only; older repository rules saying diagonal/own-tile are
+stale.
+
+Independent audits tested exact core-threat filtering, legal heal stands,
+obstruction-aware gun lines, legal siege/harvest stands, and congestion-aware
+spawning. Only `exp_v18_spawn_discipline` passed its mechanism and broad gates.
+It preserves the first four builders, then pauses extra spawning while six
+friendly builders are inside core vision and resumes after dispersal/death.
+
+| Production 2.3.3 gate | Candidate | Core kills | v18 baseline |
+|---|---:|---:|---:|
+| exact v18 | 86/168 (51%) | 73-72 | 50% expectation |
+| `spar_rush` | 151/168 (90%) | 150-11 | 154/168 |
+| `oogbest-v6` | 146/168 (87%) | 143-15 | 145/168 |
+| `meta-generalist-v1` | 146/168 (87%) | 144-17 | 144/168 |
+| String/Bridge focus | 18/32 (56%) | 11-10 | head-to-head |
+
+Across 12 round-1000 parent games it won 8, collected +434 Ti/game, retained
++1,799 Ti, and used 4.7 fewer units. The focused block won four of five
+round-1000 games with +1,248 collected Ti/game. Core-threat filtering reached
+90/168 and kills 78-63 but lost 94 collected Ti/game; harvest-stand reached
+89/168 and kills 78-69 but lost 740 collected Ti/game in round-1000 games.
+All other audit variants failed their screens. Nothing was uploaded or activated.
+
+## Pantheon postmortem cycle
+
+The Cambridge/Pantheon postmortem validates mechanisms, not a directly portable
+bot: its game included foundries, axionite, bridges, roads, breaches, markers,
+50x50 maps, and 2000 rounds. Current v18 already overlaps with its memoryless
+map layer, symmetry inference, weighted bucket pathfinding, conveyor-cycle
+classification, deterministic roles, threat-aware gun plans, and ID-jittered
+stuck timeout. Missing architecture-level ideas are per-turn state scoring,
+claim/Voronoi ownership, TTL target-failure caches, and incremental map deltas.
+
+Three isolated ports started from `exp_v18_spawn_discipline`:
+
+| Experiment | Parent result | Decision |
+|---|---:|---|
+| passive spare-action heal | fast 3/12, kills 3-9 | reject |
+| immediate-buildable siege seat | 80/168, kills 73-82 | reject |
+| facing-proven route merge | **86/168, kills 69-68** | pass |
+
+`exp_v18_spawn_route_proof` treats a visible conveyor as a completed merge sink
+only when its facing chain reaches the core, or leaves vision after every
+observed edge strictly reduces Manhattan distance to the core. Full 2.3.3 gates:
+
+| Opponent | Result | Core kills | Spawn-parent baseline |
+|---|---:|---:|---:|
+| `exp_v18_spawn_discipline` | **86/168** | **69-68** | parity gate |
+| `spar_rush` | **152/168** | **151-13** | 151/168 |
+| `oogbest-v6` | **148/168** | **141-18** | 146/168 |
+| `meta-generalist-v1` | **142/168** | **142-21** | 146/168 |
+| String/Bridge parent focus | **21/32** | **15-7** | 18/32 prior block |
+
+Parent JSON: +10 Ti collected/game, +36 retained Ti/game, 1.2 fewer buildings;
+round-1000 games were 10-9. Sixteen paired Bridge replays in
+`artifacts/pantheon-route-proof-bridge/` preserved connected conveyors and
+served harvesters while reducing total conveyors 18.94 -> 14.69, disconnected
+16.81 -> 12.56, and post-round-40 builds 10.00 -> 5.94. It removes waste but
+does not fix Bridge team A, which still had zero connected conveyors in both
+variants.
+
+The replay batch exposed an inherited `getDefendHome()` out-of-vision occupant
+query that can kill a defender with `GameError`. Two isolated fixes were not
+stacked: assumed-empty ring caching gated 83/168 with kills 67-70; a visible-
+only/core-return version failed its fast screen 5/12. Keep the bug open rather
+than claiming either unproven fallback passed.
+
+### Remote route-proof and near-core-finisher cycle
+
+`exp_v18_spawn_route_proof` was packaged as inactive submission v19
+(`a3a732e6-5916-4c40-9088-69a119a3f4d8`, ZIP SHA-256
+`EAAE6E...D7170B3`). Its 50-game unrated sample was **33-17**, estimated core
+kills **27-15**: Pantheon 8-2, Orizon 8-2, team lazy 5-5, CtrlAltDefeat 8-2,
+SmartFridge 4-6. Replays are in
+`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v19-20260803/`.
+The losses showed that facing-proof prevents false merges but does not finish
+short routes: an Orizon Bridge loss built 27 conveyors, connected none, and
+kept starting branches after combat.
+
+`exp_v19_near_core_finish` remembers an unfinished route only while its head is
+within four Manhattan links of the core footprint, resets on progress, and
+abandons after 24 stalled rounds. A post-move vision recheck is mandatory:
+without it, querying the old target after movement raises `GameError`.
+
+| Production 2.3.3 gate | Result | Core kills | Notes |
+|---|---:|---:|---|
+| exact v19 parent | **88/168** | **72-69** | +193 Ti collected/game |
+| `spar_rush` | **158/168** | 158-3 | pass |
+| `oogbest-v6` | **142/168** | 138-19 | 3.6 pp below v19, within gate |
+| `meta-generalist-v1` | **155/168** | 152-12 | pass |
+
+In 16 paired Bridge games it cut total conveyors **24.81 -> 6.06**,
+disconnected conveyors **23.25 -> 4.00**, and post-round-40 builds
+**16.00 -> 1.62**, while increasing connected conveyors **1.56 -> 2.06**.
+The fixed source produced no tracebacks. Submission v20 ZIP SHA-256 is
+`BE321AA7...EC8D3`; the archive contains only byte-identical `main.py` and
+`mapPathfinding.py`.
+
+The v20 remote sample was **14-11**, estimated core kills **13-11**: Pantheon
+4-1, Orizon 3-2, team lazy 1-4, CtrlAltDefeat 4-1, SmartFridge 2-3. Replays are
+in `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v20-20260803/`.
+Across all 25 games it averaged 9.00 conveyors: 6.76 connected and 2.24
+disconnected. The surviving failure is narrower than initial routing. In the
+turn-640 Pantheon Sweden loss, the network was fully healthy at round 80
+(24/24 conveyors connected, 5/5 harvesters served), then enemy damage severed
+the trunk; by round 400 it had 36 disconnected conveyors and only 5/9
+harvesters served. New builders created branches instead of reclaiming the
+previously served graph.
+
+Do not revive the broad sticky-route variant: it scored 83/168 and lost 32.6
+collected Ti/game because builders chased long unfinished paths. Do not use the
+rejected opportunistic-pressure override either; it scored 5/12 against v20.
+Early remote losses were gun races in which defensive guns spent 13-41 shots
+on enemy gunners while the opponent delivered 50-77 core shots. The next
+combat change needs deterministic target/front ownership, not more attackers
+or a role override. The next route change needs incremental memory of a
+formerly connected trunk plus a bounded repair claim; it must never become a
+general long-route commitment.
+
+### v21/v22 productive-edge and ownership cycle
+
+The first persistent repair followed remembered edges across the map. Despite
+large titanium gains it finished **249/504**, core kills **214-218**; a
+round-120 sibling finished 82/168, kills 69-71. Gunner preemption was also
+rejected at 75/168, kills 61-82: paying 10 Ti and losing the current shot to
+rotate away from a turret was worse than finishing it.
+
+Submission v21 `exp_v20_opportunistic_trunk_repair` keeps only the safe part:
+an economy builder remembers an edge it personally observed draining and
+rebuilds that exact edge only when a live upstream producer and proven
+downstream suffix remain **and** `can_build_conveyor` succeeds immediately. It
+never walks, claims, or changes roles for repair.
+
+| v21 local gate | Result | Core kills | v20 baseline |
+|---|---:|---:|---:|
+| exact v20 parent | **88/168** | **75-71** | parity |
+| `spar_rush` | **156/168** | 156-7 | 158/168 |
+| `oogbest-v6` | **139/168** | 136-22 | 142/168 |
+| `meta-generalist-v1` | **153/168** | 153-10 | 155/168 |
+
+Its remote sample was 14-11. Replay review then found the broader ownership
+bug: when all visible enemy guns were already covered, every economy builder
+called `healCore` and returned. If the core was full or out of sight, the heal
+failed and the helper recalled the builder anyway. One team-lazy String loss
+therefore reached turn 1000 with zero harvesters and zero conveyors.
+
+The broad fix (always release covered-threat economy) lost 83/168 with kills
+73-79 because healing during actual damage matters. Submission v22
+`exp_v21_eco_release_only_damaged` releases economy only while the friendly
+core is full or not locally visible; uncovered threats and visible damaged
+cores retain their old priority.
+
+| v22 local gate | Result | Core kills | v21 baseline |
+|---|---:|---:|---:|
+| exact v21 parent | **90/168** | **73-73** | parity |
+| `spar_rush` | **160/168** | 157-5 | 156/168 |
+| `oogbest-v6` | **147/168** | 140-16 | 139/168 |
+| `meta-generalist-v1` | **153/168** | 152-9 | 153/168 |
+
+Ten v22 unrated series scored **30-20**, estimated core kills **30-19**.
+Unchanged versions: CtrlAltDefeat 10-0, Orizon 7-3, team lazy 6-4, SmartFridge
+6-4. Updated Pantheon v14 was 9-1 against v22 and is new meta evidence, not an
+apples-to-apples regression from the earlier v13 control. Across all 50 games
+v22 averaged 10.36 connected and 1.32 disconnected conveyors. The new
+team-lazy String replay built five harvesters and won by core destruction on
+turn 829, directly confirming the ownership fix. Replays:
+`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v22-20260803/`.
+
+A pinned v18 control against Pantheon v14 on String, Pinch, Bridge, Atoll, and
+Sprint scored **0-5**, all core losses. V22 scored 1-4 on its corresponding
+five-map series. Pantheon v14 is therefore a chassis-wide new-meta weakness,
+not evidence that v22 regressed v18. Control replays:
+`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v18-pantheon-v14-control-20260803/`.
 
 ## Conveyor iteration on production engine 2.3.3
 
@@ -269,6 +460,11 @@ builders.
 - Local WSL venv: `~/.venvs/fcode`; activate it before tests/gates.
 - Current local CLI: production `fcode 2.3.3`; all 21 maps are present and the
   remote session is authenticated.
+- Production 2.3.3 builder construction, attack, and healing are orthogonally
+  adjacent only. Do not trust older same-tile/diagonal comments in `AGENTS.md`.
+- Production 2.3.3 still uses gunner damage/cost/HP/ammo 10/10/40/2. The
+  discussed 5/20/30/4 turret patch is only a proposal; if deployed, invalidate
+  current numeric gates and retune ammo/resource floors.
 - Bot `random` is not seeded by engine `--seed`; identical serial games can
   flip. Use 168 for clear deltas and 336 for close ones.
 - Per-map gate rows are noisy and gate side labels are unreliable. Use aggregate
@@ -291,10 +487,13 @@ From WSL:
 ```bash
 cd /mnt/c/Users/subodh/Downloads/fcode
 source ~/.venvs/fcode/bin/activate
-python tests/test_meta_builder_targeting.py
-python gate.py meta-generalist-v1 exp_trans_40 8 quiet
-python gate.py meta-generalist-v1 spar_rush 4 quiet
-fcode run meta-generalist-v1 exp_trans_40 maps/duel.map26 --seed 1 --tle 10 --json
+python tests/test_v18_spawn_route_proof.py
+python tests/test_v19_near_core_finish.py
+python tests/test_v20_opportunistic_trunk_repair.py
+python tests/test_v21_eco_release_only_damaged.py
+python gate.py exp_v21_eco_release_only_damaged exp_v20_opportunistic_trunk_repair 4 quiet
+python gate.py exp_v21_eco_release_only_damaged spar_rush 4 quiet
+fcode run exp_v21_eco_release_only_damaged exp_v20_opportunistic_trunk_repair maps/bridge.map26 --seed 1 --tle 10 --json
 ```
 
 Before any new remote action: install/authenticate the production CLI, run
@@ -302,15 +501,19 @@ Before any new remote action: install/authenticate the production CLI, run
 
 ## Next steps
 
-1. Keep root, exact v17 control, and the active submission unchanged.
-2. Treat `exp_v17_gunner_control` as the only current promotion candidate.
-   Two independent parent blocks passed (104/168 and 96/168). Isolate its three
-   submechanisms only if further attribution is worth delaying packaging.
-3. Test exact core-threatening-turret filtering for defender 4 independently;
-   do not stack it before it beats v17 and preserves the gun-control candidate.
-4. Investigate the Sprint healed-stalemate and Sweden zero-damage replay
-   categories separately. Do not change map behavior by map name/dimensions.
-5. The user explicitly promoted v18 on 2026-08-03; it is ladder-active. Root
-   remains unchanged and still requires separate approval.
+1. Keep active v22 and root unchanged. Monitor fresh ladder replays for
+   cross-opponent failure categories before making another behavioral change.
+2. Treat `exp_v21_eco_release_only_damaged` as the current production source.
+   Its local gates and 30-20 remote threshold pass; archive and server members
+   are byte-identical.
+3. Updated Pantheon v14 is the remaining live weakness: ten v22 games scored
+   1-9, mostly early multi-gunner core pressure; pinned v18 scored 0-5. Treat it
+   as a new cross-chassis threat and seek mechanisms that generalize.
+4. Do not tune by Pantheon identity or maps. Any response must also improve
+   unrelated high-pressure families and preserve v22's economy conversion.
+5. Do not revive walking/TTL repair, round-gated repair, gunner preemption, or
+   broad covered-threat release. Their full gates failed.
+6. Any upload may auto-activate; restore v22 immediately. Root replacement and
+   future ladder activation changes require explicit approval.
 
 No external action is authorized by this handoff.
