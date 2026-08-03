@@ -1,3 +1,32 @@
+# 👑 OUR BEST BOT IS v9 "pls codex" — AND IT IS NOT CLOSE (2026-08-03)
+Downloaded oni's deployed v9 from prod (`fcode submission download 9`) and gated it
+against our entire local line, 84 games each on dev29 + synced pool:
+
+| v9 vs | result | kills |
+|---|---|---|
+| prime-a (our best-ever local: OogwayNEW+armor) | **93%** | **78-2** |
+| lastpop2 (siege clone) | **98%** | 82-1 |
+| oogerebus3 (anti-siege specialist) | **82%** | 67-6 |
+
+**Every bot in the repo is obsolete as a baseline.** The week of local work
+(OogwayNEW line, oogerebus line, all 21 experiments) played in a different league
+than what oni's codex pipeline produced. New rule: ALL future gates run against v9.
+(v9's own weak maps, from the per-map splits: string 1/4 vs prime-a, sweden 0/4 and
+vase 1/4 vs oogerebus3 — narrow-map wall metas. Worth telling oni's pipeline.)
+
+## But v9 has one measured hole against the TOP-4 (from 15 prod games)
+0-5 Pantheon, 1-4 CtrlAltDefeat, 0-5 Orizon: **in 13 of 15 games v9 dealt ZERO
+core damage.** Two distinct failure modes:
+1. **Race losses on fast maps** — Orizon/CAD hit t14-42 with 4-15 lean guns and kill
+   t51-116 before v9's siege lands. (Orizon = pure rush: b4, kills t51-83.)
+2. **Long-game non-conversion** — CAD g2 (267t), Pantheon bridge (270t) and
+   runestone (306t): hundreds of turns, v9 never touches their core. On runestone
+   v9 built 169 guns for zero core damage.
+The one prod win pattern: atoll t949 grind (unit-cap econ absorb). erebus shelf
+now holds v10=prime-a, v11=oogerebus3 as inactive options; **v9 stays active.**
+⚠ `fcode submission upload` AUTO-ACTIVATES — always `submission activate 9` after
+shelving anything (this bit me for ~2 minutes of ladder time today).
+
 # ⚔️ PANTHEON AUTOPSY — fresh 0-5, challenged them directly (2026-08-03)
 
 ## HOW TO SCOUT ON PROD (method matters — replays EXPIRE in hours)
