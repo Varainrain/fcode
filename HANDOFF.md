@@ -1,519 +1,287 @@
-# FCode production handoff
+# HANDOFF — Florent Code League (merged Oogway team)
 
-Updated 2026-08-03. Read this before changing a bot. `AGENTS.md` contains the
-iteration rules; `WORKFLOW.md` contains the gate protocol.
+Snapshot for a fresh session. Read `memory/merged-team-state.md` + `memory/florent-league-workflow.md` first (auto-loaded), then this, then the top of `florent-code-league.md` for the full IC3D bot history.
 
-## Current decision
+## ⭐ OOGEREBUS — FIRST GATE-PASSED IMPROVEMENT OF OOGWAY'S BOT (2026-07-24 evening, repo 99534e2, bots/oogerebus, GATEKEPT — not for ladder)
+- **56% vs stock oogwip (PROMOTE, 32-29 kills), 62% vs krb (no regression).** = stock oogwip + passive siege-tile wall + dev26 crash armor + finisher march + heal-flee fix + print removal + vision guards.
+- **THE integration lesson (4th attempt won): the wall must be a PASSIVE — a spare-action side effect when a deny tile happens to be ortho-adjacent — never a state.** State-based walls (oogwip3/4: 32%/46%) starve his dual-purpose econ/defense crew. Passive = zero travel, zero priority competition. Wall set cached once (`_wallSet`): enemy-side ring+ties, cardinal rays d2-3, 2-step diagonals; core-facing conveyors, never-a-dead-end chaining rule.
+- Map flips vs stock: hive/quarry/runestone 4/4; still weak: atoll 0/4, vault 1/4 (passive walls only rise where builders walk — vault's rush outruns foot traffic). vs krb: runestone/skerry 0/4 (moved again — map whack-a-mole persists at the margins, aggregate holds).
+- Ladder currently: crash-armored krb = v79. dev26 audit: destroy() already ortho everywhere, no ACTION_RADIUS_SQ. CLI now has --json (retool dashboard/gate parsers when idle). OOGWIP STOCK STILL HAS NO CRASH WRAPPER (permanent-death rule) — flag to Oogway.
 
-- Frozen ladder control: `bots/live-v17-control`, downloaded byte-for-byte from
-  active production submission `v17 (dumb bot v6)`. Original archive:
-  `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/v17-live.zip`.
-- Latest observed production status on 2026-08-03: Erebus rank #1/92, rating
-  1907 after 322 matches, active v22, latest ten 9W-1L. Submission v22 was
-  activated with explicit user approval; keep it active after future uploads.
-- Current production bot: `bots/exp_v21_eco_release_only_damaged`
-  (submission v22, ID `5861c003-13a8-48c4-bc42-fe01445c6245`). It combines
-  v20 route completion, v21 spare-opportunity productive-edge repair, and a
-  bounded economy/defense ownership fix. All local gates and the 50-game
-  remote threshold pass. Updated Pantheon v14 remains a severe 1-9 weakness,
-  but pinned v18 also scored 0-5 on the same five maps. v22 is active; root
-  remains unchanged.
-- `meta-generalist-v1` remains the exact archived v9 control, but is no longer
-  the parent for new work.
-- Root `main.py` / `bot.zip` remain the historical v88 package and are dirty in
-  git from prior user work. Do not replace them without explicit approval.
-- Local WSL is production `fcode 2.3.3` with all 21 maps and an authenticated
-  production session. The ten completed v9 ladder series (50 games) are in
-  `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v9-20260802-1830/`.
-  Gates below distinguish old dev29 evidence from new 2.3.3 evidence.
+## 🏰 BASTION — FROM-SCRATCH "NEVER DIE" CONCEPT BOT: THE THESIS HELD, THE CHASSIS DIDN'T (2026-07-30, bots/bastion)
+Full Ijti spec composed from scratch on the mech-v1 skeleton: 2-builder garrison via claim slots (heal core -> lane barrier w/ natural rebuild loop -> counter-SEAT gunner -> pre-armor diagonal seat zone at t15 -> hold leash), mech econ, capped t100 seat siege.
+**Screens: 21% vs lastpop2 / 1% vs prime-a (kills 1-72) / 21% vs krb. REJECTED.**
+- The absorb itself showed real signal where games reached it: atoll WON t243 (prime-a dies there t72), skerry survived to t140 (vs t76). Dying 2x slower, sometimes not at all.
+- **But ENGINE QUALITY DOMINATES THESIS.** The mech-class skeleton (BFS + naive econ, ~500 lines) loses everywhere else before absorb matters: 1-72 kills vs the Oogway engine (Dijkstra sharing, tuned state scorer, initial spawn book, ~950 lines). For calibration, raw mech-v1 was 4-6% — the thesis quadrupled it and it is still nowhere.
+- **CONCLUSION for "build a new concept from scratch": a thesis is necessary but not sufficient — it needs a competitive chassis underneath.** Ijti's absorb runs on an engine as good as Oogway's. Our real options: (a) oni/Oogway adopt the absorb spec (pushed, 935bf5b) INSIDE their engines as a design goal; (b) any future from-scratch bot must budget for engine work first (pathing, econ, state scoring), thesis second.
+- bastion kept as the measured artifact; do not iterate it on this skeleton.
 
-## Candidate evidence
+## 🛡️ THE IJTI BARRIER SPEC — measured from 12 games with barrier placements (2026-07-30)
+Three commitments, not one mechanism (this is why aegis-v1 failed with just the third):
+1. **GARRISON: builders live at home.** Enemy turret appears near their core t34 -> barrier t36. t37 -> t38. Response in 1-2 turns because the bodies are already within ~4 of the core. (Our aegis triggered t58 then walked 10+ turns.)
+2. **PRE-ARMOR: on dangerous maps, barriers at t15-21** — before ANY enemy turret exists — at manhattan 2-4 from their core, the seat/lane zone. ~15 Ti to make every future attack worse.
+3. **REBUILD LOOP: replace broken barriers every ~4 turns under fire** (observed chain: t855/858/868/872/876/879 same spot, d3). Economics: attacker pays 3 shots/6 ammo to break 30hp; Ijti repays 3 Ti + one builder-action. With any income the wall is effectively infinite — attacker bleeds ammo into a regenerating shield while Ijti's fat econ (h7-13) wins the t1000 tiebreak.
+NOTE (from Oogway's own pathfinding comment): **own-team BARRIERS ARE PASSABLE to own units** — unlike conveyor walls, barrier armor does not choke your own movement or heal access. This is why Ijti can armor the ring without the 29% full-seal trap.
 
-All gates use 21 maps, both sides, `--tle 10`; fresh blocks only.
+## ⚗️ AEGIS (REACTIVE LANE BARRIER) — BUILT, MEASURED, REJECTED: THE ABSORB PATTERN IS A THESIS, NOT A PATCH (2026-07-30, bots/aegis-v1)
+prime-a + Ijti's visible mechanism: when an enemy turret aims at our core, nearby builders drop a barrier on the firing ray (opportunistic, no claims, greedy-step fallback because mapPf.moveTo dead-ends against our own ring conveyors — instrumented v1 stood 2 tiles short for 7 turns while the core died).
+**Result: 43% vs the siege clone — baseline prime-a is 45%. No effect.** Mechanically it works (triggers t58, builds); strategically it is arithmetic dust: by the time a turret is visible at the doorstep the core bleeds 10-20hp/turn and one barrier absorbs 30hp = ~3 turns against a ~25-turn kill clock.
+**WHY IJTI'S VERSION WORKS AND OURS CANNOT: theirs is the whole bot, not a reflex.** Pre-placed barriers across the game (2-12), heal posture that keeps them alive 150+ turns past first core damage, the fattest harvester econ on the ladder funding both, counter-fire. "Never die" is their design thesis. Extracting the one visible artifact = 19th single-mechanism graft failure.
+**FOR ONI (v90 is NOT in the repo — push it if you want this gated for real):** adopting absorb means adopting it as a design goal inside your chassis — pre-placed lane armor near home + heal posture + tiebreak-winning econ — not bolting on my 60 lines. bots/aegis-v1 kept as the measured negative so nobody rebuilds it.
 
-| Opponent | Result | Core kills | Interpretation |
-|---|---:|---:|---|
-| `exp_trans_40` | **200/336 (60%)** | **181-127** | decisive parent win |
-| `spar_rush` | 88/168 (52%) | 81-64 | neutral/slightly negative |
-| v8 control vs `spar_rush` | 92/168 (55%) | 85-64 | comparison control |
-| `oogbest-v6` | 86/168 (51%) | 83-67 | source-diverse parity |
+## 🔍 IJTI AUTOPSY — THE #2 TEAM WINS BY *LOSING* THE RACE (2026-07-30)
+15 games parsed (Ijti v31/33 vs our v90 x2 matches, vs lastpopperian_ v20). Metric: turn of FIRST core damage (the race) vs who wins.
 
-Parent-gate mean titanium collected was 819.1 vs 718.0; buildings 19.2 vs
-18.4. The source change cannot alter economy directly. Deterministic tests prove
-enemy builders fire and friendly builders do not.
+**Ijti's signature — in most wins they take the first core hit and win anyway:**
+- vs lastpopperian_ (1-4 loss for the sniper): lastpop landed first core damage at t35/55/55 in g1-3 — **and Ijti won those games at t218/285/236**. The sniper that cores our bots ~25 turns after first contact cannot finish Ijti at all.
+- vs our v90: two games where WE hit first (t181, t52) and they still won (t369, t317).
+- **How they survive: (1) BARRIERS placed in the firing lanes as ablative armor** (2-12 per game — nobody else on the ladder builds barriers; 3 Ti, 30hp each, and a gunner does 10/shot, so one barrier eats 3 shots), **(2) core healing** (games run 150+ turns after first core damage; builder heal is 4hp/1Ti), **(3) the biggest harvester economies we have measured (h7-13)** so they win any tiebreak (both their t1000 games ended as titanium wins).
+- Their kills are slow grinds: t208-732. They never blitz. One exception: skerry t81 vs our v90 — they CAN race on small maps.
 
-Validation completed:
+**Our v90 (oni's) profile from the same games: a race machine** — first core damage t51-84 in EVERY game, 180-292 cumulative gunners, 14-45 builders. It beats Ijti by overwhelming before the grind matters (current form: 3 straight match wins), loses when Ijti absorbs the first wave (c66c7d7e: 1-4 with the SAME versions — map-draw dependent).
 
-- all `tests/test_*.py` files pass when run directly in the WSL venv;
-- `pytest` is not installed, so `python -m pytest` was unavailable;
-- frozen sources compile and a Duel smoke game completed by core destruction;
-- `git diff --check` passes (line-ending warnings only);
-- ZIP contains exactly four Python files at root and is byte-identical to the
-  frozen folder;
-- mandated `python scripts/eval_chain.py` attempt fails because this repository
-  has no `scripts/eval_chain.py`. Record this as missing legacy tooling, not a
-  pass.
+**THE TOP-3 META IS A CONFIRMED TRIANGLE: v90 race-machine ≥ Ijti (map-dependent) > lastpopperian_ sniper > everything of ours except oogerebus3/v90.**
 
-SHA-256:
+**THE UNEXPLOITED AXIS — nobody on our team has ever gated "survive the first hit":** all 18 of our rejected experiments were walls or attack tweaks. Ijti proves absorb-and-grind beats the sniper meta. Cheapest within-design version: REACTIVE barrier in the firing lane once the core takes its first hit (the attacker's ray path is known at that moment) + keep home builders healing. Barrier math: 3 Ti buys 3 absorbed shots; heal math: 2 adjacent healers = 8hp/turn vs one gunner's 10/turn — barriers + 2 healers outlast a 2-gun siege. Candidate for ONI's chassis (v90) as a within-design change, not a transplant.
+CAVEAT: 1-2 matches per pairing; per-map splits unsettled. But "loser dealt first core damage and lost" appears 5 times across 15 games — the race model (oni's diagnosis) holds for everyone EXCEPT Ijti, which is exactly what makes them #2.
 
-| File | SHA-256 |
-|---|---|
-| `main.py` | `A9EC959ECAE2E0B11EDB3DAA89AD3A3CD480196C903FEB543F8059B76C2D965C` |
-| `initialSpawning.py` | `E6D48213A505729ED98BBBC1B55623484BC83B202B2E78D4FA9E929686D40BB6` |
-| `mapPathfinding.py` | `971A102A26E8792E6B0FED6FE8F7710641FD1D03D299322F97423A43342AE4A6` |
-| `symmetry.py` | `8C4AB5843AB90F8C0907E261E2049B75588BC88BFB8CEEA2CC236E3CD10CD9A1` |
-| ZIP | `4F94E7301B99EC34283C82F6FAFDE7C61F03135C9702F4792AE3D3BC6642EE07` |
+## 🏁 THE "COMBINE THE BEST QUALITIES" EXPERIMENT — RAN CLEAN, ANSWER IS NO (2026-07-30)
+Tried the obvious thing deliberately and measured it:
+- **prime-a = OogwayNEW + crash armor**: armor is a pure bug fix (dev26+: uncaught exception = PERMANENT unit death; NEW shipped with ZERO try/except). Probe: NEW throws zero exceptions in 6 instrumented games, so prime-a ≡ NEW in practice and the armor is free insurance (its 43% @ 84g screen is noise by construction — armor can only ever SAVE a unit). **SHIP PRIME-A AS V87.**
+- **prime-b = prime-a + oogerebus3's wall duty** (the 69% anti-siege, ported via free store slot 8 to dodge the spawn-index race): **37% vs OogwayNEW (kills 27-52), 57% vs the siege clone.** The duty that is worth +24 on the oogerebus chassis buys +12 on NEW's and costs 13 in the mirror. **18th transplant failure, now measured in BOTH directions across chassis.**
+**FINAL DOCTRINE: the top bot is a PORTFOLIO, not a merge — prime-a (v87, the field) + oogerebus3 (the lastpopperian_ sidearm, 69%). Qualities are load-bearing inside their own design and dead weight outside it. Stop trying to move them.**
 
-## Production-era lineage
+## 👑👑👑 OOGWAYNEW — THE NEW #1, VERIFIED (2026-07-30, engine dev29, synced pool)
+**Oogway's rework is the strongest bot the team owns, at 168-game samples:**
 
-| Line | Evidence / status |
-|---|---|
-| root v88 | historical package, preserve |
-| `generalist-v2` | v89 source; early live sample 26-14 |
-| `generalist-v3` | bounded countertrade; later live v3 was rank #1/86 at 62%, but top-four window only 29% |
-| `exp_siege_on_sight` | shipped live v2; 67%/336 vs v3, 52% vs rush |
-| `exp_recall2` | soft v6 recall; hard recall rejected |
-| `exp_trans_40` | shipped v8 lineage; economy stops at t40; 60%/504 vs recall parent, but live top-five trade rather than clear gain |
-| `meta-generalist-v1` | archived v9 control; gunner builder-layer bug fix |
-| `live-v17-control` | active v17; four-builder rush/defense/economy chassis; rank #3 at freeze |
-| `exp_v17_gunner_control` | validated v17 successor candidate; local only |
-| `exp_v18_spawn_route_proof` | submission v19; facing-proven merges; inactive; remote 33-17 |
-| `exp_v19_near_core_finish` | submission v20; bounded route completion; inactive; remote 14-11 |
-| `exp_v20_opportunistic_trunk_repair` | submission v21; no-travel exact edge repair; remote 14-11; superseded by v22 |
-| `exp_v21_eco_release_only_damaged` | submission v22; current active production bot; remote 30-20 |
-
-## Live v17 replay audit and candidate
-
-Thirty ladder games from the six series actually played by v17 were downloaded
-to `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/`.
-The sample was 23-7 against Pantheon, Askar City, team lazy, CtrlAltDefeat,
-the one piece, and Powered by SmartFridge.
-
-All seven losses were core destruction under multiple enemy gunners. Five were
-early races ending on turns 28-68; one Sprint game lost on turn 301 after 580
-enemy-core damage was partly healed; one Sweden game lost on turn 575 after
-building 52 gunners but never damaging the enemy core. Only one or two home
-turrets existed before the first incoming shot in every loss. This indicates
-three remaining categories: early gun-line control, healed/stalled conversion,
-and rare enemy-core discovery/pathing failure.
-
-Source audit found three general gunner bugs: v17 ignored lone enemy builders;
-equal target scores could rotate away from the current line and waste 10 Ti;
-and a gun countering a real core-threatening gun received only a lower spend
-floor, not targeting priority. `exp_v17_gunner_control` fixes exactly these.
-
-| Production 2.3.3 gate | Candidate | Exact v17 control | Candidate core kills |
-|---|---:|---:|---:|
-| head-to-head | **200/336 (59.5%)** | 136/336 | **187-128** |
-| vs `oogbest-v6` | **145/168 (86%)** | 140/168 (83%) | **143-18** vs 139-25 |
-| vs `meta-generalist-v1` | **144/168 (86%)** | 142/168 (85%) | **142-19** vs 140-25 |
-
-The candidate passes deterministic targeting/tie/priority tests, compiles, and
-completed a smoke game. It was packaged byte-identically as submission v18
-`v17 gun-control candidate` (ZIP SHA-256
-`416FAB58A9EBA8F22735EAC0A5E1339617F125E5AD9B7CD26174CEDDB5B77359`).
-The CLI automatically activated v18 on upload; v17 was immediately restored as
-active. Treat upload as activation-capable in future workflows.
-
-Eight v18 unranked series pinned to opponent versions from the loss sample
-scored **34/40**. Batch one: Pantheon 5-0, Askar City 5-0, team lazy 3-2,
-CtrlAltDefeat 4-1, and the one piece 5-0. Batch two: SmartFridge 3-2,
-team lazy 4-1, and CtrlAltDefeat 5-0. Replays are in
-`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v17-20260803/v18-unranked/`.
-and its `v18-unranked-repeat/` sibling. All six losses were multi-gunner core
-destructions. Five were early races on Showdown, Runestone, Sprint, or Atoll;
-one was a turn-990 Sweden loss where 200 damage was fully healed. This confirms
-early gun races and healed/stalled Sweden remain the live failure categories.
-
-## v18 follow-up audit and spawn candidate
-
-The 40 v18 unrated replays contain no evidence of our units dying from uncaught
-exceptions. The remaining failures exposed home-gun races and one long-game
-resource leak: the Sweden loss spawned 56 builders versus 24 while converting
-only 200 enemy-core damage. Production 2.3.3 also documents builder build/heal
-range as orthogonal only; older repository rules saying diagonal/own-tile are
-stale.
-
-Independent audits tested exact core-threat filtering, legal heal stands,
-obstruction-aware gun lines, legal siege/harvest stands, and congestion-aware
-spawning. Only `exp_v18_spawn_discipline` passed its mechanism and broad gates.
-It preserves the first four builders, then pauses extra spawning while six
-friendly builders are inside core vision and resumes after dispersal/death.
-
-| Production 2.3.3 gate | Candidate | Core kills | v18 baseline |
-|---|---:|---:|---:|
-| exact v18 | 86/168 (51%) | 73-72 | 50% expectation |
-| `spar_rush` | 151/168 (90%) | 150-11 | 154/168 |
-| `oogbest-v6` | 146/168 (87%) | 143-15 | 145/168 |
-| `meta-generalist-v1` | 146/168 (87%) | 144-17 | 144/168 |
-| String/Bridge focus | 18/32 (56%) | 11-10 | head-to-head |
-
-Across 12 round-1000 parent games it won 8, collected +434 Ti/game, retained
-+1,799 Ti, and used 4.7 fewer units. The focused block won four of five
-round-1000 games with +1,248 collected Ti/game. Core-threat filtering reached
-90/168 and kills 78-63 but lost 94 collected Ti/game; harvest-stand reached
-89/168 and kills 78-69 but lost 740 collected Ti/game in round-1000 games.
-All other audit variants failed their screens. Nothing was uploaded or activated.
-
-## Pantheon postmortem cycle
-
-The Cambridge/Pantheon postmortem validates mechanisms, not a directly portable
-bot: its game included foundries, axionite, bridges, roads, breaches, markers,
-50x50 maps, and 2000 rounds. Current v18 already overlaps with its memoryless
-map layer, symmetry inference, weighted bucket pathfinding, conveyor-cycle
-classification, deterministic roles, threat-aware gun plans, and ID-jittered
-stuck timeout. Missing architecture-level ideas are per-turn state scoring,
-claim/Voronoi ownership, TTL target-failure caches, and incremental map deltas.
-
-Three isolated ports started from `exp_v18_spawn_discipline`:
-
-| Experiment | Parent result | Decision |
-|---|---:|---|
-| passive spare-action heal | fast 3/12, kills 3-9 | reject |
-| immediate-buildable siege seat | 80/168, kills 73-82 | reject |
-| facing-proven route merge | **86/168, kills 69-68** | pass |
-
-`exp_v18_spawn_route_proof` treats a visible conveyor as a completed merge sink
-only when its facing chain reaches the core, or leaves vision after every
-observed edge strictly reduces Manhattan distance to the core. Full 2.3.3 gates:
-
-| Opponent | Result | Core kills | Spawn-parent baseline |
-|---|---:|---:|---:|
-| `exp_v18_spawn_discipline` | **86/168** | **69-68** | parity gate |
-| `spar_rush` | **152/168** | **151-13** | 151/168 |
-| `oogbest-v6` | **148/168** | **141-18** | 146/168 |
-| `meta-generalist-v1` | **142/168** | **142-21** | 146/168 |
-| String/Bridge parent focus | **21/32** | **15-7** | 18/32 prior block |
-
-Parent JSON: +10 Ti collected/game, +36 retained Ti/game, 1.2 fewer buildings;
-round-1000 games were 10-9. Sixteen paired Bridge replays in
-`artifacts/pantheon-route-proof-bridge/` preserved connected conveyors and
-served harvesters while reducing total conveyors 18.94 -> 14.69, disconnected
-16.81 -> 12.56, and post-round-40 builds 10.00 -> 5.94. It removes waste but
-does not fix Bridge team A, which still had zero connected conveyors in both
-variants.
-
-The replay batch exposed an inherited `getDefendHome()` out-of-vision occupant
-query that can kill a defender with `GameError`. Two isolated fixes were not
-stacked: assumed-empty ring caching gated 83/168 with kills 67-70; a visible-
-only/core-return version failed its fast screen 5/12. Keep the bug open rather
-than claiming either unproven fallback passed.
-
-### Remote route-proof and near-core-finisher cycle
-
-`exp_v18_spawn_route_proof` was packaged as inactive submission v19
-(`a3a732e6-5916-4c40-9088-69a119a3f4d8`, ZIP SHA-256
-`EAAE6E...D7170B3`). Its 50-game unrated sample was **33-17**, estimated core
-kills **27-15**: Pantheon 8-2, Orizon 8-2, team lazy 5-5, CtrlAltDefeat 8-2,
-SmartFridge 4-6. Replays are in
-`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v19-20260803/`.
-The losses showed that facing-proof prevents false merges but does not finish
-short routes: an Orizon Bridge loss built 27 conveyors, connected none, and
-kept starting branches after combat.
-
-`exp_v19_near_core_finish` remembers an unfinished route only while its head is
-within four Manhattan links of the core footprint, resets on progress, and
-abandons after 24 stalled rounds. A post-move vision recheck is mandatory:
-without it, querying the old target after movement raises `GameError`.
-
-| Production 2.3.3 gate | Result | Core kills | Notes |
-|---|---:|---:|---|
-| exact v19 parent | **88/168** | **72-69** | +193 Ti collected/game |
-| `spar_rush` | **158/168** | 158-3 | pass |
-| `oogbest-v6` | **142/168** | 138-19 | 3.6 pp below v19, within gate |
-| `meta-generalist-v1` | **155/168** | 152-12 | pass |
-
-In 16 paired Bridge games it cut total conveyors **24.81 -> 6.06**,
-disconnected conveyors **23.25 -> 4.00**, and post-round-40 builds
-**16.00 -> 1.62**, while increasing connected conveyors **1.56 -> 2.06**.
-The fixed source produced no tracebacks. Submission v20 ZIP SHA-256 is
-`BE321AA7...EC8D3`; the archive contains only byte-identical `main.py` and
-`mapPathfinding.py`.
-
-The v20 remote sample was **14-11**, estimated core kills **13-11**: Pantheon
-4-1, Orizon 3-2, team lazy 1-4, CtrlAltDefeat 4-1, SmartFridge 2-3. Replays are
-in `C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v20-20260803/`.
-Across all 25 games it averaged 9.00 conveyors: 6.76 connected and 2.24
-disconnected. The surviving failure is narrower than initial routing. In the
-turn-640 Pantheon Sweden loss, the network was fully healthy at round 80
-(24/24 conveyors connected, 5/5 harvesters served), then enemy damage severed
-the trunk; by round 400 it had 36 disconnected conveyors and only 5/9
-harvesters served. New builders created branches instead of reclaiming the
-previously served graph.
-
-Do not revive the broad sticky-route variant: it scored 83/168 and lost 32.6
-collected Ti/game because builders chased long unfinished paths. Do not use the
-rejected opportunistic-pressure override either; it scored 5/12 against v20.
-Early remote losses were gun races in which defensive guns spent 13-41 shots
-on enemy gunners while the opponent delivered 50-77 core shots. The next
-combat change needs deterministic target/front ownership, not more attackers
-or a role override. The next route change needs incremental memory of a
-formerly connected trunk plus a bounded repair claim; it must never become a
-general long-route commitment.
-
-### v21/v22 productive-edge and ownership cycle
-
-The first persistent repair followed remembered edges across the map. Despite
-large titanium gains it finished **249/504**, core kills **214-218**; a
-round-120 sibling finished 82/168, kills 69-71. Gunner preemption was also
-rejected at 75/168, kills 61-82: paying 10 Ti and losing the current shot to
-rotate away from a turret was worse than finishing it.
-
-Submission v21 `exp_v20_opportunistic_trunk_repair` keeps only the safe part:
-an economy builder remembers an edge it personally observed draining and
-rebuilds that exact edge only when a live upstream producer and proven
-downstream suffix remain **and** `can_build_conveyor` succeeds immediately. It
-never walks, claims, or changes roles for repair.
-
-| v21 local gate | Result | Core kills | v20 baseline |
-|---|---:|---:|---:|
-| exact v20 parent | **88/168** | **75-71** | parity |
-| `spar_rush` | **156/168** | 156-7 | 158/168 |
-| `oogbest-v6` | **139/168** | 136-22 | 142/168 |
-| `meta-generalist-v1` | **153/168** | 153-10 | 155/168 |
-
-Its remote sample was 14-11. Replay review then found the broader ownership
-bug: when all visible enemy guns were already covered, every economy builder
-called `healCore` and returned. If the core was full or out of sight, the heal
-failed and the helper recalled the builder anyway. One team-lazy String loss
-therefore reached turn 1000 with zero harvesters and zero conveyors.
-
-The broad fix (always release covered-threat economy) lost 83/168 with kills
-73-79 because healing during actual damage matters. Submission v22
-`exp_v21_eco_release_only_damaged` releases economy only while the friendly
-core is full or not locally visible; uncovered threats and visible damaged
-cores retain their old priority.
-
-| v22 local gate | Result | Core kills | v21 baseline |
-|---|---:|---:|---:|
-| exact v21 parent | **90/168** | **73-73** | parity |
-| `spar_rush` | **160/168** | 157-5 | 156/168 |
-| `oogbest-v6` | **147/168** | 140-16 | 139/168 |
-| `meta-generalist-v1` | **153/168** | 152-9 | 153/168 |
-
-Ten v22 unrated series scored **30-20**, estimated core kills **30-19**.
-Unchanged versions: CtrlAltDefeat 10-0, Orizon 7-3, team lazy 6-4, SmartFridge
-6-4. Updated Pantheon v14 was 9-1 against v22 and is new meta evidence, not an
-apples-to-apples regression from the earlier v13 control. Across all 50 games
-v22 averaged 10.36 connected and 1.32 disconnected conveyors. The new
-team-lazy String replay built five harvesters and won by core destruction on
-turn 829, directly confirming the ownership fix. Replays:
-`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v22-20260803/`.
-
-A pinned v18 control against Pantheon v14 on String, Pinch, Bridge, Atoll, and
-Sprint scored **0-5**, all core losses. V22 scored 1-4 on its corresponding
-five-map series. Pantheon v14 is therefore a chassis-wide new-meta weakness,
-not evidence that v22 regressed v18. Control replays:
-`C:/Users/subodh/Downloads/fcode-gate-artifacts/ladder-v18-pantheon-v14-control-20260803/`.
-
-## Conveyor iteration on production engine 2.3.3
-
-Live observation and local replay audits confirmed the parent can build many
-conveyors while leaving harvesters unserved. Causes in the inherited router:
-any adjacent conveyor counts as connected, arbitrary visible conveyors are
-merge sinks, and the round-40 cutoff abandons incomplete paths. Defensive
-conveyors can also form wrong-facing loops.
-
-`conveyor_audit.py` now reports facing-proven connections, dead ends, cycles,
-backfeeding roots, served harvesters, and post-round-40 construction from
-`.replay26` files.
-
-| Experiment | Parent result | Long-game result | Decision |
-|---|---:|---:|---|
-| `exp_connected_economy` | 3/12, kills 3-9 | broad rewrite | reject: opening changed |
-| `exp_late_route_repair` | 83/168, kills 64-79 | 19/25; Ti 4838-2785 | mechanism pass, combat fail |
-| `exp_late_route_idle` | 81/168, kills 64-77 | 17/27; Ti 4017-3496 | reject |
-| `exp_stalemate_route_repair` | 82/168, kills 70-71 | 12/26; Ti 3528-3565 | round 300 too late |
-| `exp_waller_route_repair` | rush screen 2/12 | hot scan from round 1 | reject: CPU/hot-path pollution |
-| `exp_waller_route_light` | **256/504 (50.8%)**, kills **210-211** | **45/81**, Ti **3328-3245** | hold: misses kill gate by one |
-| `exp_route_integrity` | 85/168, kills 71-74 | Sweden 7/8 | reject: topology guard became a specialist trade |
-| `exp_waller_route_reserve` | fast 5/12, kills 5-7 | not gated | reject before full gate |
-
-The final lightweight mechanism observes the graph only on the non-attacking
-waller after round 120, defers to healing, repairs at most eight links, merges
-only into a facing-proven empty trunk, and can rebuild one orphan-rooted cycle
-link. It is the only branch worth revisiting, but it is **not promoted**: the
-declared parent gate required nonnegative core kills. No unrelated-family gate,
-ZIP, upload, activation, or root replacement was performed.
-
-The downloaded production v9 archive is byte-identical to
-`bots/meta-generalist-v1` across all four Python sources. The audited 95 ladder
-games produced 43 wins and 52 losses; 49 losses were core destruction and 46
-of those had multi-turret home pressure. In the newest 45 games, 23 of 24 core
-losses had multiple attackers and 23 were gunner-only. No enemy builder was
-adjacent to the core when the first core shot landed in any of the 49 losses,
-so builder-chasing and broad recall are misdiagnoses. At
-round 40, mean served-harvester fraction was 79% in wins and 73% in losses.
-Both titanium losses had incomplete networks; one contained a four-conveyor
-cycle trapping a seven-link disconnected branch. Routing is real but secondary,
-so neither rejected route variant should
-be promoted over the exact active source.
-
-## Current meta evidence
-
-Production replay measurements across unrelated top teams:
-
-| Team archetype | First gun | Guns near enemy core | Economy / defense |
-|---|---:|---:|---|
-| Oogway v7 | t24 | 2.2 | 13.4 conveyors, 3.0 harvesters |
-| Orizon | t18 | 16.0 | 8.0 conveyors, 1.9 harvesters |
-| Prompt Engineers | t26 | 14.0 | 3.2 conveyors, 1.0 harvester |
-| Flotte | t22 | 6.5 | no economy; ~5.7 home barriers |
-| Pantheon | t22 | 18.7 | 17.7 conveyors, 4.1 harvesters, ~39.8 barriers |
-
-General conclusions:
-
-- The field builds economy, then converts actions into core pressure. Fixed
-  early all-in allocation starves income; v8's t40 transition was the first
-  local experiment to beat its parent.
-- Delivery builders matter. The new candidate fixes a real engine-layer bug
-  that let them survive in gun lines.
-- Direct siege succeeds against undefended cores. Fortified cores need safe,
-  reactive handling, but local barrier/breacher proxies have not produced a
-  proven generalist gain.
-- Long stalemates are congestion/economy problems. Reassigning all freed or late
-  builders to siege reduced collected titanium and lost.
-- A single local responder, surgical turret counter-battery, soft recall, early
-  two-sieger pressure, and t40 economy transition are already in v8.
-
-## Rejected experiments from the 2026-08-02 cycle
-
-Keep these folders as evidence; do not stack or rename-and-repeat them.
-
-| Experiment | Key result | Why rejected |
+| OogwayNEW vs | result | kills |
 |---|---|---|
-| `exp_meta_reinforce` | 43%/168 vs v8, kills 65-80 | whole population converted; ~220 less Ti collected/game |
-| `exp_meta_late_reinforce` | 45%/42, kills 16-20 | late production still lost ~140 Ti/game in screen |
-| `exp_meta_gunner_defense` | 57%/168 vs rush, then 43%/336 vs v8 | combined steering+ammo was a specialist trade |
-| `exp_meta_emergency_ammo` | 38%/42 vs v8 | low-HP conversion drains the race |
-| `exp_meta_gunner_aim` | 50% screens vs v8 and rush | mechanically valid, no gain |
-| `exp_prearmor` | 51%/336 vs v8; combined 56%/336 vs rush | neutral/noisy; six sites best, larger rings regress |
-| `exp_meta_armor_rebuild` | 51%/168 vs prearmor, 47%/168 vs rush | healing opportunity cost cancels absorb benefit |
-| `exp_meta_breacher` | 45% screen vs v8; +3 vs historical barrier fort | control already won 90%; no attributable gain |
-| `exp_flank` | 44%/336 vs v8 | spread heuristic regressed conversion |
-| `exp_trans_def` | 46%/336 vs v8, 45% vs rush | defense overriding transition pulls pressure away |
-| larger prearmor (10/14) | 39-51% | extra denial actions are too expensive |
+| OogwayOld (previous best) | **61%** | 95-60 |
+| frozen-erebus-v1 (verified champion) | **67%** | 101-49 (2:1) |
+| lastpop2 siege clone | **45% @ 168g — VERIFIED WEAKNESS** | 71-92 |
 
-Earlier measured negatives still stand: permanent guards, global hard recalls,
-full-ring sealing, attack-gate removal, launcher highways, from-scratch bastion,
-all-sieger allocation, and broad `attackBan` rewrites.
+His own words on the process: "crazy how like 90% of my changes ruined the bot like only 2 ones that actually helped" — independently the same finding as our 17-rejection week. The 2 that helped, kept; the rest, reverted. That discipline is WHY it is #1.
+**V87 RECOMMENDATION: base = OogwayNEW** for the general field; **oogerebus3 stays the lastpopperian_ matchup weapon** (69% vs the siege clone vs OogwayNEW's ~44%). The family blind spot (core-snipe siege) is intact in the rework — do not submit NEW into a lastpopperian_ bracket without a plan.
+**shield-v1 (oni) on dev29: 50% vs champion (ZERO mirror tax — first defensive addition all week that costs nothing) and 57% vs the siege clone (champion's own: 55%).** Harvester shields are free and mildly helpful; candidate for merging into OogwayNEW ONLY with a fresh gate (mechanisms have not transplanted 17/17 times).
 
-### Architecture-ceiling experiments
+## 🔧 ENGINE 2.3.2.dev29 + DYNAMIC MAP POOL (2026-07-30)
+- **`pip install -i https://test.pypi.org/simple/ fcode==2.3.2.dev29`** — verified: GameConstants UNCHANGED from dev26, key bots run clean. This update is platform plumbing, not rules.
+- **⚠ THE MAP POOL IS NOW SERVER-CONTROLLED AND CAN ROTATE WITHOUT NOTICE** ("easier map rotations" — George). **Run `fcode maps sync` before ANY gate session**, or you are measuring on a stale pool. `fcode maps list` flags out-of-date locals.
+- **jackpot was MODIFIED in this sync** (1 of 21 changed) — it was one of our two repeat-loss maps vs lastpopperian_ (oni's ledger: 0-3). Per-map history for jackpot predating 2026-07-30 is void.
+- Old dev26 maps backed up in `maps_dev26_backup/`.
+- **⚠ VPS WORKER still runs the old engine + old maps** — needs `pip install` + `fcode maps sync` in C:code and a task restart, or arena results silently diverge from ladder reality.
 
-The follow-up home-defense cycle is closed. These were deliberately small
-mechanism probes; none is a promotion candidate.
+## ✅ THE AUGUST 1 DECISION TABLE — controlled 168-game gates, not the ladder (2026-07-28)
 
-| Experiment | Key result | Decision |
-|---|---|---|
-| `exp_meta_multi_recall` | 47%/168, kills 64-78 | reject |
-| `exp_meta_recall450` | 43%/168, kills 57-83 | reject |
-| `exp_meta_safe_counter60` | 52% parent, 52% rush, 45% Oogbest | reject: opponent regression >5 pp |
-| `exp_meta_damage_sequential` | 49%/168, kills 71-72 | reject |
-| `exp_meta_damage_sequential400` | 49%/168, kills 70-69 | reject: misses parity |
-| `exp_meta_counter_tend` | 51%/168 | reject: -739 mean Ti in round-1000 subset |
-| `exp_meta_counter_tend6` | 47%/168, kills 63-78 | reject |
-| `exp_meta_counter_tend8` | 52% parent; 51% rush | incomplete Oogbest gate; not promoted |
-| `exp_dynamic_fronts` | 92/168 parent; 93/168 rush; 89/168 Oogbest | first consistent architectural gain, but only +1.8 to +3.6 pp; hold, do not promote |
+| bot | vs frozen-erebus-v1 | **vs lastpop2 (siege clone)** | vs krb | verdict |
+|---|---|---|---|---|
+| **oogerebus3** | 44% (mirror tax) | **69%** (kills 107-51) | 85% | **KEEP ON THE LADDER — best vs the only team beating us** |
+| OogwayOld | **58%** (strongest overall) | 46% | 55% | best generalist, WORST vs them |
+| frozen-erebus-v1 | - | 55% | 63% | the verified all-rounder |
+| orion (OogwayOld+anti-clump) | 57% | - | - | 47% vs its own base = no gain |
 
-The repeated tradeoffs establish a chassis ceiling. `exp_dynamic_fronts`
-replaces the single responder with up to three distinct pressure/coverage-sized
-front assignments, preserves two local economy builders, latches both siegers
-on offense, and bounds countergun maintenance to eight heals. It improved all
-three tested families and core-kill margins, but the effect is still modest:
-parent 92-76 (kills 74-62), rush 93-75 (82-64), Oogbest 89-79 (84-63).
-Therefore fixed ownership was one real problem, not the whole problem. Stop
-tuning recall HP, reserve thresholds, or heal counts; the next experiment must
-also replace unbounded extra spawning and the universal round-40 gun churn.
+**THE CALL: leave oogerebus3 up.** It pays a 44% mirror tax against our own brawlers, which is why it looks mid on the ladder — but it wins the ONLY matchup that decides our placing, 69% with a 2:1 kill ratio. My earlier worry that it was tuned against the wrong proxy (krb, a t29 rusher) was WRONG and is now measured: the same wall that stops a rush also stops the t45-70 siege.
+**Field by matchup, never by ELO.** The strongest bot overall (OogwayOld) is the worst of the three against lastpopperian_.
 
-## Architecture and store protocol
+## 👑👑 OOGWAYOLD IS THE STRONGEST BOT WE HAVE — AND WE BUILT ON THE WRONG BRANCH (2026-07-28)
+**`OogwayOld` beats `frozen-erebus-v1` (=oogerebus, our "champion") 58% over 168 games (kills 75-62).** First bot all session to beat it at a trustworthy sample. It is **382 lines to oogerebus's 470** — every kfort/krb feature and fix we added to the OogwayWIP branch netted out NEGATIVE.
+**Oogway told us this in commit 61e29d8 ("OogwayWIP is somehow worse than OogwayOld") and nobody measured it**, so the whole oogerebus line was built on the branch he had already flagged as worse.
+**⚠ BUT IT IS A SPLIT, NOT A COR ONATION — matchup matters more than overall strength:**
 
-`exp_trans_40` / `meta-generalist-v1` are mostly memoryless state scorers with
-small per-unit caches and explicit roles. Each unit has its own `Player` object;
-there is no persistent state across matches.
+| bot | vs frozen-erebus-v1 | **vs lastpop2 (the siege clone)** | vs krb |
+|---|---|---|---|
+| **OogwayOld** | **58%** (best overall) | **46%** (WORST where it counts) | 55% |
+| frozen-erebus-v1 | — | **55%** | 63% |
 
-| Slot | Use |
-|---:|---|
-| 0 | spawned builder count |
-| 1-6 | map sharing |
-| 7 | opening/exploration target |
-| 8 | waller ID + 1 |
-| 9-10 | two sieger IDs + 1 |
-| 11 | enemy core position |
-| 12 | soft recall flag |
-| 13 | Sieger 2 temporary counter target |
-| 14 | home defender ID + 1 |
-| 15 | verified home-threat position |
+**The bot that wins the ladder is NOT the bot that beats the team beating us.** Field by matchup, not by ELO.
+- `bots/orion` = OogwayOld + anti-clumping: **47% vs plain OogwayOld = NO GAIN.** Anti-clumping gave 54% on the oogerebus line and nothing here — **a mechanism that helps one coherent design does nothing for another.** 17th confirmation of that rule today.
+- **The arena ladder is NOISE, do not design from it.** uni-v1 read 71% vs frozen-erebus-v1 there (21 games) and 52% in a controlled 168-game gate. Byte-identical bots read 67-33. Most matrix cells have <6 games. ELO rewards beating whoever you were matched with.
 
-Writes are buffered until the next round. Entity IDs interleave across teams;
-never infer roles from global ID thresholds. Use IDs returned by spawn and store
-them explicitly.
+## 🛑 SEAT DENIAL — REJECTED, AND WHY WE ARE BLOCKED (2026-07-27, bots/seatdeny)
+Champion + deny every tile a gunner could hit our core FROM (asked of the engine via `can_fire_from` per tile/facing, so it is exact and survives ray-rule changes), filled with core-facing conveyors, nearest first, 2 builders, until t90. Conveyor is 3 Ti so the whole zone is ~100 Ti of the 500 we start with — walling was never expensive in TITANIUM, only in builder turns.
+**Result: 44% vs champion (costs 6 pts) and 64% vs lastpop2 — but the CHAMPION ITSELF scores 67% vs lastpop2.** No benefit, real cost. REJECT.
+**⚠ THE REAL BLOCKER: our clone is too weak to be a test instrument.** lastpop2 is 33% vs the champion, so the champion beats it ~67% whether or not it defends the seats — the experiment cannot discriminate. **Until a clone reaches ~55-60% vs frozen-erebus-v1, no anti-siege fix can be validated locally, and every "fix" is a guess measured against the wrong opponent.** Making the clone faithful is the prerequisite for all further defensive work, not a side quest.
 
-Core behavior: five opening builders/roles, resource-gated additional spawning,
-ammo buffer, verified threat/recall, one nearby responder. Builder priority:
-assigned home response; bounded wall duty; designated siege; state scorer;
-passive wall. Sieger 2 counters a turret only when every direct core plan is
-unsafe. Gunners preserve core-capable aim and now correctly target enemy
-builders.
+## 🚨 THE LASTPOPPERIAN_ AUTOPSY — WE HAD THEM COMPLETELY WRONG (2026-07-27)
+Five of their wins parsed from replays (67fecf4c g1-4, 1d28bf18 g2), separating their HOME turrets from their ATTACK turrets by distance to OUR core:
 
-## Engine and measurement gotchas
+| map | their builders | home sentinel | 1st doorstep gun | attack guns | we die |
+|---|---|---|---|---|---|
+| aurora | 4 | t7 | t59 | 4 @ d3-5 diag | t90 |
+| strait | 4 | t13 | t59 | 3 @ d3-4 | t86 |
+| bridge | 3 | t4 | t82 | 4 @ d1-3 | t107 |
+| twins | 4 | t13 | t84 | 4 @ d3-5 all diag | t109 |
+| hive | 3 | t7 | t74 | 3 @ d2-4 | t100 |
 
-- Local WSL venv: `~/.venvs/fcode`; activate it before tests/gates.
-- Current local CLI: production `fcode 2.3.3`; all 21 maps are present and the
-  remote session is authenticated.
-- Production 2.3.3 builder construction, attack, and healing are orthogonally
-  adjacent only. Do not trust older same-tile/diagonal comments in `AGENTS.md`.
-- Production 2.3.3 still uses gunner damage/cost/HP/ammo 10/10/40/2. The
-  discussed 5/20/30/4 turret patch is only a proposal; if deployed, invalidate
-  current numeric gates and retune ammo/resource floors.
-- Bot `random` is not seeded by engine `--seed`; identical serial games can
-  flip. Use 168 for clear deltas and 336 for close ones.
-- Per-map gate rows are noisy and gate side labels are unreliable. Use aggregate
-  results and direct seat checks only.
-- Known seat-locked maps can force outcomes between close bots. More seeds do
-  not repair deterministic seat locks.
-- An uncaught exception permanently destroys the unit on dev26+; preserve the
-  top-level `try/except` armor.
-- Turrets/buildings and builder bots occupy separate tile layers. Query both
-  `get_tile_building_id` and `get_tile_builder_bot_id`.
-- Root and many experiment READMEs may be stale copies. Trust source hashes,
-  commit messages, replay traces, and gate CSV blocks.
-- `bots/champion` is stale and can invert rankings. Gate against the current
-  frozen parent plus unrelated archetypes.
+- **THEY ARE NOT A RUSHER.** krb (t29 waves) was the wrong proxy for every anti-rush measurement we made this week — including the tuning of oogerebus3, which is CURRENTLY ON THE LADDER at #2.
+- Their shape: 3-4 builders all game, ONE home sentinel at t4-13 (~4-5 tiles out, enemy-facing, covers the approach lane not the doorstep), heavy conveyor econ, then at **t45-70 one or two builders permanently leave the economy**, walk over, and seat 2-4 gunners at **manhattan 2-5, DIAGONALS PREFERRED** (our ring wall only denies orthogonals; a gunner 2 diagonal steps out still reaches). **They rebuild every gun we kill — bridge: same seat 12 times.** Core dies ~25 turns after the first seat lands.
+- **⚠ CORRECTION to my first read: they do NOT out-economy us.** On aurora they built 58 entities to our 92. We out-build them and lose anyway. The gap is not economy or builder count — it is that a scheduled, rebuilt siege converts to a core kill and our extra 34 buildings do not. Beating them means answering 2-4 rebuilt diagonal seats, nothing else.
+- **The arithmetic of that answer** (from GameConstants): builder attack = 2 dmg → 20 turns per 40hp gunner. Gunner = 10 dmg → 4 turns. **Seat a counter-gunner with line of sight; never plink with builders.** This is exactly the 2nd-place team's "Turret Takedown".
+- Clones live in `bots/lastpop` (on mech-v1's econ: 8% vs champion — too weak, econ never funds the siege) and `bots/lastpop2` (on the CHAMPION's econ + lean crew + home sentinel + scheduled siege). Fidelity target is ~60% vs frozen-erebus-v1.
 
-## Commands
+## 🐛 FOUR SILENT-FAILURE BUGS FOUND WHILE CLONING (2026-07-27) — grep the other bots
+1. **`store[0]` is off by one**: the core increments BEFORE the new builder ever runs, so the "first" builder reads 1, not 0. **mech-v1's idx-0 waller role therefore NEVER RAN** (part of its 4%).
+2. **Spawn-index race**: a builder born at t0 first runs at t1, by which point the core may have bumped the counter again — so any role derived from `read_store(0)` can land on the wrong bot. **oogerebus3 (on the ladder now) uses this pattern.** Fix used in lastpop2: claim jobs through a FREE store slot (8-15) instead.
+3. **Building on your own tile silently fails** (2.3). A bot that walks ONTO its target tile loops forever doing nothing. Require manhattan == 1 exactly.
+4. **`can_fire_from(spot, f, SENTINEL, enemy_core)` is always False** — the core is 20-38 tiles away, sentinel range^2 is 32. Gating a build on it means the building is never placed. Face the target instead of asking whether you can hit it.
+All four fail SILENTLY — no crash, no log, the unit just quietly does nothing.
 
-From WSL:
+## 📊 ANTI-CLUMPING (canon-v1) — THE ONLY CHALLENGER LEFT STANDING (2026-07-27)
+`bots/canon-v1` = champion + `_canonicalFor()`: only the ally builder CLOSEST to a target acts on it (ties by id), computed from each bot's own vision with zero comms. **The champion has NO claim system at all** (grep: 0 hits; khaos has 12) — every builder independently decides to hit whatever it sees, and Oogway's `attackBan` is the crude stand-in (seeing ONE friendly gunner stops that builder attacking ANYTHING for 4-12 turns).
+**168-game results: 54% vs champion (kills 68-55), 64% vs krb (champion's own: 63%).** Real but small; 54% at n=168 is ±7.7 so still inside the unproven band.
+**`canon-v2` (canon-v1 + emergency defense) = 49% — the emergency-defense idea is now DEAD after four attempts.** The hypothesis that it failed only because every builder stampeded is FALSIFIED: with clumping fixed it still does not help. The `>120 Ti` gate is load-bearing for reasons beyond clumping. Do not try again.
 
-```bash
-cd /mnt/c/Users/subodh/Downloads/fcode
-source ~/.venvs/fcode/bin/activate
-python tests/test_v18_spawn_route_proof.py
-python tests/test_v19_near_core_finish.py
-python tests/test_v20_opportunistic_trunk_repair.py
-python tests/test_v21_eco_release_only_damaged.py
-python gate.py exp_v21_eco_release_only_damaged exp_v20_opportunistic_trunk_repair 4 quiet
-python gate.py exp_v21_eco_release_only_damaged spar_rush 4 quiet
-fcode run exp_v21_eco_release_only_damaged exp_v20_opportunistic_trunk_repair maps/bridge.map26 --seed 1 --tle 10 --json
-```
+## 📚 ALL CAMBRIDGE POSTMORTEMS ARE PUBLIC — including 2nd place (2026-07-27)
+`https://game.battlecode.cam/postmortems` lists NINE more besides Pantheon: Clankers, Jimboko, MFF1, Make_Fire, Tensor_Bot, The_Blades, cheesynachos, **something_else**, test. **"something else" IS the 2nd place team** (osteo/Jython/Coderz75) — the Pantheon caption "Pantheon (gold) and something else (silver)" is a team name, not placeholder text. Their repo `frkns/cambc26` is private (token returns "not found"), but the 21-page writeup is public. Ideas worth stealing:
+- **Turret Takedown:** answer an enemy turret by BUILDING A COUNTER-GUNNER with line of sight to it, placed adjacent to a harvester. Mechanically right for us too: builder = 2 dmg (20 turns to kill a 40hp gunner), gunner = 10 dmg (4 turns). This is the correct form of what oni's adjacent-fire was reaching for.
+- **`me_is_canonical_ally` anti-clumping:** partition visible tiles into zones of influence; only the NEAREST ally acts on a target, tiebreak by id. **My emergency-defense attempts let EVERY builder respond at once — likely why they collapsed the economy (26%/18%).** Any future "respond to threat" logic needs this.
+- **State commitment:** if they healed a turret in the last 5 rounds and it still needs healing, they re-commit rather than re-deciding. Memoryless bots thrash; a short commitment window fixes it.
+- **"Shield pieces":** conveyors/roads surrounding harvesters to prevent easy takedowns — BOTH top teams do the guard-conveyor thing. We only ever applied it to the core ring, never harvesters.
 
-Before any new remote action: install/authenticate the production CLI, run
-`fcode maps sync`, verify engine/map pool, and rerun the relevant controls.
+## ❌ ARTEMIS LAUNCHER HIGHWAY — REJECTED (2026-07-27, bots/artemis-v1)
+Champion + Pantheon-Artemis launcher network (builders drop a ferry while marching; launchers throw allies coreward). **46% vs champion / 54% vs krb; constrained to committed attackers only (to stop it catapulting our own miners across the map): 45%.** The mechanic works and is untapped, but it does not pay. Tenth straight challenger to fail against frozen-erebus-v1.
 
-## Next steps
+## 🔦 ENGINE FACTS WE HAD WRONG / NEVER CHECKED (2026-07-27) — read before designing anything
+- **`STORE_SIZE = 16`. Our bots only use slots 0-7.** I previously claimed the store was full and that cross-builder signalling was impossible — WRONG. Slots 8-15 are free (exactly what Oogway's unreleased `turretplan.pyc` used for infra sightings / turret records / proposal+claim). Real coordination is available and unused.
+- **`BUILDER_BOT_ATTACK_DAMAGE = 2` vs `GUNNER_MAX_HP = 40` → 20 turns of a builder's FULL attention to kill one gunner.** This is the mechanical reason oni's adjacent-fire costs 8 points: every "free" shot is a 20-turn commitment. Any future builder-attacks-turret idea must account for this.
+- **`launch()` WORKS ON FRIENDLY BUILDERS — probe-verified** (`bots/launchtest`, log: `LAUNCHED OWN bot 0,7 -> 5,5 d2=26`). Launcher = 20 Ti, throw radius^2 26 (~5 tiles), and the throw is the LAUNCHER's action so the builder keeps its own turn. Walking 5 tiles = 5 turns under act-xor-move; a hop = ~2. **Our champion has NO launcher handler and never builds one — the entire mechanic is untapped.** Naive "throw furthest" ping-pongs a bot between two launchers; always require a gain of >=2 toward the target.
+- Other constants worth knowing: STARTING_TITANIUM=500, PASSIVE=10/4 turns, CORE_MAX_HP=500, GUNNER 10 Ti/10 dmg/2 ammo, SENTINEL 30 Ti/18 dmg/10 ammo, LAUNCHER 20 Ti, MAX_TEAM_UNITS=50, HEAL_AMOUNT=4.
 
-1. Keep active v22 and root unchanged. Monitor fresh ladder replays for
-   cross-opponent failure categories before making another behavioral change.
-2. Treat `exp_v21_eco_release_only_damaged` as the current production source.
-   Its local gates and 30-20 remote threshold pass; archive and server members
-   are byte-identical.
-3. Updated Pantheon v14 is the remaining live weakness: ten v22 games scored
-   1-9, mostly early multi-gunner core pressure; pinned v18 scored 0-5. Treat it
-   as a new cross-chassis threat and seek mechanisms that generalize.
-4. Do not tune by Pantheon identity or maps. Any response must also improve
-   unrelated high-pressure families and preserve v22's economy conversion.
-5. Do not revive walking/TTL repair, round-gated repair, gunner preemption, or
-   broad covered-threat release. Their full gates failed.
-6. Any upload may auto-activate; restore v22 immediately. Root replacement and
-   future ladder activation changes require explicit approval.
+## 🏆 PANTHEON / KHAOS — ALREADY REPLICATED, AND IT LOSES (2026-07-27)
+Khaos **was** Pantheon's final bot (Grand Finals winner, named a day before the deadline; progression Starter→Artemis→Demeter→Lethe→Hades→Khaos). oni's port is faithful. **Gated: khaos 20% vs frozen-erebus-v1 (kills 13-54).** Arena: 29%, benched.
+**Why it loses here:** ~40% of what won Cambridge doesn't exist in fcode — conveyor-FED turret ammo (2.2 replaced it with a global pool, killing feeder-sniping, turret-feed propagation, dry-turret self-destruct), roads, axionite/foundries, 2000-round games, and launchers that throw ENEMIES. Do not re-port it.
+**What IS still unmined, from their EARLIER bot Artemis:** the launcher network "to help ally bots quickly move across the map" — see the friendly-launch fact above. `bots/artemis-v1` = champion + launcher highway (builders drop a ferry while marching, launchers throw allies coreward). Also unmined: **secure-then-harvest** (guard conveyors on all 4 sides of an ore tile BEFORE the harvester, so enemies can't plant turrets next to it) and **ore hopping** (own harvesters as staging points for frontier turrets).
 
-No external action is authorized by this handoff.
+## 📊 RESULTS TABLE — ONLY 168-GAME NUMBERS (2026-07-27). Treat 84-game gates as unproven.
+| bot | vs oogerebus/fev1 | vs krb | vs oogwip | verdict |
+|---|---|---|---|---|
+| **oogerebus (=frozen-erebus-v1)** | — | **63%** | 61%* | **STILL CHAMPION — 6 challengers, none beat it** |
+| uni-v1 (audit-triggered wall) | **52%** | **66%** (vs champ's 63% = TIE) | **48%** | no measurable gain; do NOT ship |
+| uni-v2 (uni-v1 + defendCore) | **40%** ❌ | **67%** | — | rejected |
+| fev2 (oni: defendCore r=10) | **42%** ❌ | (his A/B ok) | — | costs 8 pts vs non-rushers |
+| fev3 (defendCore r=4, my fix) | **49%** | 54%* | — | cost removed, benefit also gone = wash |
+\* 84 games, unverified.
+**CONCLUSION (2026-07-27): NO CHALLENGER BEAT THE CHAMPION.** uni-v1's apparent rush edge (73% at 84 games) shrank to 66% at 168 vs the champion's own 63% — a 3-point gap at n=168, inside noise (SE~3.7%, 2SE=±7.4). Adjacent-fire defense is a wash. Six mechanisms tried across two days — wall duty, home guard, watchman, micro-wall, gate unlock, audit-wall, adjacent-fire — every one either costs against brawlers or produces no measurable gain. **The blitz weakness is real (diagnosis below is solid) but no cheap fix exists; anything that helps vs rushers is paid for elsewhere.**
+**⚠ META-LESSON: at least four "promising" results this week were small-sample illusions** (uni-v1 73→66, uni-v2 61→40, fev2 "no regression"→-8, frozen-erebus-v1 54→43). Byte-identical bots read 67-33 in the arena. **4 seeds (168 games) minimum; treat 45-60% as unproven; cross-check win% against kill differential.**
+
+## ⭐⭐ ONI'S ADJACENT-FIRE FIX — RIGHT DIAGNOSIS, NOT ACTUALLY FREE (2026-07-26/27)
+**oni (Subodh) found what four of my attempts missed: builders can FIRE an orthogonally-adjacent enemy turret since 2.3, and our code predates that rule.** His replay: cored ~r94 by lastpopperian's doorstep gunner cluster *with our builders standing right next to it doing nothing*. `bots/frozen-erebus-v2` = v1 + `defendCore()`: any builder already within manhattan 10 of home fires an adjacent enemy GUNNER/SENTINEL/LAUNCHER. ~25 lines.
+- **Why it works where mine failed: it spends NOTHING.** Every fix I tried spent a resource — builder-time (wall duty 44%, home guard 43%), or titanium (emergency gunners 26%/18%). Firing uses the builder's action, which was being wasted. He also independently hit and rejected the same 43-45% home-guard trap ("react, don't recall").
+- **GENERAL LESSON: when the engine changes a rule, audit for capabilities the old code never knew it had.** Same class as the diagonal-gunner meta. Grep for pre-2.3 assumptions.
+- `bots/uni-v1` (mine): core audits its own ring at round 22 and only pays for wall duty if the passive wall failed on THIS map. Verified: **52% vs oogerebus over 168 games (no mirror cost — first design to avoid it), 73% vs krb (baseline 62%), but 48% vs oogwip over 168 (baseline 61%).** Better vs rushers, worse vs brawlers — another rock-paper-scissors point, not an escape.
+- `bots/uni-v2` = uni-v1 + oni's defendCore (prevention + cure, neither charges the economy). Gating.
+- **CALIBRATION GIFT from the arena: `frozen-erebus-v1` beat `oogerebus` 12-6 (67%) in a recent window while being BYTE-IDENTICAL (hash-verified).** Same bot vs itself reading 67/33. Treat any arena gap under ~100 ELO as noise.
+
+## 🎯 THE LASTPOPPERIAN_ DIAGNOSIS + WHY THE OBVIOUS FIX FAILS (2026-07-26)
+**25 unranked games vs lastpopperian_ with frozen-erebus-v1 (=oogerebus): 10-15 games (40%), 2-3 matches.**
+- **Their 15 wins by turn: 86, 87, 90, 90, 91, 100, 107, 109, 109, 110, 151, 211, 220, 248, 351. Our 10 wins: 165, 220, 318, 324, 690, 879 + FOUR titanium tiebreaks at t1000.**
+- **Ten of their fifteen wins land t86-110. NOT ONE of our wins came before t165.** We lose exclusively to an early blitz; past ~t120 we dominate — and 4 tiebreak wins prove our ECONOMY IS ALREADY BETTER than theirs. Blitz maps: strait 86, longship 87, aurora 90 x2, quarry 91, hive 100, bridge 107/110, twins 109 x2. Our maps: showdown x2, string x3, pinch, vault, fjord, atoll.
+- **⚠ THE `>120 TITANIUM` GATE ON THE ATTACK STATE IS LOAD-BEARING, NOT A BUG.** It looks like the kdef money-gate bug (defense disabled while poor) and it is tempting to remove — DON'T. `bots/fe-def` tried three ways: (1) alarm + recall + score-10 override = 24%/17% (permanent panic, economy starved); (2) minimal gate unlock only = 33%/15%; (3) same after fixing a real latch bug I introduced (`attackBan` never decremented because an emergency skipped the else-branch) = **26% vs krb / 18% vs oogerebus**. The gate stops the bot bankrupting itself on defensive gunners. Removing it collapses the economy every time.
+- **The measured answer to the blitz is oogerebus3** (wall duty seals the doorstep by round 45, well before their t86 window): 24-0 vs krb in the arena, 85% gated. Field it as the matchup weapon; it costs ~44% in the oogerebus mirror, which is why it is not the everyday bot.
+
+## MECH-V1 — SIMPLE WALL+RUSH BOT FROM SCRATCH: 4% (2026-07-26, bots/mech-v1)
+User's design, built clean (no khaos/Oogway lineage): idx0 walls the enemy-side ring + firing lanes, idx1-4 economy, idx5+ rush the enemy core planting gunners via `can_fire_from`. **Gates: 4% vs oogerebus (kills 1-74), 6% vs krb (4-76).**
+- **Why it loses: NO defensive response at all** — no healing, no counter-gunners, no reaction to attackers. 74/84 losses were our core destroyed. The rush itself works fine (vs nop: core kills t95-138, 640 mined).
+- Economy lessons the hard way (worth reusing in any from-scratch bot): (1) chaining conveyors BACKWARD from a harvester leaves gaps when a tile is blocked → orphan harvester → **0 titanium mined all game**; grow the network OUTWARD from the core and only plant harvesters already touching it — connectivity by construction (0 → 550 mined on aurora). (2) econ bots that only look at ore in vision park at the core forever on big maps; they need an outward sweep. (3) A rush is only as big as the economy funding it: 2 econ bots → 270 mined and rushers standing broke with 3 buildings; 4 econ bots → 640.
+- **Verdict: a from-scratch bot cannot catch bots carrying weeks of accumulated fixes in one session.** If revisiting, the single biggest lever is a defensive response (heal the core + counter-gunner when an enemy is near home), not more rush.
+
+## 🚨 GATE VARIANCE — 2-SEED GATES ARE NOT TRUSTWORTHY FOR CLOSE CALLS (2026-07-26)
+Same matchup (frozen-erebus-v1 vs oogerebus), same code, same engine: **seeds 1-2 → 54% (NEUTRAL, looked promotable). Seeds 3-4 → ~33%. All four seeds → 43% (REJECT).** An 84-game/2-seed gate can be ~20 points off. **Any verdict in the 45-60% band must be rerun at 4+ seeds (168+ games) before it is believed.** Corollary: past PROMOTE calls in the 55-60% range (several this project) are NOT established — re-gate before relying on them. Kill differential is a useful corroborator: at 168 games fe1 was 51-76 on kills, matching the loss; when win% and kill-diff disagree, distrust the win%.
+
+## FROZEN-EREBUS-V1 ATTEMPT — REJECTED (2026-07-26, bots/frozen-erebus-v1, NOT shipped)
+**Final: 43% vs oogerebus over 168 games, and 45% vs OogwayWIP where oogerebus scores 61%.** The home guard is a net negative; its only virtue was krb (67% vs oogerebus's 62%). oogerebus keeps the crown.
+Goal: one bot that dethrones all ours (collapse the oogerebus / oogerebus3 rock-paper-scissors). Build = oogerebus + **home guard** (first-spawned builder restricted to home zone doing FULL economy, so its foot traffic feeds the passive wall — instead of oogerebus3's dedicated waller).
+- **Guard window is the whole tradeoff dial.** Guard until t60: 45% vs oogerebus / 70% vs krb. **Guard until t30 (shipped setting): 54% vs oogerebus / 67% vs krb** — near-all the anti-wave gain at half the cost, because the rush lands ~t29. skerry smoke 0-4 → 3-1, t55 massacres extinct (t151-235).
+- **Rejected on the way (each isolated, one variable at a time):** `fe-ammo` (buffer 20→40/60 when rich) = 54% mirror but only **52% vs krb** vs oogerebus's 62% — ammo conversion steals early defensive titanium; NOT the pure gain it looked like, and it retroactively explains part of oogerebus2's failure. `fe-idfix` (spawn-order role gates replacing `get_id()>4`) = near-no-op: replay shows team A builders get ids 3,5,8,13 and team B 4,6,9,14, so `>4` excludes exactly one builder per side — symmetric by luck. (It DOES confirm the oogerebus3 `<=3` bug was real: that threshold caught A's id-3 and nothing on B.)
+- **⚠ Mirror gates between near-identical bots regress to 50% by construction** — a 95%-shared variant can be genuinely stronger at 54%. Judge a dethroner by its record vs THIRD-PARTY bots (oogerebus: 62% krb / 61% oogwip), not by the parent mirror.
+- **⭐ THE FINDING: home-restricting a builder costs ~11 points vs non-rushers REGARDLESS of what it does there.** Guard (productive economy) 45% and oogerebus3 (pure walling) 44% pay the identical price — but full duty buys 85-100% vs waves. The cost is the restriction, not the walling. Any future "keep a builder home" idea inherits this ~11pt tax; only spend it if the anti-rush payoff is large.
+- ⚠ **GATE HYGIENE: `lab.py X OogwayWIP` returned 0 wins / 0 kills BOTH WAYS across 84 games — that is an INVALID run, not a loss.** The local folder is `bots/oogwip` (OogwayWIP only exists in the team repo). Zero kills in both directions = bot didn't exist. Always sanity-check kill counts before believing a 0%.
+
+## ⚠ ARENA ELO ≠ TRUE STRENGTH — READ THE PAIRWISE MATRIX (2026-07-25)
+Arena ELO ranked OogwayWIP #1 (1790) but the **pairwise head-to-head says oogerebus beats EVERY bot**: OogwayWIP 15-9, oogerebus3 16-8, kfort 18-6, krb 14-10. OogwayWIP's ELO is inflated by farming weak bots (91% vs kfort, and khaos/v85/public were on the ladder). **oogerebus is the true champion.** oogerebus3 is a hard counter to wave bots (krb 24-0, kfort 23-1) but loses to non-rushers — a rock-paper-scissors, not a hierarchy. Always pull `/api/state` and aggregate `matches[].games` pairwise before believing the ELO column.
+
+## SKERRY ARC → THE TWO-BOT DOCTRINE (2026-07-24 night, repo 24491ff)
+- **Arena ELO misled us:** controlled 18-game run showed oogerebus 72% over stock on the arena's own maps — the "oogerebus is behind" reading was 6-game-match ELO noise. Rule: arena ranks roughly; equal-seed lab runs settle close calls; <60 ELO gaps = noise.
+- **oogerebus2 (sentinel artillery) REJECTED**: 54% vs stock / 56% vs krb — outranging theory didn't survive the Ti+ammo cost. Kept local only.
+- **Skerry autopsy** (krb 4/4, kills at t55!): krb ring gunner at t29; oogerebus built ZERO wall — the passive wall needs foot traffic and skerry's ore spread empties the home zone instantly. Fix = **wall DUTY: first-spawned builder walls the enemy-side ring rounds 6-45** (spawn order via store slot 0 — ⚠ entity IDs INTERLEAVE ACROSS TEAMS, an id<=3 gate silently matched nobody as player B).
+- **Design space fully measured:** full duty = skerry 11-5, **krb 85% (63-11, best anti-wave number ever)**, but 44% parent mirror. Watchman (wall-on-sight) = always too late (t55s return). Micro-duty (3 tiles) = wave sidesteps (8 identical t62 kills). **Doorstep denial only works whole — third independent confirmation.**
+- **Resolution: TWO SPECIALISTS in the roster** (bots/): `oogerebus` = mirror-strong generalist; `oogerebus3` = anti-rush specialist (85% vs the wave meta that August will be full of). Field per expected opponent; the arena tracks both.
+
+## OOGWIP INVESTIGATION (2026-07-24 afternoon — full findings for Oogway, bots/oogwip2-4 kept as evidence)
+- **How his bot works:** 5-state scorer, but a BRAWLER: attack (10) plants a gunner adjacent to self facing any enemy within ~6 tiles — 8-way facing natively, destroys own conveyor to make room, money-gated at Ti>120, anti-spam ban near friendly guns. Idle gunners re-aim by scoring all 8 directions. Low-id crew (id<=4) never attacks = permanent econ+defense core. Kills krb by instant point-blank counter-gunnery — reaction wins ONLY in this instant/point-blank regime.
+- **Bugs found (objectively correct fixes, no regression):** per-turn print() in builderBot; heal() tries flee+heal same turn (act-xor-move); wall experiments also hit GameError on out-of-vision get_tile_building_id (his codebase needs is_in_vision guards).
+- **Weak maps vs krb: bridge/skerry/vault 0/4** — doorstep rush, he has no wall. BUT wall ports failed: oogwip3 (wall ceiling 7) = 32% vs stock — HIS DEFENSE CREW IS HIS ECON CREW, wall outranking route starves the bot; oogwip4 (ceiling 5, round>10) = 46%/64% — fixes showdown+sweden (4/4), breaks bridge+quarry (0/4). Whack-a-mole ⇒ integration needs his own econ-curve judgment. **bridge failed in EVERY variant — likely NOT a doorstep problem; needs its own replay diagnosis.**
+- His finisher gap (never marches on enemy core; corner-explores) — oogwip2's mirror-march finisher was neutral in mirrors (both brawl mid-map) but should rescue tiebreak games vs passive bots; untested vs that profile.
+
+## 👑 OOGWAYWIP IS THE NEW BEST BOT (2026-07-24 ~13:00, gated on 2.3.0.dev25/tle10/21maps)
+- Oogway's HAND-WRITTEN bot (bots/OogwayWIP in team repo; local copy bots/oogwip): **65% vs krb (49-27 kills), 71% vs diag-besvimic (57-24)** — beats the whole khaos lineage. Smoke: suffocated krb to 60 mined all game. Style: aggressive econ denial + kills.
+- **Team decision stands: GATEKEEP it** (finals weapon, develop off-ladder; krb/kfort keep farming rating publicly). Its weak maps for Oogway to look at: bridge 0-1/4, skerry 0-1/4, vault 1-2/4. oni's open question: does it handle 2.3 builder-heal? (its besvimic losses may be heal-response gaps).
+- Team context: Pantheon (the actual Cambridge winners) JOINED the league; 2nd-place repo got privated before anyone cloned. oni's 72%-kfort measurement = stale env (60 games ⇒ 15-map pool, likely dev23 engine) — measurement standard now pinned in WORKFLOW.md (cdf5708). oni swapped ladder to kfort; krb 54-56% over kfort on current env — close either way.
+
+## ⭐⭐ KRB "KHAOS-REBORN" — THE ALL-IN (2026-07-23 late night, ladder v75, main 808cefc, bots/krb)
+- Built the two missing "abuse" pieces on the kforta/v74 base: (1) **8-way gunner facings in planes.py** (diagonal stacks NE/NW/SE/SW, ray len 2 — shift = composed card shifts; the fk→Direction map in _run_attack 'plant' extended); (2) **synchronized wave opening** (`_strike`: myNum≥3 sprint to the symmetry-predicted enemy core, stage at d²60, push when 3 buddies within Cheb 4 (or r90 solo), _ringGuns cap 5 during strike, opening expires r220; guard #1 walls home, #2 runs econ).
+- **Gates: 82% vs khaos (62-11 kills), 64% vs diag-besvimic, 56% vs kforta v74 — beats EVERYTHING including our own wall.** Wave weak maps: sweden + showdown (big/late-arrival). **vs lastpopperian_ live: 3-2 + 3-2 — BOTH matches won (first consecutive series wins vs them; day arc 3/15 → 6/10 with 2-0 matches).** Their remaining wins are t86-89 blitzes on aurora/fjord — their fastest lanes still outrace the wave there.
+- **Strategic posture: v75 (all-in) live to farm; kforta v74 (wall) is the counter to the all-in shape and stays one submit away if the ladder copies the meta.** Both in team repo bots/.
+- **⚠ RING SAGA CLOSED (2026-07-24 ~02:30, three straight REJECTS — v75/krb IS the local optimum):** the pinch t97 loss (user-reported "we did nothing") = enemy gunner on an east-side ring tile the enemy-facing-half math excluded (seam #3). Fix attempts ALL rejected by the gate: **krb3 full-ring seal 29%** — under 2.3 ortho-heal, ring tiles are the ONLY positions the core can be healed from; sealing all 12 = unhealable core (THE deep 2.3 fact of the night). **krb4 guard-post on the open tile 49%/52%** — a parked guard's opportunity cost exceeds the block value. Ring tiles are triple-purpose (enemy gun spot / spawn exit / hospital bed); v74's enemy-side-half + counter-battery is the best known policy. Remaining doorstep losses = close-quarters race maps (pinch/hive/aurora/sprint-class) where the enemy commits by t18 — ONLY fixable by opening speed (earlier striker deployment — the scoped work with oni). Rejected refs kept: bots/krb2 (no-wait), krb3 (full seal), krb4 (guard post).
+- **GATE-VALIDITY EXPERIMENT (2026-07-24 ~03:30, user challenged 4 straight rejects — "code wrong or gates wrong?"):** tested the strongest rejected candidate (krb5: enemy-facing striker spawns + 2-buddy wave) LIVE vs lastpopperian_ as v76: 8-7 games (53%) vs v75's 60% baseline over 50 games. **The gates were right — rejects are real, not lab blindness.** Reverted to v75 (=v77 zip). Caveats logged: our sparring set has no lastpopperian mimic (build "popmic" from their replays if this matchup needs lab visibility); krb-vs-krbX mirrors carry artifact risk (old v85 lesson). krb5's real finding: fast opening flips sweden+fjord (4/4 both gates) — a per-map opening profile is plausible but needs fresh-seed validation, not tonight's data. v75 opening-speed structural work (same-turn arrival via store protocol) remains the scoped next build with oni.
+- **2026-07-24 ~01:00 gauntlet vs top 2:** lastpopperian_ series 4-1 (W3-2, W4-1, L1-4, W4-1, W3-2; 15-10 games). Their match wins = t85-101 blitzes on hive/aurora/sprint (they commit builders earlier than our wave). **krb2 (skip staging on small maps) REJECTED: 54% besvimic / 42% vs krb (30-46 kills) — the buddy-wait IS the wave; solo arrivals die piecemeal.** Closing the last match needs earlier striker spawns (opening surgery, do with oni), not less discipline. Ladder now a 2-horse race: lastpopperian_ 2136 #1, us 2107 #2, Besvikomat COLLAPSED to 1725 #3 (sentinel meta died). Besvikomat unrated set: 1st match W 4-1, rest queued.
+
+## ⭐ V74 — THE USER'S ALL-CONVEYOR WALL BROKE THE PLATEAU (2026-07-23 night, ladder v74, main 00f1a4b)
+- User spotted it live: the barrier ray tiles were walling off OUR OWN trunk conveyors — titanium never reached the core in many games. Fix: **the entire wall is conveyors chained coreward, built inside-out** (ring first; an outer tile only builds when the tile it faces already holds our conveyor/core). ⚠ CRITICAL LESSON: an UNCONNECTED wall conveyor is a titanium grave — the harvest router wires trunks into any friendly conveyor, so one dead-end tile swallowed whole chains (first attempt: 160 mined/game vs 1500). Connectivity rule is load-bearing.
+- **Gates: 64% vs khaos (best ever), 56% vs diagonal-besvimic (first result above the 50/52% plateau).** The plateau was never defense mechanics — it was the wall starving our own economy.
+- v74 vs lastpopperian_ live test queued (v73 was 6/10). planes.py diagonal offense still open (oni's system — coordinate).
+
+## (superseded) DEFENSE PLATEAU NOTES (v73, main 5675cb1)
+- **v73 shipped** = v72 + ring-first build order (their t70 doorstep gunners beat the old order), ring boundary-tie seam closed, diagonal lanes as SOFT +5 walker cost (`threat_diag()` in mapinfo + DIAG_EXTRA class in path.next_step — kept OUT of `threat()`: hard 8-way there strangled routing/placement, gated 54%).
+- **Three defense iterations vs diagonal-besvimic: 52% → 48% → 51%. Plateaued.** vs khaos: 62/54/58 ≈ noise band. Defense-side work is extracted; local bots kept `bots/kforta` (=v73), `bots/kfort4` (54% reject version with hard 8-way mask).
+- **vs lastpopperian_ live: v71 3/15 → v72 3/10 → v73 6/10 (won a match 4-1!).** Ring-first killed their t100 doorstep wins (slowed to t165+); we out-rush them now (kills t102-132 for us); tiebreaks split 3-3. The defense stack works live even though the lab said "parity" — lab mimics don't reproduce their exact opening. Remaining edge to close: planes.py diagonal offense (below).
+- **⭐ THE remaining lever: planes.py diagonal facings** (offense — our guns cannot take the diagonal shots that beat us). Design: 4 more plane stacks keyed NE/NW/SE/SW, shift = ±1±W with BOTH column edge masks, gunner ray len 2 (d²8≤13), same 0.9^k discount. Then _bestPlant/_run_attack 'plant' need the 8-way facing map. This is oni's system — coordinate with him.
+- besvimic upgraded to diagonal siege (its old numbers dead). jackpot attrition finding: we spent 34 builders vs their 11 — diagonal lanes were invisible to pathing (now soft-costed in v73).
+
+## ⚠⚠ DIAGONAL GUNNER META (2026-07-23 afternoon — THE 2.3 story)
+- lastpopperian_ 5-0'd us rated (-21.8, crossfire core kill t68) with **diagonal-facing siege gunners** — 2-step diagonal spots (d²=8≤13) beat kfort's cardinal-only wall AND the distance-1 ring. Sentinel nerf made this the best siege in 2.3; expect everyone to copy it.
+- **Defense fixed & shipped (ladder v72, main 636c964):** deny tiles now include the 8 two-step diagonals; ring-corner conveyors BLOCK 1-step diagonal rays (gunner shoots the conveyor, not the core); wall builds enemy-side-first (act-xor-move slowed construction — old build order left the hot side open). Controlled proof: diagonal-besvimic kills old wall t93 on crossfire, loses to fixed wall (t703 core kill for us). Gates: 62% vs khaos (crossfire 4/4 first time), 52% vs diagonal-besvimic (kills 34-40 AGAINST — see next line).
+- **besvimic upgraded to diagonal-shooting** (its siege facing loop now tries all 8) — it's the lastpopperian_-class sparring bot now; old besvimic numbers not comparable.
+- **⭐ NEXT LEVER — OFFENSE: planes.py scores CARDINAL facings only ('E','W','N','S')** — our own attack cannot place diagonal gunners. Whoever weaponizes diagonal siege offensively farms the ladder. Add 4 diagonal facings to the plane scorer (shift math: ±1±W with double edge masks). Weak vs diagonal rush still: hive/longship/runestone 0/4, atoll/aurora 1/4 — likely need offense parity, not more wall.
+- Told team via user. Watch v72's rated trend.
+
+## ⚠ ENGINE 2.3.0.dev25 MIGRATION (2026-07-23 morning — supersedes some of the below)
+- Breaking rules: builder act = ORTHO-adjacent only (no own-tile/diagonal), sentinel = 1-tile line (band gone, sentinels nerfed → gunner meta favors us), act XOR move per round. Engine silently refuses illegal calls — unmigrated bots limp, don't crash (~1% head-to-head cost measured, kfort4-migrated vs unmigrated = 51%).
+- **kfort migrated (7 sites: ortho gates in harvest/heal/plant/deny/ring/choke, self-heal removed, no more diagonal TTL-poison) → ladder v71, main cf107e9.** Gates on 2.3: 60% vs khaos PROMOTE.
+- **ROOT team bot (main.py on main) is NOT migrated — teammates need the same 7-pattern sweep.** planes.py sentinel band scoring also stale (over-values sentinels) — unfixed everywhere.
+- Map meta shifted: showdown now WINNABLE (3/4, 2/4 — sentinel nerf likely; was 0/4 forever), hive new sore spot (0/4 vs khaos). Rating 2133 #1 of 25 (a rated dip happened overnight on unmigrated v70 — watch v71's trend).
+- The 6 missing maps are now in BOTH repos' maps/ (pushed to main).
+
+## ⚠ NEXT SESSION FIRST (2026-07-23, end of night)
+- **Branch switch: work on MAIN now** (user's instruction; local oogway-bot already checked out + pulled). Teammates merged everything — gate, WORKFLOW, kfort, khaos, v85, maps — into main (40 commits) and the ROOT bot is now khaos-based (main.py rewritten, khaos modules at repo root). Review those 40 commits.
+- Oogway committed `homedefense.cpython-311.pyc` + `turretplan.cpython-311.pyc` (pycache only, still NO .py source, root main.py does NOT import them yet) — keep chasing the source files.
+- Main's maps/ has only the old 15 — push the 6 new engine maps (bridge/jackpot/showdown/string/sweden/vase) to main.
+- **Study replays saved:** `a0e24084-*_game_1` (showdown rated loss t139 — 3rd showdown failure, lab+unrated+rated; top priority), `_game_3` (quarry grind loss t776), `_game_5` (vase tiebreak loss — 2nd vase econ loss). From the first rated match with kfort4 (v70): lost 2-3 to Besvikomat, -4.3 ELO, single-match noise but bad-map draw (showdown+vase in one bo5). Won crossfire rated (!).
+- Rated trend overnight = the v70 verdict. Revert path: v69 (kfort v1) → v68 (khaos).
+- Team RENAMED: **Erebus** (was Oogway).
+
+## Where things stand (2026-07-22)
+- **Team:** merged into **Oogway** (id `56ced8d6-c986-4ebd-9b0b-ff53de527a85`, ~2148, #2, chasing Besvikomat #1 ~2157). Old IC3D team deleted; CLI credentials already repointed to Oogway (backup `~/.fcode/credentials.json.bak`).
+- **Engine:** fcode **2.2.0.dev23** — 4-way movement, global ammo pool (`convert_ammo`). Verify with `pip show fcode` at start; staging pushes breaking updates.
+- **Repos:**
+  - `C:\Users\IC3D_\Desktop\ic3d-battlecode` — IC3D solo bot (v85-mirror-rush) + ALL tooling (lab.py, econ.py, mimics, dashboard.py, plan file, HANDOFF).
+  - `C:\Users\IC3D_\Desktop\oogway-bot` — merged-team bot (github.com/Varainrain/fcode), branch `ic3d-dev`. Commit as the user, **no Claude attribution**.
+- **Key fact:** IC3D v85 beats Oogway's base **82%** and out-mines it (91k vs 34k) on the current engine → IC3D is the stronger chassis; Oogway's value is his modules.
+
+## Assets in hand
+- **Tooling:** `lab.py` (gate: bot vs opponent, 60 games, PROMOTE/REJECT), `econ.py` (mined Ti vs nop), `replay_stats.py` (⚠ gunner counts 4x-inflated by rotations; sentinels exact), mimics `bots/barbimic|pendmic|besvimic`, `bots/champion` (frozen baseline).
+- **Dashboard:** `dashboard.py` port 8642 (WarRoom.bat) — hero=Oogway, Rival=Besvikomat, Repo panel.
+- **Oogway's shared modules (in this dir):** `globalMap&pathfinding.py` (bit-packed shared team-map over store slots 0-6 + Dial's weighted Dijkstra — powerful but runs full-map per-bot-per-turn, NEEDS CACHING; has a crash bug: `bestDir` None deref) and `initialSpawning.py` (spawn-ray ore optimizer).
+
+## Next tasks (priority order)
+1. ~~**Package the team gate harness**~~ ✅ DONE 2026-07-22: `gate.py` + `WORKFLOW.md` + `fcode.toml` + `maps/` + frozen `bots/champion/` (= current ladder bot, root files) committed to oogway-bot `ic3d-dev` and pushed (commit 2185642, new remote branch — PR to main still open to Oogway). Gate verified on dev23: mirror gates 42% → REJECT, same-name guard works. Usage: `python gate.py <bot>` (60 games), `python gate.py <bot> champion 1 fast` (12-game screen).
+2. ~~**Siege bake-off**~~ ✅ DONE 2026-07-23, 240 games. Sieger knobs added to bots/ic3d/main.py (`SIEGE_RUSH_GUNS/SIEGE_SEAL/SIEGE_SENTS`, behavior-neutral at 3/True/3). Results vs champion: barrier-only (sgbar) **35% REJECT** (4 kills for, 27 against — the seal alone loses the kill race in 2.2); gunner-only (sggun) **50%** (20-14 kills, wins 63% vs sgbar head-to-head); 6-guns+seal (sg6) **50%, exactly 2/4 on all 15 maps** (= behaviorally identical, side/seed decides; guns past 3 rarely matter). **Verdict: v85's existing 3-guns+seal+sentinels synthesis stands. Gunners are the kill weapon, the seal is the force-multiplier, barriers-alone is dead.** Variant bots kept in bots/sgbar|sggun|sg6, logs lab_sg*_champ.txt, lab_sggun_sgbar.txt.
+3. **Chassis decision: ONI'S KHAOS WINS** (2026-07-23, both benchmarks same day):
+   - Oogway's latest dev23 bot (`bots/oognew` in ic3d-battlecode): **25%** vs v85 (8-32 kills), mines 24.5k vs 91k. But sweeps crossfire 4/4 / atoll 3/4 (v85 weak maps — replay-worthy).
+   - **oni's khaos** (`bots/khaos` in oogway-bot, = the live ladder bot "v68 khaos", 6 modules incl. mapanalysis/symmetry/planes): **beats v85 73-27** (31-7 core kills; gate_results.csv in oogway-bot). v85 shut out on aurora/crossfire/duel/pinch/sprint; v85's only strong maps fjord+quarry (3/4).
+   - **Merged bot builds on KHAOS.** ⚠ ECON CORRECTION (same day): raw totals (12k vs 75-91k) were a game-length artifact — khaos kills nop at t57-145 so its total is truncated. PER-ROUND rates: khaos 8,928/1k vs v85 11,085/1k (~80%), and v85's edge is late-game grid compounding (strait/twins 25k/1k at t1000). khaos's early econ is FINE — do NOT port v85's economy wholesale. ANSWERED vs besvimic: khaos wins 65% (27-17 kills, PROMOTE-grade). Of its 21 losses, 17 = COUNTER-KILLED (often t80-t230, weak maps fjord/crossfire/vault all 1/4), only 4 = tiebreaks. **⭐⭐ KFORT v4 SHIPPED (2026-07-23, repo b636d6c, ladder v70):** the USER'S guard-conveyor idea won the 4-way bake-off — ring tiles denied with CORE-FACING CONVEYORS (delivery flows through the wall) instead of barriers. **Gates on the full 21-map pool: 65% vs khaos (43-18 kills), 80% vs besvimic (55-7).** v2's disaster maps (bridge/jackpot/string/sweden 0/4 with barrier ring) flipped to 4/4-3/4 — the choke was OUR OWN delivery lines hitting the barrier ring. Version ladder: v1 open ring 56%/65%, v2 always-barrier-ring 40% REJECT, v3 reactive-barrier-ring 54.8%/73%, v4 conveyor-ring 65%/80%. Remaining weak maps: showdown (0-1/4), crossfire, vault/runestone vs besvimic. Map pool now ALL 21 engine maps in both repos (six were missing locally: bridge/jackpot/showdown/string/sweden/vase — dev23 package ships them). Local variants kept: bots/kfort4 (=shipped), kfort (v3), kfort1 (v1), sg*/kdef* (rejected, reference). Older v1 notes: khaos + two bolt-ons from the Pantheon postmortem analysis: (a) `_denyHomeSiege` + `_siegeRayTiles` — pre-barrier the gunner firing tiles (distance 2-3 cardinal rays off the 2x2 core; distance-1 ring left free for spawns), home guard (builder #1) patrols un-denied tiles; (b) `_ringGuns` — maintain up to 3 gunners on the ENEMY core's adjacent ring (spawn-camping, v85's move made deliberate). **Gates: 58% vs khaos (PROMOTE, 32-17 kills), 65% vs besvimic with kill diff 37-7 (khaos was 27-17 — siege deaths collapsed).** Vault s2 (the reference loss): survives to t1000 instead of dying t155. Weak map: crossfire (0/4). Margin is modest (58%) — live ladder is the final judge. Denial is always-on; a reactive version (build wall only when enemy sighted on our half) is the next knob if econ cost shows. Earlier failures for context: **kdef experiments: (1) anti-siege must act EARLIER — two reactive patches both failed the gate: kdef (home counter-battery exempt from the scaling money gate) 48% vs khaos / 63% vs besvimic = inert; kdef2 (+perpendicular lane placement) 42%/50% = REJECT, the placement block is shared with offense and the bias broke attack planting. Root cause per vault replay: once a barrier-shielded siege stands, reactive guns feed it (470 dmg bled). Fix must deny establishment (launcher intercepts on approach / spawn pressure) — mine the Cambridge 2nd-place repo (oni's sending link) for mechanisms. (2) Oogway's shared-map/pathfinding port is REDUNDANT — khaos already has Pantheon Dijkstra (path.py) + store map-sharing (mi.share). (3) late-econ compounding — last, ~4/60 games.** Variants kept: bots/kdef, bots/kdef2 (rejected, reference only). lab.py now capped at 6 workers (khaos OOM). econ.py now prints turns + rate/1k (early-kill aware). Earlier session's "v68 is bleeding rating, swap it out" read was WRONG — khaos is the team's best and holds #2; the dip was Besvikomat improving.
+   - Gate note: gate.py now capped at 6 workers — 12 parallel engines with khaos's heavy modules exhausted Windows commit memory (WinError 1455 + phantom t0 "draws").
+4. **Oogway's Dijkstra — downgraded from blocker to nice-to-have** (Discord 7/21): our "5ms avg / 90ms spikes" profile was a bad benchmark — it hardcoded all 8 bots pathing to ONE far tile, forcing full-map expansion. Real usage early-exits when the wavefront hits the bot; Oogway measures <1ms after the first rounds. Caching still helps the far-target worst case (retreats/attacks across 30x30 finals maps) but isn't required to adopt it. The `bestDir` None crash IS real — Oogway said he'd add the guard himself; verify it landed before porting.
+
+## Working style
+User talks casually — draft any Discord messages in lowercase/slang, never formal. Be honest, correct mistakes (theirs and yours) plainly, act rather than defer, don't suggest stopping.

@@ -10,8 +10,8 @@ promotions by data instead of vibes.
 main.py, ...              <- historical root package; may differ from live
 bots/
   champion/               <- frozen, hash-verified reference opponent
-  exp_trans_40/           <- shipped-v8 source lineage / current frozen parent
-  meta-generalist-v1/     <- current local frozen candidate
+  generalist-v2/          <- exact live-v89 source
+  generalist-v3/          <- next locally passing candidate
   <yourbot>/              <- your experiment: a folder with main.py (+ any modules)
 maps/                     <- the current 21-map league pool (.map26)
 gate.py                   <- the promotion gate
@@ -69,8 +69,8 @@ them without reviving them under a new name.
 
 ## Making a change
 
-1. Copy the exact frozen candidate named in `HANDOFF.md`:
-   `cp -r bots/meta-generalist-v1 bots/mybot`.
+1. Copy the exact frozen parent named in `HANDOFF.md`:
+   `cp -r bots/generalist-v2 bots/mybot`.
 2. Hack on `bots/mybot/`.
 3. Sanity-run one game: `fcode run mybot champion maps/duel.map26 --seed 1 --tle 10`
 4. Run the gate: `python gate.py mybot`
@@ -108,85 +108,6 @@ Head-to-head between any two bots: `python gate.py botA botB`
 Two of us measured the same matchup 26 points apart once (kfort vs krb,
 72% vs 46%) — environment drift, not variance. Check setup first, argue
 strategy second.
-
-### MANDATORY: gate against `bots/spar_rush` as well as the live bot
-
-`spar_rush` is our own engine with `SIEGE_START = 5` — a sparring partner, never
-a submission. It exists because the ladder's top two (Powered by SmartFridge,
-Pantheon) put a gun on the enemy core at t19-t24 and NOTHING in `bots/` did
-anything remotely like it, so no local gate could see how a candidate handles a
-rush. It found a hole 500+ games against our own lineage had completely hidden:
-
-| vs `spar_rush` | win rate | core kills |
-|---|---|---|
-| historical `generalist-v3` | **39%** (CI 32-46) | 58-91 |
-| shipped-v8 source `exp_trans_40` | 55% (168) | 85-64 |
-| `meta-generalist-v1` | 52% (168) | 81-64 |
-
-A candidate that only ever fights our own lineage is being measured against an
-archetype that no longer exists at the top of the ladder. Run both:
-
-```
-python gate.py <candidate> meta-generalist-v1 8 quiet # 336 games, local parent
-python gate.py <candidate> spar_rush 4 quiet       # does it survive a rush?
-```
-
-Keep a fresh parent control next to each - the numbers only mean something as a
-difference.
-
-### Measured noise floor (identical-code control, 2026-08-01, engine 2.3.3)
-
-`bots/exp_emergency_countertrade` is byte-identical to `bots/generalist-v3`
-(md5 `bf31fa04b650`). Gating it against itself measures the harness, since every
-result is pure noise. Rerun this control after any engine bump — it is the only
-way to know what a number means.
-
-- **Aggregate is well calibrated: 50% at n=168, 52% at n=336.** Trust the
-  headline verdict to about +/-2-3%. The 55% bar is sound.
-- **Per-map lines are NOISE. Do not read them.** Identical code produced
-  `sweden` 1/8 and `longship` 6/8 in the same run. Any claim of the form
-  "we're weak on <map>" taken from a gate needs its own dedicated experiment;
-  a per-map line at n=8 or n=16 supports nothing.
-- **Seat bias is large and pool-wide.** With identical code the second player
-  won 197/336 = 59% overall. This aggregate is solid.
-- **Seat-locked maps (verified by direct `fcode run`, BOTH argument orders,
-  20 games each, identical code):** `duel`, `showdown`, `skerry`, `strait` all
-  went **20/20 to the second-listed bot**. `sprint` is balanced (9/20). These
-  four cannot distinguish closely matched bots at all.
-- **DO NOT DERIVE PER-MAP SEAT NUMBERS FROM gate.py OUTPUT — its per-game
-  "<bot> first" label does not reflect actual play order.** It reported
-  `strait` as balanced 8/16 when direct runs show 20/20, and its 4-seed and
-  8-seed logs contradicted each other. The AGGREGATE verdict is still sound
-  (identical code lands at 50-52%, which requires genuine side-alternation),
-  so the bug is in logging, not in what it plays. Measure seat effects with
-  scripts/seat_check.sh, never by parsing the gate log.
-- Seat bias is **bounded by skill**: across a large gap (generalist-v3 vs
-  OogwayOld, 86-14) skill won 29/32 on the seat-locked maps. The seat only
-  decides between *closely matched* bots.
-
-**Consequence for iteration — this is the important part.** The changes we
-actually test are small deltas, which IS the closely-matched regime. On roughly
-half the pool those games are decided by seat, and because the gate plays both
-sides they average to a forced ~50%. So the gate dilutes exactly the improvement
-it is meant to detect: a real +3% edge can land in the 45-60% "unproven" band
-and be discarded. When a change gates at 52-54%, that is NOT evidence it did
-nothing — rerun it on the balanced maps before dropping it.
-
-Do not describe this as "RNG" or fix it with more seeds. On `duel` the seed is
-inert; extra seeds just produce more identical games.
-
-### Choosing a reference opponent
-
-**`bots/champion` is stale (= `oogerebus3`) and must not be used as a default
-reference.** Screened against it, ten bots scored 91-100% and then lost to the
-live bot; `OogwayNEW` screened 83% and lost 21-79 over 168 games. The reference
-inverted the ranking. Gate against the CURRENT LIVE BOT unless you have a
-specific reason not to, and state which reference a number came from — a win
-rate is meaningless without it.
-
-A cheap screen can only ELIMINATE (a bot at 0-25% is genuinely broken). It
-cannot promote: identical code reads up to 67% at n=12. Never advance a bot on
-screen numbers alone.
 
 ## Promotion procedure
 

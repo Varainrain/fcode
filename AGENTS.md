@@ -22,11 +22,3 @@ frozen baseline, require deterministic mechanism tests and graduated gates,
 and stack only independently winning features. Re-gate the complete stack
 after every addition. Preserve the baseline and do not upload, queue, replace
 root, or activate without explicit user approval.
-
-Gate against the CURRENT LIVE BOT, not `bots/champion` (stale = `oogerebus3`;
-it inverted the ranking of ten bots). Always say which reference a win rate
-came from. Never read per-map gate lines — identical code swings 1/8 to 6/8
-on them. A 12-game screen eliminates, never promotes. Because ~half the map
-pool is seat-decided between closely matched bots, the gate compresses small
-real gains toward 50%: treat 52-54% as unresolved, not as refuted. Rerun the
-identical-code control (WORKFLOW.md) after any engine bump.
