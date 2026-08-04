@@ -109,6 +109,51 @@ Two of us measured the same matchup 26 points apart once (kfort vs krb,
 72% vs 46%) — environment drift, not variance. Check setup first, argue
 strategy second.
 
+## ENGINE 2.3.4 REBALANCE — every pre-patch number is stale (2026-08-04)
+
+`fcode 2.3.3 -> 2.3.4` changed six constants. Gunners were nerfed on FOUR axes at
+once and sentinels buffed on two:
+
+| constant | 2.3.3 | 2.3.4 |
+|---|---:|---:|
+| GUNNER_BASE_COST | 10 | **20** |
+| GUNNER_DAMAGE | 10 | **7** |
+| GUNNER_AMMO_COST | 2 | **4** |
+| GUNNER_MAX_HP | 40 | **25** |
+| SENTINEL_FIRE_COOLDOWN | 3 | **2** |
+| SENTINEL_MAX_HP | 30 | **40** |
+
+That inverts the unit economy:
+
+| | dmg/turn | dmg/ammo | dmg/Ti | HP | reach |
+|---|---:|---:|---:|---:|---|
+| gunner | 7.0 | 1.75 | 0.35 | 25 | cardinal 3, diagonal 2 |
+| **sentinel** | **9.0** | 1.80 | **0.60** | **40** | **cardinal 5, diagonal 4** |
+
+Sentinels are now better on every axis except cooldown. Reach was MEASURED with a
+probe bot, not assumed: `gunnerLines` in `mapPathfinding.py` is hardcoded 3/2 and
+a gunner seat is NOT a sentinel seat, so sentinel work needs its own seat list
+(`sentinelSpots` in `bots/exp_v31_sentinel`).
+
+A 500 HP core now costs ~280 ammo to kill, up from 100. Ammo policies tuned
+before the patch are probably the binding constraint now, and attack gates sized
+for 10-Ti gunners (`resources >= 80`) are not sized for 30-Ti sentinels.
+
+## NOISE FLOOR ON 2.3.4 — rerun after the patch, and it is WIDE
+
+`bots/live-v30-twin` is byte-identical to `bots/live-v30-control`. Gated against
+itself on 2.3.4, 336 games:
+
+**54% (CI 49-60), core kills 162-142.**
+
+- **Treat anything under ~57-58% at n=336 as unproven.** Identical code reached
+  54%, one point under the promote bar.
+- **KILL DIFFERENTIALS ARE NOT INDEPENDENT CORROBORATION.** Identical code
+  produced +20 (162-142). A candidate showing a positive differential alongside a
+  ~52% win rate has shown nothing; the two numbers move together.
+- Rerun this control after every engine bump. It is the only way to know what a
+  number means.
+
 ## Promotion procedure
 
 1. Pass the frozen-parent and all broad gates in the required cycle.
