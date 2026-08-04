@@ -1,3 +1,31 @@
+# 🚨 WHY WE ARE LOSING + THE 2.3.4 META SHIFT (2026-08-05, 20 fresh loss games parsed)
+
+## The new archetype: SENTINEL SIEGE — Pantheon and Pareto-ion both switched within a DAY of the patch
+| team | profile in wins vs us | kills us at |
+|---|---|---|
+| Pantheon | b3, **s2, L1, bar1-6, g0 (ZERO gunners)** | t46-72 |
+| Pareto-ion (1887, climbing) | **s1-5, L1, bar4-18, g0-1** | t65-209 |
+
+Sentinel post-patch: **9 dmg/round (vs nerfed gunner 7), range^2 32 vs 13 (seats ~5.6 tiles out,
+OUTSIDE gunner reach), 40hp vs 25, flat 30 Ti with NO +20% scaling.** The gunner is now the
+fallback weapon; the sentinel is the siege weapon. **v30 builds zero sentinels.**
+
+## The loss anatomy (Pivot x3, SmartFridge, all 2-3s)
+**We hit first in nearly every loss (t8-36), deal 200-784 core damage, and STALL** — their
+barriers (Pivot: 5-18/game) + heals absorb nerfed gunner dps (7/round through 30hp barriers),
+then their counter kills us t126-449. The absorb-counter pattern we documented in staging is
+now the mid-ladder standard, and our finisher can't finish through it.
+
+## Ranked improvements for v30 (for the chassis authors — my integration attempt failed)
+1. **Adopt sentinel siege in runAttack** — seats via can_fire_from(spot, f, SENTINEL, coreTile),
+   standoff outside gunner range. My first cut (bots/v31s) gated 10% — attackers stalled
+   hunting seats (kills 3-68); the SHAPE is: seat search must not preempt fighting, and ammo
+   buffer must rise (sentinel drinks 10/shot vs 4). The concept is Pantheon-proven; the
+   integration needs the author's hand. This is attempt #23 of outsider-grafts-fail.
+2. **Finish through absorb**: our 385-784 damage stalls vs barriers+heals. Sentinel dps (9/rnd,
+   and 18 per hit punches 25hp gunners in 2 and 30hp barriers in 2) is also the answer HERE.
+3. **Build barriers around our own siege seats** — every team that beats us builds 2-18;
+   we build 0. Shield pieces for besiegers, not just harvesters.
 # 🎯 2.3.4 STATE OF PLAY: v30 SWEEPS + LAUNCHER TECH RESOLVED (2026-08-05)
 
 ## v30 "defend bot change" vs everything, on 2.3.4 (84g each)
