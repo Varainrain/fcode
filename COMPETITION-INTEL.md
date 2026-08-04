@@ -1,3 +1,26 @@
+# 👁️ EYES BEAT AUTOPSIES: ic3d's observation -> corner shields -> 2-3 vs PANTHEON, TWICE (2026-08-05)
+
+ic3d watched the Pantheon loss manually and saw it: they win with TWO sentinels placed
+DIAGONALLY at standoff (range^2 exactly 32) where our five gunners (range^2 13) can never
+answer. The observation contained its own counter, and it shipped the same evening:
+
+- **v33 corner shields**: every diagonal sentinel line into a core corner passes through the
+  ONE tile diagonally adjacent to that corner. 4 barriers, 12 Ti, all diagonal lines dead.
+  Mirror: 51% vs v30 over 168g (kills 75-75) = FREE. First Pantheon scrim: **2-3** (twins WON
+  t171, bridge WON t720 absorb war) vs the 0-5 / 1-4 baseline. Their kills rerouted to
+  CARDINAL columns (atoll: sentinel at (14,7), our core (14,2), straight down the lane).
+- **v34 full seal** (ACTIVE): + 8 cardinal-lane barriers at distance 2 (d1 ring stays free
+  for spawns/heals — barriers are passable to own units, so no 29% full-seal trap). 12
+  barriers, 36 Ti, every sentinel line into the core blocked. Mirror: 49% = free. Second
+  Pantheon scrim: **2-3** again (won crossfire t114, sprint t113).
+
+**Remaining gap: the sub-t50 blitz** (twins t41) — the seal isn't up before their opening
+lands. Next lever for the chassis authors: shields up by ~t25 (one defender prioritizes
+them over econ in the opening), and the diagonal-corner shield that was missing on fjord.
+For the record: copying their START failed twice as the graft law predicts (v31s 10%,
+v32p 36%) — the COUNTER transferred, the strategy did not. Eyes on replays found in one
+evening what 23 code-first integrations missed. This is the pipeline: ic3d watches, the
+lab measures, the chassis authors land it.
 # 🚨 WHY WE ARE LOSING + THE 2.3.4 META SHIFT (2026-08-05, 20 fresh loss games parsed)
 
 ## The new archetype: SENTINEL SIEGE — Pantheon and Pareto-ion both switched within a DAY of the patch
