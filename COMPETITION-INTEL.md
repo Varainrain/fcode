@@ -1,29 +1,34 @@
-## v13 FULL GATE MATRIX — the rush flattens everything, including the anti-rush wall (2026-08-03 03:50)
-Requested by Oogway ("might want to gate that against our other bots"). 84 games each, dev29, synced pool:
+# 🎯 2.3.4 STATE OF PLAY: v30 SWEEPS + LAUNCHER TECH RESOLVED (2026-08-05)
 
-| v13 "_OogwayRush" vs | result | kills |
+## v30 "defend bot change" vs everything, on 2.3.4 (84g each)
+| v30 vs | result | kills |
 |---|---|---|
-| v9 "pls codex" (oni) | 69% | 57-24 |
-| **oogerebus3 (the anti-rush wall specialist)** | **93%** | **78-3** |
-| prime-a (OogwayNEW+armor, best of the old line) | 92% | 77-7 |
-| lastpop2 (siege clone) | 95% | 80-4 |
+| v13 _OogwayRush (was best) | **89%** | 72-9 |
+| v9 pls codex | 80% | 64-16 |
+| prime-a | 86% | 72-12 |
+| oogerebus3 | 86% | 71-11 |
 
-**The headline: the wall that stopped krb at 85% does NOT stop this rush (7%).** Why: oogerebus3's
-wall duty starts round 6 and needs ~40 rounds to seal the ring — v13 kills at t25. It is simply
-faster than any defense we have ever built. That has two edges: (a) it will farm the whole
-midfield of the real ladder; (b) whoever above us CAN survive t25 (the absorb teams — Pantheon,
-CtrlAltDefeat, per their profiles) will be the only teams that matter. v13's weak maps stand:
-quarry 0/4, sweden 1/4 vs v9.
+The turret patch (gunner 10->7 dmg, 10->20 Ti, +20%/gunner scaling, 25hp) killed the
+t25 rush meta overnight — v13 went from best-ever to 11% in one balance pass.
+**v30 is the undisputed best and correctly active. All old numbers are void; regate
+everything after every engine patch.**
 
-# 🚀 UPDATE: v13 "_OogwayRush" IS THE NEW BEST — AND IT IS ALREADY ACTIVE (2026-08-03 01:30)
-Oogway shipped v12/v13 tonight mid-session. Gated immediately: **v13 beats v9 69% (kills 57-24, 84g).**
-Kills nop at t25 — faster than khaos's fabled t29. The best-bot chain is now:
-**v13 (rush) > v9 (codex) > v90stg > everything in the repo.** v13 active = correct deployment, now verified.
-v13's weak maps: quarry 0/4, sweden 1/4, crossfire/duel/jackpot/runestone/string/twins/vase 2/4 — the rush
-carries the rest. Note the meta echo: Orizon (#3, 1736) is also a pure rush — Oogway independently built
-the answer to the same meta. Whether rush clears the absorb teams above (Pantheon/CAD) is the open question;
-scout via the unrated pipeline after v13 has some ladder history.
-
+## Launcher tech: both concepts now measured on the v30 chassis (attempts 14-15)
+- **ballista (Pantheon tempo opening, bolt state SOLVED): 29% — REJECT.** The
+  mechanism oni's 13 attempts couldn't land now fully works: pad t2 perpendicular
+  (landmine 3), self-contained launcher with slot-published target (landmine 1),
+  own-stepper march (landmine 2), throws at t4/t7 = Pantheon's cadence, and the
+  bolt LATCHED ON LANDING (position jump >2, not on claim — v6's bug). It loses
+  anyway: a 6-tile throw is a small slice of a 35-tile journey, the opening
+  diverts 20 Ti + two attackers' turns, and 2.3.4 devalued first-gun tempo (the
+  thing the throw buys) by nerfing the gun itself.
+- **ballista-d (khaos defensive throw — eject enemy builders from our seat zone):
+  46%, kills 34-38 — NEUTRAL.** Free but unpaid in the mirror; the pad rarely
+  catches a sieger in pickup range. Not shippable by the only-what-gates rule.
+**The launcher question is now CLOSED with data on both concepts (15 total
+attempts). The working modules live in bots/ballista{,-d} — pad placement, throw
+selection, bolt march are all functional and reusable if a future patch or a
+Pantheon-style big-map logistics design makes them pay.**
 # 👑 OUR BEST BOT IS v9 "pls codex" — AND IT IS NOT CLOSE (2026-08-03)
 Downloaded oni's deployed v9 from prod (`fcode submission download 9`) and gated it
 against our entire local line, 84 games each on dev29 + synced pool:
@@ -52,14 +57,6 @@ The one prod win pattern: atoll t949 grind (unit-cap econ absorb). erebus shelf
 now holds v10=prime-a, v11=oogerebus3 as inactive options; **v9 stays active.**
 ⚠ `fcode submission upload` AUTO-ACTIVATES — always `submission activate 9` after
 shelving anything (this bit me for ~2 minutes of ladder time today).
-
-
-## Verified: v9 > staging v90 too (61%, kills 44-28, 84g) — THE BEST BOT IS ALREADY ACTIVE
-Screened prod v9 against staging v90 "see more" (oni's last pre-competition staging bot):
-v9 wins 61%. Chain complete: v9 > v90 > everything in the repo. **No upload needed — v9 is deployed.**
-Per-map hint for the pipeline: v90 BEATS v9 on the small maps — duel 0/4, twins 0/4, sprint 1/4,
-string 1/4, sweden 1/4. v9's edge is the mid/large maps. A small-map regression happened
-between v90 and v9; whatever changed, the old behavior was better there.
 
 # ⚔️ PANTHEON AUTOPSY — fresh 0-5, challenged them directly (2026-08-03)
 
