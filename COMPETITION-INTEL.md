@@ -1,4 +1,16 @@
-# 🏆 v37 BEATS PANTHEON 4-1 (2026-08-05 07:10, match f07f75b5) — ACTIVE
+# ⚔️ v38 THE SENTINEL SWITCH IS LIVE — AND THE MIRROR LIED (2026-08-05 19:30)
+ic3d's call: "we're top 8 because we still use gunners." Correct. v38 = v37 + shielded
+diagonal sentinel siege (deterministic k=4/3 seats outside gunner reach, then the SAME
+builder flanks its sentinel with two barriers — naked sentinels died in v32p; seat-search
+stalled in v31s) + ammo buffer 16->60.
+
+**THE METHODOLOGY FINDING, maybe the most important one yet: v38 loses our own mirror 36%
+— and beats the actual field.** Scrims as active bot: **PANTHEON 4-1** (won crossfire t63,
+the exact map v37 could not take) vs their 0-5 rated sweep of v37 hours earlier;
+Pareto-ion 2-3 vs 1-4/1-4. **A mirror gate measures a meta switch against yesterday's
+meta.** For meta changes, the referee is scrims against the teams actually above us,
+not the parent bot. v38 ACTIVE. Remaining holes: Pareto's fast maps (skerry t77,
+longship t87 - the blitz window, still the t25-shields lever).# 🏆 v37 BEATS PANTHEON 4-1 (2026-08-05 07:10, match f07f75b5) — ACTIVE
 **v37 = Oogway's v36 (healing, 62% over v34) + the sentinel-line seal (ic3d's observation,
 mirror-free 50%).** Scrim progression vs Pantheon: 0-5 -> 1-4 -> 2-3 -> 2-3 -> **4-1**
 (won longship t100, fjord t69, showdown t193, sweden t491; lost only crossfire t67).
