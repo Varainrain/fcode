@@ -1,3 +1,22 @@
+# 🔧 v39 ACTIVE (rotation fix) + THE SPORKS PROBLEM IS ITS OWN THING (2026-08-05 20:30)
+ic3d watched the sporks loss (cb25c373) and called three defects. Measured results:
+1. **SHIPPED (v39, active): home-sentinel rotation fix.** A defensive gunner sat one tile
+   off the ray of the sentinel killing our core and never rotated - sentinels were not
+   counted as core threats, so the rotate floor stayed at 80 Ti. Fix is SCOPED: sentinels
+   within 7 of OUR core count as core threats (rotate floor 20). Mirror-free 49%.
+   ⚠ The UNSCOPED version was a disaster (every siege gunner map-wide rotating at 20 Ti
+   floor = bank bleed): v39b 17%. Scope matters more than the idea.
+2. **REJECTED for now: sentinel-instead-of-gunner at their core** - part of the 17% bundle,
+   needs clean isolation before retry.
+3. **REJECTED as implemented: conveyor chipping** (sporks does it to us) - opportunistic
+   adjacent-fire hooks cost 29%: eco builders got stuck plinking 20hp conveyors. If
+   retried: TARGETED trunk cuts (one dedicated cutter, chosen tile severing max flow),
+   not opportunistic plinks.
+4. **UNTESTED: ic3d's "more defensive gunners" knob** - the defend clamp count is a chassis
+   parameter, one gate each for 3/4/5 defenders.
+**SPORKS (now #2 with only 108 matches): 1-4 again with v39. Their wins are LONG GRINDS
+(t149-471) - the absorb archetype played at top level, not a blitz.** Next session: autopsy
+their wins from cb25c373 + 88d6aab5 replays (downloaded, in prod/) before touching code.
 # ⚔️ v38 THE SENTINEL SWITCH IS LIVE — AND THE MIRROR LIED (2026-08-05 19:30)
 ic3d's call: "we're top 8 because we still use gunners." Correct. v38 = v37 + shielded
 diagonal sentinel siege (deterministic k=4/3 seats outside gunner reach, then the SAME
