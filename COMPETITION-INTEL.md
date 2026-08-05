@@ -1,3 +1,17 @@
+# 💉 v40 TRIAGE BEATS SPORKS 4-1 (2026-08-05 21:40, match 020ad085) — ACTIVE
+The sporks autopsy (10 games, heal-flow measured) found their edge AND our defect in one pass:
+- **Their formula**: 3-4x our harvester economy (h9-14 vs our h0-7) funding a CORE HEAL WALL
+  of 400-900hp/game — in cb25c373 g1 we dealt 1197 core damage (2.4 cores) and they healed
+  900 of it — plus burst pushes of 5-6 gunners in ~10 turns that out-dps rotation defense.
+- **Our defect: core healing was ZERO in 4 of 10 games.** cornerShields preempts the heal
+  logic in runDefend; under sustained fire the shields always need work, so the defender
+  shields forever while the core dies. Armor on a corpse.
+- **The fix (v40): triage — shields yield when core hp < 350.** 11 lines. Mirror 55%.
+  **Scrim: SPORKS 4-1** (won jackpot t65, sweden t89, twins t100, runestone t254) after
+  two 1-4s. The #2 team's entire edge over us was that they healed and we didn't.
+Session arc: watch -> autopsy -> one scoped fix -> scrim the target team. Third time this
+loop has flipped a top-4 matchup in a day (Pantheon seal, sentinel switch, now triage).
+Still open vs sporks: showdown (their t1-sentinel@d5 opening book on that map).
 # 🔧 v39 ACTIVE (rotation fix) + THE SPORKS PROBLEM IS ITS OWN THING (2026-08-05 20:30)
 ic3d watched the sporks loss (cb25c373) and called three defects. Measured results:
 1. **SHIPPED (v39, active): home-sentinel rotation fix.** A defensive gunner sat one tile
