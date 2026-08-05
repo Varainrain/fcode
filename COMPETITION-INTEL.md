@@ -1,3 +1,18 @@
+# ⚰️ THE ENTOMBMENT BUG — found by ic3d's eyes, fixed, Besvikomat 4-1 (2026-08-06 00:10)
+ic3d watched 0788a40d g1 and said "all builder bots parked near our core doing nothing."
+Movement analysis confirmed 100%: ALL 14 of our builders ended at d2-4 from the core,
+moving once or never for 450 turns. Mechanism: our own conveyors (impassable to us) +
+defensive gunners at (2,2),(1,3),(3,1),(0,2) sealed every exit from the core pocket —
+each new spawn joined the tomb. 2 harvesters all game; Besvikomat won the tiebreak
+WITHOUT EVER DAMAGING OUR CORE. oni's landmine 3 at fatal scale.
+**Fix (ACTIVE, platform v42 "v44 anti-entombment"): _wouldEntomb() — near the core, never
+place an impassable building that leaves <3 open exit tiles (own barriers count as open —
+passable). Mirror 52%. Scrim: BESVIKOMAT 4-1** (won vault t74, showdown, aurora, pinch).
+**STILL UNSHIPPED — ic3d's #1 request, now 4 attempts deep: sentinel-preferred attack.**
+v43 (repeat-seat + gunner cost cap) gated 19% — the re-seat loop stalls attackers, same
+family as v31s. The chassis authors need to own this one: the attack state must prefer
+sentinels natively, not via my bolt-on seat loop. Data: 25 gunners/2 sentinels in the
+Besvik game, 10th gunner costs ~100 Ti under +20% scaling, the wave died by t37.
 # 🩹 v42 SPLIT-DUTY HEAL DEFENSE — ACTIVE (2026-08-05 23:30)
 ic3d watched 9d28da39 g2 (OopsGotYourElo, rated): one defensive gunner facing west, two
 lanes empty, and STILL heal-zero — we dealt 693 to their 504 and lost because they healed
