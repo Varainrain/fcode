@@ -1,3 +1,20 @@
+# 🩹 v42 SPLIT-DUTY HEAL DEFENSE — ACTIVE (2026-08-05 23:30)
+ic3d watched 9d28da39 g2 (OopsGotYourElo, rated): one defensive gunner facing west, two
+lanes empty, and STILL heal-zero — we dealt 693 to their 504 and lost because they healed
+686 off passive income and we healed 0. Root cause was the SECOND heal-blocking gate:
+runDefend only reaches healCore when NO uncovered enemy turret is visible — i.e. never
+during a siege. (First gate was cornerShields preempting, fixed in v40.)
+- v41 all-heal lock: 42% — both defenders nurse a scratch forever while the turret fires.
+- **v42 split-duty (ACTIVE): ONE defender claims healer per round via store slot 14, the
+  rest keep counter-turret play.** Mirror 46% (jackpot/longship 0/4 — watch those).
+- **Scrims: OopsGotYourElo 4-1** — with TWO t1000 tiebreak survivals, the heal wall
+  demonstrably functioning on our side — **sporks 2-3** (map variance from v40's 4-1;
+  atoll lost at t715).
+STILL OPEN (ic3d's other observation): the attack keeps building GUNNERS as fallback
+after the first sentinel — sentinel-preferred attack is untested in isolation (the
+earlier attempt was tangled in a 17% bundle). One clean gate: replace gunner fallback
+with repeat shieldedSentinel while Ti>=80. Also open: more-defensive-gunners knob,
+sporks' t1-sentinel showdown book.
 # 💉 v40 TRIAGE BEATS SPORKS 4-1 (2026-08-05 21:40, match 020ad085) — ACTIVE
 The sporks autopsy (10 games, heal-flow measured) found their edge AND our defect in one pass:
 - **Their formula**: 3-4x our harvester economy (h9-14 vs our h0-7) funding a CORE HEAL WALL
