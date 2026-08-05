@@ -139,6 +139,24 @@ A 500 HP core now costs ~280 ammo to kill, up from 100. Ammo policies tuned
 before the patch are probably the binding constraint now, and attack gates sized
 for 10-Ti gunners (`resources >= 80`) are not sized for 30-Ti sentinels.
 
+## NOISE FLOOR — TWO identical-code draws now bracket it (2.3.4 and 2.3.6)
+
+| engine | identical code, 336 games | core kills |
+|---|---|---|
+| 2.3.4 | **54%** (CI 49-60) | 162-142 (+20) |
+| 2.3.6 | **46%** (CI 41-52) | 138-158 (-20) |
+
+**Identical code spans 46-54% and its kill differential swings +20 to -20.**
+- Treat ANY result between 46% and 54% at n=336 as nothing.
+- **KILL DIFFERENTIALS CARRY NO INFORMATION.** They move with the win rate and
+  identical code produces both signs. Never quote one as corroboration.
+- The 55% promote bar sits one point above what identical code reached on 2.3.4.
+  For real confidence want ~58%+.
+
+2.3.5/2.3.6 changed NO game constants (verified by diffing GameConstants out of
+the 2.3.6 wheel) - they are engine/CLI fixes. The 2.3.4 gunner rebalance below is
+still the live balance.
+
 ## NOISE FLOOR ON 2.3.4 — rerun after the patch, and it is WIDE
 
 `bots/live-v30-twin` is byte-identical to `bots/live-v30-control`. Gated against
