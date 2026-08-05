@@ -1,3 +1,12 @@
+# 🏆 v37 BEATS PANTHEON 4-1 (2026-08-05 07:10, match f07f75b5) — ACTIVE
+**v37 = Oogway's v36 (healing, 62% over v34) + the sentinel-line seal (ic3d's observation,
+mirror-free 50%).** Scrim progression vs Pantheon: 0-5 -> 1-4 -> 2-3 -> 2-3 -> **4-1**
+(won longship t100, fjord t69, showdown t193, sweden t491; lost only crossfire t67).
+The formula that did it: **Oogway's chassis + ic3d's observed counter + gates on every step.**
+Neither half alone got past 2-3. v36 shipped WITHOUT the seal — always check that a new
+chassis carries the measured wins of the old one before it goes active.
+Remaining: crossfire t67 (fast-map blitz where the seal isn't up yet — the t25-shields
+lever is still unclaimed for whoever wants the 5-0).
 # 👁️ EYES BEAT AUTOPSIES: ic3d's observation -> corner shields -> 2-3 vs PANTHEON, TWICE (2026-08-05)
 
 ic3d watched the Pantheon loss manually and saw it: they win with TWO sentinels placed
