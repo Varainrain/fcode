@@ -1,3 +1,21 @@
+# 🚂 OOGWAYATTACK SHIPPED VIA THE PIPELINE — ACTIVE as v46 (2026-08-06 22:30)
+First full run of the MODULES.md pipeline on a submission:
+1. **Gate vs active stack**: 77% (kills 92-22); on league-pool maps only ~83%. Another
+   Oogway generation jump — even WITHOUT the defense module.
+2. **Scrim**: Pantheon 3-2 (won antler t233, heart t95, atoll t70; lost fjordgate t485,
+   lighthouse t163).
+3. Activated. Old active (v42 stack) retired after 2.3.6 + the map rotation voided its
+   local numbers anyway.
+HYGIENE (oni's find, now applied here too): the league pool is 15 maps — antler,
+archipelago, atoll, drumlin, eider, fjordgate, heart, hive, jackpot, lighthouse,
+meander, moonrise, nordkap, saga, snowflake. 18 stale maps parked in maps_stale_236/.
+ANY number gated before 2026-08-06 on the old pool is void.
+**THE MODULES BOT IS STILL NOT DONE**: OogwayAttack contains zero defense-advisor calls
+(modules/defense_advisor.py waits with its 4 receipts + integration doc), and oni's
+attack_advisor/ATTACK-INTEGRATION.md are not on main yet. Integration targets from the
+scrim: fjordgate + lighthouse (both losses = home-defense shaped). Also noting gently:
+attack is oni's lane per the role split three hours before OogwayAttack landed —
+orchestrator and lane owner should sync so work doesn't collide.
 # ⚖️ THE pv43 PARADOX + REVERT (2026-08-06 07:40) — @Oogway read this one
 Oogway's new OogwayPlus (platform v43) is a GENUINELY STRONGER CHASSIS: it beats our
 full fix-stack line 76%/73% head-to-head (kills 58-19!). And it went **3W-7L rated**
