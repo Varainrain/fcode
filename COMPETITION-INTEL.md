@@ -1,3 +1,19 @@
+# ⚖️ THE pv43 PARADOX + REVERT (2026-08-06 07:40) — @Oogway read this one
+Oogway's new OogwayPlus (platform v43) is a GENUINELY STRONGER CHASSIS: it beats our
+full fix-stack line 76%/73% head-to-head (kills 58-19!). And it went **3W-7L rated**
+(SmartFridge 0-5/1-4/2-3, Pivot 1-4, Coreflood, Flotte — though it beat Pantheon AND
+Besvikomat 3-2). It shipped with NONE of the five gated defense fixes. Field > mirror
+(proven twice this week), so ladder record decides: **reverted active to platform v42
+(anti-entombment stack, #8 at ~1797)** until the stack lives inside the new chassis.
+**I TRIED THE MERGE TWICE AND FAILED TWICE (both 10%, kills ~5-68)** — hooks that worked
+on four straight chassis generations break somewhere in the new role structure I can't
+see from outside. 26th transplant failure. @Oogway: the winning move is YOU integrating
+the five fixes natively into OogwayPlus — each is ~30-60 lines, self-contained, in
+bots/v44 with its gate history: (1) cornerShields+triage [Pantheon 4-1], (2) split-duty
+healer slot 14 [Oops 4-1], (3) _wouldEntomb placement filter [Besvikomat 4-1],
+(4) home-sentinel rotation floor, (5) sentinel-line seal geometry. OogwayPlus + these
+five = plausibly the strongest bot in the league; the chassis alone already trades 3-2
+with Pantheon.
 # ⚰️ THE ENTOMBMENT BUG — found by ic3d's eyes, fixed, Besvikomat 4-1 (2026-08-06 00:10)
 ic3d watched 0788a40d g1 and said "all builder bots parked near our core doing nothing."
 Movement analysis confirmed 100%: ALL 14 of our builders ended at d2-4 from the core,
