@@ -1,3 +1,26 @@
+# 🧩 THE MODULES BOT v1 IS LIVE (2026-08-06 23:50) — defense integrated INTO OogwayAttack, one advisor at a time
+Answer to "cant we integrate it?": yes — done, with the one-at-a-time discipline the 26
+failures demanded. ACTIVE as v47 = OogwayAttack + defense steps 1-2:
+| step | advisor | gate (15-map pool, read vs oni's mirror-null band) | verdict |
+|---|---|---|---|
+| 1 | would_entomb placement veto | 45% (rare-event veto; Besvik 4-1 receipt) | KEEP |
+| 2 | claim_heal_duty (slot 14) | 48%, kills 22-22 (Oops 4-1 receipt) | KEEP |
+| 3 | 12-tile sentinel seal | **42% REJECT** | retired |
+| 3b | 4-tile diagonal seal | **40% REJECT** | retired |
+| 4 | rotation floor | not attempted — one line, left for Oogway (documented in advisor) |
+Scrims: naked chassis 3-2 Pantheon, od2 2-3 Pantheon — inside 5-game noise; the mirror
+says both steps are free and the receipts say they kill catastrophic loss modes.
+
+**THE BIG 2.3.6 FINDING: SHIELDS ARE DEAD, and oni's cost law says why.** Every building
+adds +1% to every gunner purchase — the 12-barrier seal that gated FREE on 2.3.4 now
+taxes our own guns +12% and gated 42%. Even 4 barriers gated 40% on this lean chassis.
+**A fix that was measured-free last week is measured-harmful this week. Also note what
+this implies for ONI's lane: conveyor count taxes guns the same way — his "leaner
+footprint buys guns" hypothesis is now double-supported. And Oogway's chassis being
+building-lean is WHY it wins generations.**
+Chassis note for the ordering bug family: OogwayAttack's fight-block-returns-before-heal
+was the 3rd recurrence of heal-unreachable-during-siege. The claim pattern is the cure;
+it is now in the live bot.
 # 🚂 OOGWAYATTACK SHIPPED VIA THE PIPELINE — ACTIVE as v46 (2026-08-06 22:30)
 First full run of the MODULES.md pipeline on a submission:
 1. **Gate vs active stack**: 77% (kills 92-22); on league-pool maps only ~83%. Another
