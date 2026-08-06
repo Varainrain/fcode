@@ -1,3 +1,23 @@
+# 🔁 v47 SCRIM VERDICT: NEGATIVE — REVERTED TO THE STACK (2026-08-07 00:40)
+ic3d's call to test before more rated bleed was right. v47 scrims: O(1) 2-3 AGAIN,
+Pivot 1-4. The defense steps are not the cause — the OogwayAttack chassis family is
+weaker ON THE FIELD than the old stack despite its 77% mirror (mirror-lies confirmation
+#3). Rated evidence: stack held #8 @ ~1800; oogatk family bled to #10 with losses to
+1706-tier. **Active reverted to platform v42 (the stack).**
+
+## What the O(1) replays show (fresh, in prod/61684b68*): THE META IS NOW GIGA-HEAL WARS
+| game | us dealt/healed | them dealt/healed | result |
+|---|---|---|---|
+| g3 hive (1000t) | 3010 / 2726 | 3006 / **3010** | they win tiebreak |
+| g1 lighthouse | 490 / 826 | **1327** / 490 | they kill through |
+| g2 atoll (W) | **1708** / 7 | 7 / 1206 | we kill through |
+Cores now absorb 3-6x their HP per game via healing. Games are decided by
+(damage throughput) vs (heal economy) — pure econ war, exactly oni's titanium-bound
+thesis and Oogway's eco lane. The winner is whoever funds more heals AND lands
+overwhelming burst. Note our heal numbers finally work (claim pattern: 826/2726
+healed) — the defense lane's job is done; the game is now won upstream in econ.
+NEXT (eco lane): O(1) runs b6/h4-8 lean-and-heal; our g5 dealt 14 damage all game —
+attack throughput on THIS chassis line needs oni's burst thesis + Oogway's lean econ.
 # 🧩 THE MODULES BOT v1 IS LIVE (2026-08-06 23:50) — defense integrated INTO OogwayAttack, one advisor at a time
 Answer to "cant we integrate it?": yes — done, with the one-at-a-time discipline the 26
 failures demanded. ACTIVE as v47 = OogwayAttack + defense steps 1-2:
