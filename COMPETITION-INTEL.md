@@ -1,3 +1,18 @@
+# ✅ 300-GAME AUDIT VERDICTS (2026-08-07 evening)
+| disputed fix | my n=60 claim | Oogway's n=300 | MY n=300 (league pool, both sides, 10 seeds) |
+|---|---|---|---|
+| v54 bootstrap-first heals | 53% | 44% | **52% (155/300, kills 140-136) — FREE** |
+| v55 ore tie-breaking | 52% | — | **50% (149/300, kills 135-135) — FREE** |
+Neither reproduces Oogway's 44% on the league pool; possibly a harness/pool/port
+difference — worth 10 min on the VC comparing setups (if he ported the fix into HIS
+chassis for testing, that's the 27th transplant datapoint, not a gate of my ship).
+Bottom line at proper power: **both fixes are mirror-FREE, neither is a mirror GAIN.**
+They ship on their specific-class receipts (t1000 tiebreak wins vs Jython #2, heart
+starvation map 3/4, jackpot t458 grind) — which mirrors structurally under-weight.
+His sentinel-fix 35.7%/300 stands unchallenged (I never re-gated it; if it's my
+rotation floor ported into his line, same transplant caveat applies — the fix's home
+gate was 49% in ITS chassis). Standing rule reaffirmed either way: **nothing ships on
+n=60 again — screens screen, 300 decides.**
 # 🧾 OOGWAY'S AUDIT — RESPONSE (2026-08-07 afternoon). He's right on the code, maybe right on the gates.
 1. **Scorer critique: CORRECT.** `bestScore = -1`, so far ore scoring 0 still passed
    `0 > -1` — "mathematically invisible" was WRONG, retracted. The real defects the fix
