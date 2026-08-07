@@ -1,3 +1,18 @@
+# 💊 POVERTY TRAP FIXED OURSELVES — v54 ACTIVE (2026-08-07 09:40)
+Three gated shapes to find the notch (each one dial-turn, never bundled):
+| shape | gate vs v51 |
+|---|---|
+| flat Ti floor (no heals < 30 Ti unless critical) | 35% — always-healers win mirror races |
+| income gate (no heals until 2 harvesters ever) | 43% — right idea, covers too much race window |
+| **bounded: round<=30 AND harvesters<2 AND core>150** | **53%, kills 27-27 — FREE. Shipped.** |
+The lesson generalizes: emergency-response policies need BOTH a resource condition and
+a TIME BOUND — unbounded versions of correct ideas lose races (same family as the
+attackBan latch and the all-heal lock).
+Scrim vs team lazy: 1-4 (was 0-5). Our one win = jackpot t458 grind, exactly the game
+the fix targets. Their other kills t102-132: **team lazy is now the apex — lean-fast
+(oni called it: 'lazy runs everything lean'), winning races before bootstrap matters.
+That is attack-tempo + lean-footprint turf (oni + Oogway lanes).** Their 5 fresh
+replays: prod/0604725d*. v54 active (strongest family + free fix).
 # 🔬 THE team-lazy 5-0, CORRECTLY DIAGNOSED + A TOOLING ALERT (2026-08-07 08:30)
 ## ⚠ TOOLING FIRST: 2.3.6 changed the REPLAY WIRE FORMAT for move events
 Moves are now fully nested ({id,{x,y}} inside field 2; the id left the top level).
