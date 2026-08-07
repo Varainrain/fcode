@@ -35,6 +35,14 @@ KNOB_SPEC = {
     "ROT_FLOOR_DEF": (20,   0, 200, "int",  "attack"),
     "ROT_FLOOR":     (80,   0, 300, "int",  "attack"),
     "RAY_FIRST":     (0,    0,   1, "bool", "attack"),
+    # SEAT_FALLBACK: when every candidate seat exceeds SEAT_COV_MAX, take the
+    # least-covered one anyway instead of returning None. Ladder evidence
+    # 2026-08-07 (match_autopsy over 30 games): in every game we lost we landed
+    # 0-1 seats on their core while they landed 4-10; in every game we won it
+    # was the reverse. A defended core covers all of its ring tiles, the filter
+    # empties, findGunnerSpot returns None, and the attacker marches into the
+    # coverage it just refused to build in.
+    "SEAT_FALLBACK": (0,    0,   1, "bool", "attack"),
     "AMMO_CEIL":     (16,   8, 120, "int",  "core"),
     "AMMO_RESERVE":  (28,   0, 120, "int",  "core"),
     "SPAWN_MIN":     (5,    2,  10, "int",  "econ"),
@@ -86,6 +94,40 @@ MAIN_SUBS = [
      b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
      b"                continue\r\n"
      b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))"),
+    # attack: least-bad seat instead of NO seat (SEAT_FALLBACK)
+    # Every added line sits behind a knob test so that at the default it folds
+    # to `if 0:` and verify_template can still prove byte-identity with the
+    # chassis. The names only exist when the knob is on, and every use of them
+    # is behind the same test.
+    (b"        bestAttacker = None\r\n"
+     b"        bestScore = None\r\n"
+     b"        myLoc = ct.get_position()\r\n",
+     b"        bestAttacker = None\r\n"
+     b"        bestScore = None\r\n"
+     b'        if KNOBS["SEAT_FALLBACK"]:\r\n'
+     b"            fbAttacker = None\r\n"
+     b"            fbScore = None\r\n"
+     b"        myLoc = ct.get_position()\r\n"),
+    (b"            seatCov = enemyCoverage.get((spotPos.x, spotPos.y), 0)\r\n"
+     b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
+     b"                continue\r\n"
+     b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))",
+     b"            seatCov = enemyCoverage.get((spotPos.x, spotPos.y), 0)\r\n"
+     b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
+     b'                if KNOBS["SEAT_FALLBACK"]:\r\n'
+     b"                    fb = (seatCov, myLoc.distance_squared(spotPos),\r\n"
+     b"                          spotPos.distance_squared(enemyCore))\r\n"
+     b"                    if fbScore is None or fb < fbScore:\r\n"
+     b"                        fbScore = fb\r\n"
+     b"                        fbAttacker = (spotPos, spotDir)\r\n"
+     b"                continue\r\n"
+     b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))"),
+    (b"                bestAttacker = (spotPos, spotDir)\r\n"
+     b"        return bestAttacker\r\n",
+     b"                bestAttacker = (spotPos, spotDir)\r\n"
+     b'        if KNOBS["SEAT_FALLBACK"] and bestAttacker is None:\r\n'
+     b"            return fbAttacker\r\n"
+     b"        return bestAttacker\r\n"),
     # gunner: rotation ray scoring - RAY_FIRST reproduces gated candidate oa_a9
     (b"            for tile in ct.get_attackable_tiles_from(myPos, d, EntityType.GUNNER):\r\n"
      b"                tileId = ct.get_tile_building_id(tile)\r\n"

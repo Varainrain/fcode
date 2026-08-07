@@ -61,8 +61,11 @@ def materialise(name, knobs):
     p = dest / "main.py"
     b = p.read_bytes()
     line_re = re.compile(rb"KNOBS = \{[^\n]*\}  # autolab")
-    new = ("KNOBS = {" + ", ".join('"%s": %d' % (k, int(knobs[k]))
-                                   for k in KNOB_SPEC) + "}  # autolab").encode()
+    # .get with the spec default: knob vectors stored before a new knob existed
+    # must still materialise, otherwise adding a knob breaks every old candidate.
+    new = ("KNOBS = {" + ", ".join(
+        '"%s": %d' % (k, int(knobs.get(k, KNOB_SPEC[k][0])))
+        for k in KNOB_SPEC) + "}  # autolab").encode()
     b, n = line_re.subn(new, b, count=1)
     if n != 1:
         raise RuntimeError(f"{name}: KNOBS line not found in template")

@@ -17,3 +17,4 @@ autolab/_replays/
 autolab/runner.pid
 lab_run.txt
 lab_err.txt
+ladder_replays/
