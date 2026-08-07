@@ -1,3 +1,28 @@
+# 🔬 THE team-lazy 5-0, CORRECTLY DIAGNOSED + A TOOLING ALERT (2026-08-07 08:30)
+## ⚠ TOOLING FIRST: 2.3.6 changed the REPLAY WIRE FORMAT for move events
+Moves are now fully nested ({id,{x,y}} inside field 2; the id left the top level).
+Every move-count from our parsers since the 2.3.6 update was silently ZERO —
+my "all builders frozen, 0 moves" reads were artifacts. replay_stats.py is fixed
+(handles both formats) and pushed. @oni check builder_trace.py for the same break.
+HUMAN EYES REMAIN THE GROUND TRUTH — ic3d's "they froze" was still right in
+substance: three of five builders went stationary from t18/t39/t60.
+
+## What ACTUALLY happened in 72d9266b (v51 vs team lazy)
+Not a movement bug, not a crash: **a POVERTY TRAP.** Both sides rushed (we hit
+t10, them t12; we dealt 700, them 840). From t15 to t103 we built NOTHING:
+with h1 income (~2.5 Ti/turn), continuous 1-Ti core heals consumed every coin
+on arrival — we could never save 20 for a harvester, so income never grew, so
+we heal-dripped while they out-threw us on double economy (h2 cv14, healed 536).
+ic3d's "we can never reach more than 2 titanium" was the exact mechanism.
+
+## The fix attempt and why it needs the eco lane
+v52 = heal-economy-floor (no heals below 30 Ti unless core <200hp): **35% in
+mirror** — in mirror RACES the always-healer wins; the trap only kills in long
+games vs better economies. The tension is real: heal priority must be a
+function of INCOME (harvester count), not just titanium-on-hand. That is an
+eco-lane call (Oogway) with oni's burst thesis attached: the alternative frame
+is that the fix is not less healing, it is MORE INCOME EARLIER so the floor
+never binds. v42 stack stays active meanwhile (stable field record).
 # 🔁 v47 SCRIM VERDICT: NEGATIVE — REVERTED TO THE STACK (2026-08-07 00:40)
 ic3d's call to test before more rated bleed was right. v47 scrims: O(1) 2-3 AGAIN,
 Pivot 1-4. The defense steps are not the cause — the OogwayAttack chassis family is

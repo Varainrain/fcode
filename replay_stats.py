@@ -129,11 +129,17 @@ def main(path, show_events=False):
                             unknown_payloads[fn] += 1
                 ent[eid] = {"team": team, "type": etype, "born": r, "pos": p}
                 creates_tl[team].append((r, etype, p))
-            elif (2, 'm') in se and (1, 'v') in se:   # move
-                mv = walk(se[(2, 'm')][0])
-                eid = se[(1, 'v')][0]
-                if eid in ent and mv:
-                    ent[eid]["pos"] = (mv.get((1, 'v'), [0])[0], mv.get((2, 'v'), [0])[0])
+            elif (2, 'm') in se:   # move (2.3.0: id top-level; 2.3.6: nested)
+                mv = walk(se[(2, 'm')][0]) or {}
+                if (1, 'v') in se:                     # old format
+                    eid = se[(1, 'v')][0]
+                    pos = (mv.get((1, 'v'), [0])[0], mv.get((2, 'v'), [0])[0])
+                else:                                  # 2.3.6: {id, {x,y}}
+                    eid = mv.get((1, 'v'), [None])[0]
+                    inner = walk(mv[(2, 'm')][0]) if (2, 'm') in mv else {}
+                    pos = (inner.get((1, 'v'), [0])[0], inner.get((2, 'v'), [0])[0])
+                if eid in ent:
+                    ent[eid]["pos"] = pos
             elif (5, 'm') in se:    # damage
                 d = walk(se[(5, 'm')][0]) or {}
                 eid = d.get((1, 'v'), [None])[0]
