@@ -26,8 +26,10 @@ autolab/build_template.py, which by default is the ATTACK lane only - the other
 lanes belong to other owners (MODULES.md). Widen it from the dashboard if the
 lane owners agree.
 """
+import atexit
 import concurrent.futures as cf
 import hashlib
+import os
 import itertools
 import json
 import random
@@ -377,7 +379,43 @@ def handle_request(con, champ, rng):
     return True
 
 
+def single_instance():
+    """Refuse to start if another runner is alive.
+
+    Two runners are worse than duplicated work: both schedule from the same
+    game counts, so they can hand out the SAME rotation slot and quietly break
+    the balanced map/seat invariant every comparison here depends on. (Found the
+    hard way - a second runner left over from an earlier session kept playing
+    with pre-fix code for twenty minutes.)
+    """
+    lock = ROOT / "autolab" / "runner.pid"
+    if lock.exists():
+        try:
+            old = int(lock.read_text().strip())
+        except ValueError:
+            old = None
+        if old and old != os.getpid() and _alive(old):
+            sys.exit(f"another autolab runner is already running (pid {old}). "
+                     f"Stop it first, or delete {lock} if it is stale.")
+    lock.write_text(str(os.getpid()))
+    atexit.register(lambda: lock.unlink(missing_ok=True))
+
+
+def _alive(pid):
+    if os.name == "nt":
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"],
+                             capture_output=True, encoding="utf-8",
+                             errors="replace").stdout or ""
+        return str(pid) in out
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 def main():
+    single_instance()
     con = store.init()
     rng = random.Random()
     if not MAPS:

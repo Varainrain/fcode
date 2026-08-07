@@ -14,3 +14,6 @@ bots/lab_*/
 bots/_template/
 _gate_replays/
 autolab/_replays/
+autolab/runner.pid
+lab_run.txt
+lab_err.txt
