@@ -82,26 +82,50 @@ def lanes_enabled(con):
             (store.get_control(con, "lanes", "attack") or "").split(",") if s.strip()}
 
 
-def propose(con, champ_knobs, tried, lanes, rng):
+def propose(con, champ_knobs, tried, lanes, rng, champ_name=None):
     """One knob moved off the champion. Coordinate descent, not a random restart:
     a vector far from the champion is untestable - too many things changed to
     attribute the result, and the repo has receipts on bundles dying
     unattributable (PITFALL #19)."""
     pool = [k for k, v in KNOB_SPEC.items() if v[4] in lanes]
     rng.shuffle(pool)
+    # Directions already rejected against THIS champion are not worth re-walking.
+    burned = set()
+    for row in con.execute(
+            "SELECT note FROM variants WHERE status='rejected' AND parent=?",
+            (champ_name,)).fetchall():
+        note = row["note"] or ""
+        if "->" in note:
+            knob = note.split()[0]
+            try:
+                a, b = note.split()[1].split("->")
+                burned.add((knob, "up" if int(b) > int(a) else "down"))
+            except (ValueError, IndexError):
+                pass
     for knob in pool:
         default, lo, hi, kind, _ = KNOB_SPEC[knob]
         cur = champ_knobs[knob]
         if kind == "bool":
             options = [1 - int(cur)]
         else:
+            # Small steps FIRST, big jumps rarely. The first version drew from
+            # {+-1 step, +-2 steps, uniform-random} with equal weight, so about
+            # half of all proposals were wild draws that broke the bot outright:
+            # 30 candidates in a row were pruned at 60 games each - 1800 games
+            # spent confirming that SEAT_TI 96->217 is bad. Fine-grained moves
+            # are also the only ones a null-referenced gate can ever resolve.
             span = max(1, (hi - lo) // 8)
-            options = [cur + span, cur - span, cur + 2 * span, cur - 2 * span,
-                       rng.randint(lo, hi)]
+            fine = max(1, span // 4)
+            options = [cur + fine, cur - fine, cur + fine, cur - fine,
+                       cur + span, cur - span]
+            if rng.random() < 0.15:
+                options.append(rng.randint(lo, hi))
         rng.shuffle(options)
         for val in options:
             val = max(lo, min(hi, int(val)))
             if val == cur:
+                continue
+            if (knob, "up" if val > cur else "down") in burned:
                 continue
             cand = dict(champ_knobs, **{knob: val})
             key = json.dumps(cand, sort_keys=True)
@@ -211,7 +235,11 @@ def check_chassis(con):
     if old is None:
         store.log(con, "chassis", f"tracking bots/{chassis} @ {now}")
         return False
-    old_knobs = json.loads(old["knobs"])
+    # Fill missing keys from the spec: a champion stored before a knob existed
+    # differs from defaults() only by that absent key, which used to manufacture
+    # a "carry-forward" candidate with an empty diff - a duplicate of the
+    # champion wearing a candidate's hat.
+    old_knobs = dict(defaults(), **json.loads(old["knobs"]))
     for row in list(store.active(con, "champion")) + list(store.active(con, "null"))             + list(store.active(con, "candidate")):
         store.close_variant(con, row["name"], "retired")
     name = f"lab_champ_{next(SEQ)}"
@@ -273,7 +301,7 @@ def refill(con, champ, rng):
     lanes = lanes_enabled(con)
     champ_knobs = json.loads(champ["knobs"])
     for _ in range(want - len(live)):
-        cand, desc = propose(con, champ_knobs, tried, lanes, rng)
+        cand, desc = propose(con, champ_knobs, tried, lanes, rng, champ["name"])
         if cand is None:
             store.log(con, "search", "knob space exhausted for the enabled lanes")
             return
@@ -382,6 +410,31 @@ def handle_request(con, champ, rng):
     return True
 
 
+def source_fingerprint():
+    """Hash of the pipeline's own source files."""
+    h = hashlib.sha256()
+    for f in sorted((ROOT / "autolab").glob("*.py")):
+        h.update(f.read_bytes())
+    return h.hexdigest()[:16]
+
+
+def check_own_source(con, boot):
+    """Re-exec when autolab's own code changes underneath a long-running loop.
+
+    A python process does not reload source. Without this, editing the runner
+    while it is running gets you a loop that silently keeps executing the old
+    code - which is exactly how a stale materialise() kept raising
+    KeyError on a knob that had already been added, and how a chassis switch
+    was quietly ignored.
+    """
+    if source_fingerprint() == boot:
+        return
+    store.log(con, "restart", "autolab source changed - re-exec'ing the runner")
+    lock = ROOT / "autolab" / "runner.pid"
+    lock.unlink(missing_ok=True)
+    os.execv(sys.executable, [sys.executable, "-m", "autolab.runner"])
+
+
 def single_instance():
     """Refuse to start if another runner is alive.
 
@@ -429,6 +482,7 @@ def main():
     if mode == "missing":
         sys.exit("fcode engine not found - run `python -m autolab.doctor`")
     engine.prepare_scratch()
+    boot = source_fingerprint()
     store.log(con, "start",
               f"runner up, {len(MAPS)} maps in the pool, engine: {engine.describe()}")
     print(f"autolab runner: engine={engine.describe()}")
@@ -436,6 +490,7 @@ def main():
         if store.get_control(con, "paused", "0") == "1":
             time.sleep(3)
             continue
+        check_own_source(con, boot)
         if check_chassis(con):
             continue
         champ, null = ensure_arena(con, rng)

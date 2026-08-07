@@ -43,6 +43,13 @@ KNOB_SPEC = {
     # empties, findGunnerSpot returns None, and the attacker marches into the
     # coverage it just refused to build in.
     "SEAT_FALLBACK": (0,    0,   1, "bool", "attack"),
+    # COUNTER_BATTERY: when no core seat exists at all, shoot the thing that is
+    # denying it instead of walking into its fire. Same ladder evidence as
+    # SEAT_FALLBACK, opposite remedy - that one takes a bad seat, this one
+    # removes the reason the seat is bad. Reuses the chassis' own
+    # buildGunnerFor(), which the eco/defence path already uses to answer a
+    # turret, so it is the chassis' placement logic and not a new one.
+    "COUNTER_BATTERY": (0,  0,   1, "bool", "attack"),
     "AMMO_CEIL":     (16,   8, 120, "int",  "core"),
     "AMMO_RESERVE":  (28,   0, 120, "int",  "core"),
     "SPAWN_MIN":     (5,    2,  10, "int",  "econ"),
@@ -94,6 +101,26 @@ MAIN_SUBS = [
      b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
      b"                continue\r\n"
      b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))"),
+    # attack: no seat -> kill the turret denying it (COUNTER_BATTERY)
+    (b"                gunnerStuff = self.findGunnerSpot(ct)\r\n"
+     b"                if gunnerStuff:\r\n",
+     b"                gunnerStuff = self.findGunnerSpot(ct)\r\n"
+     b'                if KNOBS["COUNTER_BATTERY"] and not gunnerStuff:\r\n'
+     b"                    denier = None\r\n"
+     b"                    denierDist = None\r\n"
+     b"                    for b in ct.get_nearby_buildings():\r\n"
+     b"                        if ct.get_team(b) == ct.get_team():\r\n"
+     b"                            continue\r\n"
+     b"                        if ct.get_entity_type(b) not in (EntityType.GUNNER, EntityType.SENTINEL):\r\n"
+     b"                            continue\r\n"
+     b"                        bPos = ct.get_position(b)\r\n"
+     b"                        d = myLoc.distance_squared(bPos)\r\n"
+     b"                        if denierDist is None or d < denierDist:\r\n"
+     b"                            denierDist = d\r\n"
+     b"                            denier = bPos\r\n"
+     b"                    if denier is not None and self.buildGunnerFor(ct, denier):\r\n"
+     b"                        return\r\n"
+     b"                if gunnerStuff:\r\n"),
     # attack: least-bad seat instead of NO seat (SEAT_FALLBACK)
     # Every added line sits behind a knob test so that at the default it folds
     # to `if 0:` and verify_template can still prove byte-identity with the
@@ -160,7 +187,12 @@ def build(chassis="OogwayAttack"):
     shutil.copytree(src, TEMPLATE, ignore=shutil.ignore_patterns("__pycache__"))
 
     p = TEMPLATE / "main.py"
-    b = p.read_bytes()
+    # Normalise to CRLF first. Chassis files reach us by two routes with two
+    # conventions - git checkouts are CRLF here, bots unzipped from a platform
+    # submission are LF - and the anchors below are written with \r\n, so an LF
+    # chassis would fail every multi-line anchor for a reason that has nothing
+    # to do with the code having changed.
+    b = p.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
     for i, (anchor, repl) in enumerate(MAIN_SUBS):
         n = b.count(anchor)
         if n != 1:

@@ -163,17 +163,26 @@ def page(con):
     h.append("</table></div>")
 
     # ---- bench: whole bots, measured against the same null, never auto-promoted
-    bench = store.active(con, "bench")
+    # Completed bench entries stay in this table rather than dropping into the
+    # generic "closed" list - a finished benchmark is the most valuable output
+    # this thing produces and it was getting buried under rejected candidates.
+    bench = con.execute(
+        "SELECT * FROM variants WHERE role='bench' ORDER BY status DESC, created"
+    ).fetchall()
     if bench:
         h.append('<div class=card><h2>bench &mdash; whole bots vs the champion '
                  '(never auto-promoted)</h2><table>'
-                 '<tr><th>bot</th><th>games</th><th>win%</th>'
+                 '<tr><th>bot</th><th>state</th><th>games</th><th>win%</th>'
                  '<th>95% CI vs null band</th><th></th></tr>')
         for b in bench:
             w, n = store.tally(con, b["name"])
             pct, lo, hi = store.wilson(w, n)
             colour = "#4ade80" if lo > nhi else ("#f87171" if hi < nlo else "#7cc4ff")
-            h.append(f'<tr><td>{html.escape(b["name"])}</td><td>{n}</td>'
+            verdict = ("ABOVE null" if lo > nhi else
+                       "below null" if hi < nlo else "inside band")
+            h.append(f'<tr><td>{html.escape(b["name"])}</td>'
+                     f'<td class={"good" if lo > nhi else "dim"}>'
+                     f'{b["status"]} &middot; {verdict}</td><td>{n}</td>'
                      f'<td>{pct:.1f}</td>'
                      f'<td>{bar(lo, hi, pct, nlo, nhi, colour)}</td>'
                      f'<td><a href="/req?q=kill+{html.escape(b["name"])}" '
@@ -185,8 +194,8 @@ def page(con):
              '<tr><th>variant</th><th>change</th><th>outcome</th><th>games</th>'
              '<th>win%</th></tr>')
     closed = con.execute(
-        "SELECT * FROM variants WHERE status!='active' ORDER BY closed DESC LIMIT 14"
-    ).fetchall()
+        "SELECT * FROM variants WHERE status!='active' AND role!='bench'"
+        " ORDER BY closed DESC LIMIT 14").fetchall()
     if not closed:
         h.append('<tr><td colspan=5 class=dim>nothing closed yet</td></tr>')
     for c in closed:
