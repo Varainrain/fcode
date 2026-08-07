@@ -53,11 +53,23 @@ MAPS = [m for m in ["duel", "quarry", "aurora", "twins", "longship", "sprint"] i
 WIN = re.compile(r"Winner:\s+(\S+)\s+\((.*?),\s*turn\s*(\d+)\)")
 
 
+REPLAY_DIR = ROOT / "_gate_replays"
+REPLAY_DIR.mkdir(exist_ok=True)
+_replay_slot = iter(range(10 ** 9))
+
+
 def game(first, second, m, seed):
+    # --replay to a PER-GAME path. Without it every parallel worker writes
+    # ./replay.replay26, they collide, and the loser of that race dies with
+    # "failed to write replay ... (os error 22)" AFTER playing the whole game.
+    # No Winner line is emitted, so the game lands in the "draw (unknown)"
+    # bucket - which this script counts AGAINST the candidate. That is a
+    # silent one-sided bias, measured at ~1 game in 12 with 6 workers.
+    replay = REPLAY_DIR / f"slot{next(_replay_slot) % 64}.replay26"
     # utf-8 + replace, not text=True: on Windows the default cp1252 decode
     # dies on any non-ascii byte in the output and returns stdout=None
     out = run(["fcode", "run", first, second, f"maps/{m}.map26",
-               "--seed", str(seed), "--tle", "10"],
+               "--seed", str(seed), "--tle", "10", "--replay", str(replay)],
               capture_output=True, encoding="utf-8", errors="replace",
               cwd=ROOT).stdout or ""
     mo = WIN.search(out)

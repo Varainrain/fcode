@@ -86,6 +86,30 @@ def run(args, timeout=None):
         "WSL with AUTOLAB_ACTIVATE=%r. Run `python -m autolab.doctor`." % ACTIVATE)
 
 
+def scratch_replay(tag):
+    """A per-game replay path, so concurrent games do not fight over one file.
+
+    Every `fcode run` writes a replay; with no --replay flag they all write
+    ./replay.replay26 and the losers of that race die with "failed to write
+    replay ... (os error 22)" AFTER playing the whole game, producing no Winner
+    line. Under the WSL shim this also keeps the write on the Linux filesystem
+    instead of drvfs, which is faster.
+    """
+    if detect() == "wsl":
+        return f"/tmp/autolab_replays/{tag}.replay26"
+    d = ROOT / "autolab" / "_replays"
+    d.mkdir(parents=True, exist_ok=True)
+    return str(d / f"{tag}.replay26")
+
+
+def prepare_scratch():
+    if detect() == "wsl":
+        subprocess.run(["wsl", "-e", "bash", "-lc", "mkdir -p /tmp/autolab_replays"],
+                       capture_output=True)
+    else:
+        (ROOT / "autolab" / "_replays").mkdir(parents=True, exist_ok=True)
+
+
 def describe():
     mode = detect()
     if mode == "native":

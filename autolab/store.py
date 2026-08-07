@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS variants (
     status    TEXT NOT NULL,          -- active | rejected | promoted | retired
     parent    TEXT,
     note      TEXT,
+    external  INTEGER NOT NULL DEFAULT 0,   -- 1 = an existing bots/ folder, not a knob vector
     created   REAL NOT NULL,
     closed    REAL
 );
@@ -49,6 +50,9 @@ CREATE TABLE IF NOT EXISTS control (
 
 DEFAULT_CONTROL = {
     "paused": "0",
+    "chassis": "OogwayAttack",      # the agreed chassis the template is lifted from
+    "autopull": "0",                # 1 = `git pull --ff-only` before each chassis check
+    "chassis_hash": "",             # last seen hash of the chassis sources
     "workers": "6",
     "lanes": "attack",              # comma list: attack,core,econ
     "min_prune": "60",              # games before a candidate can be killed
@@ -69,6 +73,11 @@ def connect():
 def init():
     con = connect()
     con.executescript(SCHEMA)
+    # CREATE TABLE IF NOT EXISTS does nothing to a table that already exists, so
+    # columns added after a database was first created need an explicit migration.
+    have = {r["name"] for r in con.execute("PRAGMA table_info(variants)")}
+    if "external" not in have:
+        con.execute("ALTER TABLE variants ADD COLUMN external INTEGER NOT NULL DEFAULT 0")
     for k, v in DEFAULT_CONTROL.items():
         con.execute("INSERT OR IGNORE INTO control(key,value) VALUES(?,?)", (k, v))
     con.commit()
@@ -93,11 +102,13 @@ def log(con, kind, text):
     con.commit()
 
 
-def add_variant(con, name, knobs, role, parent=None, note=""):
+def add_variant(con, name, knobs, role, parent=None, note="", external=0):
     con.execute(
-        "INSERT OR REPLACE INTO variants(name,knobs,role,status,parent,note,created)"
-        " VALUES(?,?,?,'active',?,?,?)",
-        (name, json.dumps(knobs, sort_keys=True), role, parent, note, time.time()))
+        "INSERT OR REPLACE INTO variants"
+        "(name,knobs,role,status,parent,note,created,external)"
+        " VALUES(?,?,?,'active',?,?,?,?)",
+        (name, json.dumps(knobs, sort_keys=True), role, parent, note, time.time(),
+         int(external)))
     con.commit()
 
 

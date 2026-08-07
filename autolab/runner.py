@@ -27,11 +27,13 @@ lanes belong to other owners (MODULES.md). Widen it from the dashboard if the
 lane owners agree.
 """
 import concurrent.futures as cf
+import hashlib
 import itertools
 import json
 import random
 import re
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -109,9 +111,17 @@ def propose(con, champ_knobs, tried, lanes, rng):
 LAST_OUTPUT = {"text": ""}
 
 
+REPLAY_SLOT = itertools.count()
+
+
 def play(a, b, map_, seed):
+    # A distinct replay path per game. Without it every worker writes
+    # ./replay.replay26, they collide, and the loser reports no Winner line
+    # after having played the entire game. Slots are reused so the scratch
+    # directory stays bounded.
+    tag = f"slot{next(REPLAY_SLOT) % 64}"
     out = engine.run(["run", a, b, f"maps/{map_}.map26", "--seed", str(seed),
-                      "--tle", "10"])
+                      "--tle", "10", "--replay", engine.scratch_replay(tag)])
     LAST_OUTPUT["text"] = out           # kept so the doctor can show the failure
     mo = WIN.search(out)
     if not mo:
@@ -137,6 +147,87 @@ def schedule(arm, k):
     map_ = MAPS[k % len(MAPS)]
     seat_a = (k // len(MAPS)) % 2 == 0
     return map_, seat_a
+
+
+# -------------------------------------------------------------- chassis watch
+
+def chassis_hash(chassis):
+    """Hash of the chassis sources, so a `git pull` that changes them is seen."""
+    src = BOTS / chassis
+    h = hashlib.sha256()
+    for f in sorted(src.glob("*.py")):
+        h.update(f.name.encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()[:16] if src.is_dir() else ""
+
+
+def check_chassis(con):
+    """Re-seed the arena when the agreed chassis changes underneath us.
+
+    Answers the obvious question the wrong way round: the search does NOT keep
+    tuning knobs on a bot Oogway has already replaced. When the chassis sources
+    change, the template is rebuilt and verified, a fresh champion is seeded from
+    the NEW chassis defaults, a fresh null is minted against it, and the previous
+    champion's knob vector is re-queued as a candidate. That last part is the
+    carry-forward check (PITFALL #17) automated: knobs that won on the old
+    chassis have to win again on the new one rather than being assumed.
+    """
+    chassis = store.get_control(con, "chassis", "OogwayAttack")
+    if store.get_control(con, "autopull", "0") == "1":
+        try:
+            out = subprocess.run(["git", "pull", "--ff-only"], cwd=ROOT,
+                                 capture_output=True, encoding="utf-8",
+                                 errors="replace", timeout=120)
+            line = (out.stdout or "").strip().splitlines()[-1:] or [""]
+            if "Already up to date" not in line[0]:
+                store.log(con, "git", f"pull: {line[0]}")
+        except Exception as exc:                       # noqa: BLE001
+            store.log(con, "error", f"git pull failed: {exc}")
+    now = chassis_hash(chassis)
+    if not now:
+        store.log(con, "error", f"chassis bots/{chassis} not found")
+        return False
+    seen = store.get_control(con, "chassis_hash", "")
+    if seen == now:
+        return False
+    from .build_template import build
+    from .verify_template import main as verify
+    build(chassis)
+    if verify(chassis) != 0:
+        # Refuse to search against a template that is not the chassis. Pausing is
+        # the safe failure: a silently wrong template poisons every later number.
+        store.set_control(con, "paused", "1")
+        store.log(con, "error",
+                  f"template from {chassis} does NOT match it at default knobs "
+                  f"- PAUSED. Fix the anchors in autolab/build_template.py.")
+        return False
+    store.set_control(con, "chassis_hash", now)
+    old = store.champion(con)
+    if old is None:
+        store.log(con, "chassis", f"tracking bots/{chassis} @ {now}")
+        return False
+    old_knobs = json.loads(old["knobs"])
+    for row in list(store.active(con, "champion")) + list(store.active(con, "null"))             + list(store.active(con, "candidate")):
+        store.close_variant(con, row["name"], "retired")
+    name = f"lab_champ_{next(SEQ)}"
+    materialise(name, defaults())
+    store.add_variant(con, name, defaults(), "champion",
+                      note=f"{chassis} defaults @ {now}")
+    store.log(con, "chassis",
+              f"bots/{chassis} changed ({seen or 'none'} -> {now}): re-seeded "
+              f"champion, all previous numbers void (PITFALL #18)")
+    if old_knobs != defaults():
+        cname = f"lab_c{next(SEQ)}"
+        materialise(cname, old_knobs)
+        diff = ", ".join(f"{k} {defaults()[k]}->{v}"
+                         for k, v in sorted(old_knobs.items())
+                         if defaults()[k] != v)
+        store.add_variant(con, cname, old_knobs, "candidate", parent=name,
+                          note=f"carry-forward: {diff}")
+        store.log(con, "chassis",
+                  f"carried the old champion's knobs forward as {cname} ({diff}) "
+                  f"- they have to win again on the new chassis")
+    return True
 
 
 # ----------------------------------------------------------------------- loop
@@ -190,7 +281,13 @@ def refill(con, champ, rng):
 
 
 def adjudicate(con, champ, null):
-    """Prune / retire / promote. Returns True if the champion changed."""
+    """Prune / retire / promote. Returns True if the champion changed.
+
+    BENCH entries (an existing bots/ folder rather than a knob vector) are
+    measured against the same null and never promoted: a foreign bot is a
+    chassis change, not a knob move, and chassis changes go through the team's
+    merge pipeline, not an automatic swap (26/26 transplant law).
+    """
     nw, nn = store.tally(con, null["name"])
     _, nlo, nhi = store.wilson(nw, nn)
     min_prune = int(store.get_control(con, "min_prune", "60"))
@@ -226,6 +323,16 @@ def adjudicate(con, champ, null):
             store.log(con, "retire",
                       f"{c['name']} ({c['note']}) undecided at n={n}: "
                       f"{pct:.1f}% CI {lo:.1f}-{hi:.1f} vs null {nlo:.1f}-{nhi:.1f}")
+    for b in store.active(con, "bench"):
+        w, n = store.tally(con, b["name"])
+        pct, lo, hi = store.wilson(w, n)
+        if n >= max_games:
+            store.close_variant(con, b["name"], "retired")
+            verdict = ("ABOVE null" if lo > nhi else
+                       "BELOW null" if hi < nlo else "inside the null band")
+            store.log(con, "bench",
+                      f"{b['name']} done at n={n}: {pct:.1f}% CI {lo:.1f}-{hi:.1f} "
+                      f"vs null {nlo:.1f}-{nhi:.1f} - {verdict}")
     return False
 
 
@@ -246,6 +353,18 @@ def handle_request(con, champ, rng):
             store.add_variant(con, name, knobs, "candidate", parent=champ["name"],
                               note="manual: " + arg.strip())
             store.log(con, "manual", f"queued {name}: {arg.strip()}")
+        elif cmd == "bench":
+            bot = arg.strip()
+            if not (BOTS / bot / "main.py").is_file():
+                store.log(con, "error", f"bench: no bot at bots/{bot}/main.py")
+            else:
+                store.add_variant(con, bot, {}, "bench", parent=champ["name"],
+                                  note="external bot", external=1)
+                store.log(con, "manual", f"benched {bot} against {champ['name']}")
+        elif cmd == "chassis":
+            store.set_control(con, "chassis", arg.strip())
+            store.set_control(con, "chassis_hash", "")   # force a rebuild+reseed
+            store.log(con, "manual", f"chassis set to {arg.strip()}")
         elif cmd == "rebase":
             # chassis changed under us: rebuild the template and re-seed
             from .build_template import build
@@ -268,6 +387,7 @@ def main():
     mode = engine.detect()
     if mode == "missing":
         sys.exit("fcode engine not found - run `python -m autolab.doctor`")
+    engine.prepare_scratch()
     store.log(con, "start",
               f"runner up, {len(MAPS)} maps in the pool, engine: {engine.describe()}")
     print(f"autolab runner: engine={engine.describe()}")
@@ -275,10 +395,13 @@ def main():
         if store.get_control(con, "paused", "0") == "1":
             time.sleep(3)
             continue
+        if check_chassis(con):
+            continue
         champ, null = ensure_arena(con, rng)
         handle_request(con, champ, rng)
         refill(con, champ, rng)
-        arena = [null] + list(store.active(con, "candidate"))
+        arena = ([null] + list(store.active(con, "candidate"))
+                 + list(store.active(con, "bench")))
         if len(arena) < 2:
             time.sleep(5)
             continue
@@ -302,8 +425,11 @@ def main():
                     # Counting it against the variant (gate.py's convention) is a
                     # silent one-sided bias, since the champion never sits in the
                     # variant slot. Discard and log it instead.
+                    why = (LAST_OUTPUT["text"] or "").strip().splitlines()
+                    why = why[-1][:110] if why else "(no output)"
                     store.log(con, "error",
-                              f"no result: {variant} on {map_} seed {seed} - discarded")
+                              f"no result: {variant} on {map_} seed {seed} "
+                              f"- discarded - {why}")
                     continue
                 store.record_game(con, variant, champ["name"], map_, seed, seat,
                                   won, cond, turns)

@@ -12,3 +12,5 @@ autolab/lab.db
 autolab/lab.db-*
 bots/lab_*/
 bots/_template/
+_gate_replays/
+autolab/_replays/

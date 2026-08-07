@@ -79,6 +79,9 @@ def page(con):
     paused = store.get_control(con, "paused", "0") == "1"
     workers = store.get_control(con, "workers", "6")
     lanes = store.get_control(con, "lanes", "attack")
+    chassis = store.get_control(con, "chassis", "OogwayAttack")
+    chash = store.get_control(con, "chassis_hash", "") or "-"
+    autopull = store.get_control(con, "autopull", "0") == "1"
     total = con.execute("SELECT COUNT(*) c FROM games").fetchone()["c"]
 
     if null:
@@ -93,6 +96,8 @@ def page(con):
          f'<div class=sub>{total} games in the book &middot; '
          f'{"<span class=warn>PAUSED</span>" if paused else "<span class=good>running</span>"} '
          f'&middot; {workers} workers &middot; lanes: {html.escape(lanes)} '
+         f'&middot; chassis <b>{html.escape(chassis)}</b>@{html.escape(chash[:8])} '
+         f'&middot; autopull {"on" if autopull else "off"} '
          f'&middot; <span class=dim>refreshes every 5s</span></div>']
 
     # ---- controls
@@ -108,11 +113,17 @@ def page(con):
         h.append(f'<a class=btn href="/set?lanes={",".join(new)}" '
                  f'style="{"outline:1px solid #4ade80" if on else ""}">'
                  f'{"✓" if on else "+"} {lane}</a>')
+    h.append(f'<a class=btn href="/set?autopull={0 if autopull else 1}" '
+             f'style="{"outline:1px solid #4ade80" if autopull else ""}">'
+             f'{"✓" if autopull else "+"} autopull</a>')
     h.append('<form action="/req" style="margin-top:10px">'
-             '<input name="q" size="52" placeholder=\'try {"SEAT_TI": 60}\'> '
-             '<button class=btn>queue</button>'
-             '<span class=dim> &nbsp;also: <code>kill lab_cNNN</code>, '
-             '<code>rebase OogwayAttack</code></span></form></div>')
+             '<input name="q" size="60" placeholder=\'try {"SEAT_TI": 60}\'> '
+             '<button class=btn>queue</button></form>'
+             '<div class=dim style="margin-top:6px">'
+             '<code>try {"SEAT_TI": 60}</code> queue a knob candidate &middot; '
+             '<code>bench OogwayNEW</code> measure any bots/ folder against the '
+             'null &middot; <code>chassis OogwayNEW</code> switch the tracked '
+             'chassis &middot; <code>kill lab_cNNN</code></div></div>')
 
     # ---- champion + null
     if champ:
@@ -150,6 +161,24 @@ def page(con):
                  f'<td><a href="/req?q=kill+{html.escape(c["name"])}" '
                  f'class=dim>kill</a></td></tr>')
     h.append("</table></div>")
+
+    # ---- bench: whole bots, measured against the same null, never auto-promoted
+    bench = store.active(con, "bench")
+    if bench:
+        h.append('<div class=card><h2>bench &mdash; whole bots vs the champion '
+                 '(never auto-promoted)</h2><table>'
+                 '<tr><th>bot</th><th>games</th><th>win%</th>'
+                 '<th>95% CI vs null band</th><th></th></tr>')
+        for b in bench:
+            w, n = store.tally(con, b["name"])
+            pct, lo, hi = store.wilson(w, n)
+            colour = "#4ade80" if lo > nhi else ("#f87171" if hi < nlo else "#7cc4ff")
+            h.append(f'<tr><td>{html.escape(b["name"])}</td><td>{n}</td>'
+                     f'<td>{pct:.1f}</td>'
+                     f'<td>{bar(lo, hi, pct, nlo, nhi, colour)}</td>'
+                     f'<td><a href="/req?q=kill+{html.escape(b["name"])}" '
+                     f'class=dim>kill</a></td></tr>')
+        h.append("</table></div>")
 
     # ---- history
     h.append('<div class=card><h2>closed</h2><table>'
@@ -207,7 +236,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/set":
                 for key in ("paused", "workers", "lanes", "min_prune",
-                            "min_promote", "max_games", "candidates"):
+                            "min_promote", "max_games", "candidates",
+                            "autopull", "chassis"):
                     if key in q:
                         store.set_control(con, key, q[key][0])
                 return self._redirect()
