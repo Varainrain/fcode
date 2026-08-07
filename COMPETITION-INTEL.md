@@ -1,3 +1,26 @@
+# 🌅 MORNING SPEC: THE team-lazy GAP IS THROUGHPUT, NOT TEMPO (2026-08-07, fixed-parser numbers)
+Five-game spec table vs the team that beats everyone (their L/W vs us):
+
+| game | side | h@t30 | first gun | first hit | total builds | CORE DMG DEALT | healed |
+|---|---|---|---|---|---|---|---|
+| atoll | LAZY / us | 4 / 4 | t15 / t23 | t27 / t28 | 34 / 26 | **1960 / 420** | 48 / 1456 |
+| jackpot (our W) | LAZY / us | 2 / 3 | t21 / t21 | t27 / t26 | 22 / 24 | 3024 / 2156 | 1656 / 3017 |
+| hive | LAZY / us | 3 / 2 | t33 / t29 | t35 / t30 | 38 / 30 | 784 / 651 | 188 / 280 |
+| heart | LAZY / us | 2 / 1 | t11 / t9 | t12 / t10 | 24 / 15 | 798 / 714 | 552 / 296 |
+| antler | LAZY / us | 3 / 2 | t8 / t3 | t6 / t4 | **33 / 13** | **1477 / 609** | 516 / 975 |
+
+**MYTH KILLED: we MATCH their opening tempo** (first guns/hits nearly simultaneous, econ
+identical at t30). The gap: (1) **damage throughput — they out-deal us 2-5x** (atoll
+1960 v 420!) with similar or equal build counts: their turret-seats LAND on our core,
+ours mostly do not (oni's guns-on-core metric, now quantified per-game); (2) **mid-game
+build flow — they keep producing t30+** (antler 33 builds to our 13) while we stall and
+convert titanium into heals instead (atoll: we healed 1456 while dealing 420 — healing
+is the losing side's activity when damage isn't landing).
+LANES: attack (oni) = seats that actually reach the core + sustained production past
+t30; eco (Oogway) = fund the flow. Defense is NOT the gap anymore in any game measured.
+Board note: sporks ran away (#1, 2023); **Jython = Cambridge silver authors ('something
+else': osteo/Jython/Coderz75) surfaced at #2** — their postmortem is the one whose
+Turret Takedown / VisionTracker ideas we mined. Coreflood 0-5'd us twice = scout-worthy.
 # 💊 POVERTY TRAP FIXED OURSELVES — v54 ACTIVE (2026-08-07 09:40)
 Three gated shapes to find the notch (each one dial-turn, never bundled):
 | shape | gate vs v51 |
