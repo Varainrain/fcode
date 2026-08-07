@@ -92,9 +92,11 @@ Two smaller guarantees hold the comparison together:
 
 - **Maps and seats are a fixed rotation, not a random draw.** Every arm walks the
   same map cycle and flips seat each full pass, so two arms with equal game
-  counts have played the same maps in both seats. Drawing maps at random lets one
-  arm collect more of a seat-locked map than another, which shows up as a phantom
-  several points wide.
+  counts have played the same maps in both seats. This is not a nicety: on
+  `antler`, **identical code went 8/8 to the B seat** (six of them t1000
+  harvester tiebreaks). Drawing maps at random lets one arm collect more of a
+  seat-locked map than another, and that alone produced a 25% reading from a
+  byte-identical null before the rotation was put in.
 - **A crashed or unparseable game is discarded, not scored.** `gate.py` counts
   those against the candidate; here the champion never sits in the candidate
   slot, so that convention would be a silent one-sided bias. Discards are logged.

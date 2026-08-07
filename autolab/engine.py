@@ -58,21 +58,29 @@ def detect(force=None):
 
 
 def run(args, timeout=None):
-    """Run `fcode <args>` and return stdout. args is a list of plain strings."""
+    """Run `fcode <args>` and return stdout+stderr combined.
+
+    Both streams, deliberately: the engine reports bot validation failures and
+    crashes on stderr, and a caller that only reads stdout sees "no Winner line"
+    with no idea why. That is the silent-failure class this repo keeps losing
+    days to.
+    """
     mode = detect()
     if mode == "native":
         out = subprocess.run(["fcode", *args], capture_output=True,
                              encoding="utf-8", errors="replace",
                              cwd=ROOT, timeout=timeout)
-        return out.stdout or ""
-    if mode == "wsl":
+    elif mode == "wsl":
         inner = "cd %s && %s && fcode %s" % (
             shlex.quote(wsl_root()), ACTIVATE,
             " ".join(shlex.quote(a) for a in args))
         out = subprocess.run(["wsl", "-e", "bash", "-lc", inner],
                              capture_output=True, encoding="utf-8",
                              errors="replace", timeout=timeout)
-        return out.stdout or ""
+    else:
+        out = None
+    if out is not None:
+        return (out.stdout or "") + (out.stderr or "")
     raise RuntimeError(
         "fcode engine not found. It is not on this PATH and not reachable in "
         "WSL with AUTOLAB_ACTIVATE=%r. Run `python -m autolab.doctor`." % ACTIVATE)

@@ -55,12 +55,24 @@ def main():
             runner.materialise("_doctor_a", runner.defaults())
             runner.materialise("_doctor_b", runner.defaults())
             t = time.time()
-            winner, cond, turns = runner.play("_doctor_a", "_doctor_b", maps[0], 1)
-            check(winner is not None,
-                  f"played a real game on {maps[0]} in {time.time()-t:.0f}s "
-                  f"(winner={winner}, {cond}, t{turns})",
-                  "the engine ran but produced no Winner line - run the same\n"
-                  "         `fcode run` by hand and read the error")
+            # Two games, one per seat, with the SAME bot on both sides. Many
+            # maps are seat-locked - identical code went 8/8 to the B seat on
+            # antler, six of them t1000 tiebreaks - so a one-game probe on the
+            # wrong map looks like a broken engine when nothing is wrong.
+            g1 = runner.play("_doctor_a", "_doctor_b", maps[0], 1)
+            g2 = runner.play("_doctor_b", "_doctor_a", maps[0], 2)
+            ok = check(g1[0] is not None and g2[0] is not None,
+                       f"played 2 real games on {maps[0]} in {time.time()-t:.0f}s "
+                       f"(seat A: {g1[0]} {g1[1]} t{g1[2]}; "
+                       f"seat B: {g2[0]} {g2[1]} t{g2[2]})",
+                       "the engine's own output is printed above - read it")
+            winner = g1[0]
+            if not ok:
+                text = (runner.LAST_OUTPUT["text"] or "").strip()
+                print("        --- what the engine actually said ---")
+                for line in (text.splitlines() or ["(no output at all)"])[-14:]:
+                    print("        " + line)
+                print("        -------------------------------------")
         except Exception as exc:                      # noqa: BLE001
             check(False, f"played a real game: {type(exc).__name__}: {exc}",
                   "see the traceback above")

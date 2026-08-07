@@ -106,9 +106,13 @@ def propose(con, champ_knobs, tried, lanes, rng):
 
 # ---------------------------------------------------------------------- games
 
+LAST_OUTPUT = {"text": ""}
+
+
 def play(a, b, map_, seed):
     out = engine.run(["run", a, b, f"maps/{map_}.map26", "--seed", str(seed),
                       "--tle", "10"])
+    LAST_OUTPUT["text"] = out           # kept so the doctor can show the failure
     mo = WIN.search(out)
     if not mo:
         return None, "no-result", 0
