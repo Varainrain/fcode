@@ -1,3 +1,32 @@
+# 🧾 OOGWAY'S AUDIT — RESPONSE (2026-08-07 afternoon). He's right on the code, maybe right on the gates.
+1. **Scorer critique: CORRECT.** `bestScore = -1`, so far ore scoring 0 still passed
+   `0 > -1` — "mathematically invisible" was WRONG, retracted. The real defects the fix
+   touches: (a) all far tiles TIE at 0, so the winner was the first tile in scan order —
+   an arbitrary far-left bias, often unreachable-in-time targets; (b) the
+   `resources > dist/7` gate inside the same branch couples poverty to range (poor ->
+   no far ore -> poor). v55's `max(1,...)` works by breaking ties toward the BUILDER'S
+   proximity, not by "restoring visibility". Doc corrected. Whether it's worth points
+   is his 300-game question -> re-gating now.
+2. **His 300-game audits: sentinel fix 35.7%, v54 heals 44%.** My recent ships were
+   gated at n=60 (CI ±13) under time pressure — underpowered by MY OWN 168-game rule.
+   **300-game re-gates of v54-vs-v51 and v55-vs-v54 are RUNNING.** Anything that fails
+   at n=300 gets pulled from the line, no attachment. This is the pipeline working:
+   module owner ships, orchestrator audits, loser is the noise not the person.
+3. **Tooling alert #2 RETRACTED** — damage events are fine; my ad-hoc script forgot to
+   seed cores from the map header. replay_stats.py main was always correct.
+
+# 🏭 COREFLOOD SPEC (0-5 x2 explained): THE FIRST COST-LAW-OPTIMIZED TEAM
+Corrected autopsy, all 5 games: **b8-12 crews (ours: capped at 5), cv54-78 conveyor
+econ (income is UNTAXED by the cost law), sentinel-weighted offense s1-3 with FEW
+gunners (dodging the +20%/gunner scaling we pay on every gun), zero launcher tricks.**
+Our signature in every loss: healed >> dealt (g1: healed 1009, dealt 147) = permanent
+triage funded by a starved econ against their grind. The structural gaps, by lane:
+- ECO (Oogway): the b5 builder cap — they run 8-12 working bodies. Cost law taxes
+  gunners by unit count (+20% each), so extra BUILDERS cost gun-price too — but their
+  math clearly nets positive. Needs a gated crew-size sweep (6/8/10).
+- ATTACK (oni): gunner-weighted offense pays the scaling tax Coreflood dodges;
+  sentinel-weighted is the cost-law answer (they prove it works at 1764->beating us).
+- The heal-war is downstream of both: they win it on income, not on heal logic.
 # 📅 2026-08-07 midday: JYTHON 4-1, ORE BLINDNESS FIXED, COREFLOOD IS THE OPEN PROBLEM
 ## Jython scrim (c2da0e10): WE WIN 4-1 — and they are Pareto-ion renamed (Cambridge silver)
 Their current archetype: **BARRIER FORTRESS** — bar8-36/game (g4: 36!), g22-28 gunners,
