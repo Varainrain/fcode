@@ -6,3 +6,9 @@ gate_results.csv
 worker.log
 _run_worker.cmd
 replays/
+
+# autolab: machine-local evidence and generated bots
+autolab/lab.db
+autolab/lab.db-*
+bots/lab_*/
+bots/_template/

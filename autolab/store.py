@@ -1,0 +1,151 @@
+"""SQLite store for the autolab pipeline. Every game ever played lives here.
+
+One file, `autolab/lab.db`. The runner writes; the dashboard only reads (plus
+the `control` table, which is how the dashboard asks the runner to do things).
+"""
+import json
+import sqlite3
+import time
+from math import sqrt
+from pathlib import Path
+
+DB = Path(__file__).resolve().parent / "lab.db"
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS variants (
+    name      TEXT PRIMARY KEY,
+    knobs     TEXT NOT NULL,
+    role      TEXT NOT NULL,          -- champion | null | candidate
+    status    TEXT NOT NULL,          -- active | rejected | promoted | retired
+    parent    TEXT,
+    note      TEXT,
+    created   REAL NOT NULL,
+    closed    REAL
+);
+CREATE TABLE IF NOT EXISTS games (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    variant   TEXT NOT NULL,
+    opponent  TEXT NOT NULL,
+    map       TEXT NOT NULL,
+    seed      INTEGER NOT NULL,
+    seat      TEXT NOT NULL,          -- A if the variant was listed first
+    won       INTEGER NOT NULL,       -- 1/0; draws and crashes count as 0
+    cond      TEXT,
+    turns     INTEGER,
+    ts        REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS games_variant ON games(variant);
+CREATE TABLE IF NOT EXISTS events (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts    REAL NOT NULL,
+    kind  TEXT NOT NULL,
+    text  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS control (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+"""
+
+DEFAULT_CONTROL = {
+    "paused": "0",
+    "workers": "6",
+    "lanes": "attack",              # comma list: attack,core,econ
+    "min_prune": "60",              # games before a candidate can be killed
+    "min_promote": "400",           # games before a candidate can be promoted
+    "max_games": "800",             # games after which an undecided one retires
+    "candidates": "3",              # candidates live at once
+    "request": "",                  # one-shot command from the dashboard
+}
+
+
+def connect():
+    con = sqlite3.connect(DB, timeout=30)
+    con.row_factory = sqlite3.Row
+    con.execute("PRAGMA journal_mode=WAL")
+    return con
+
+
+def init():
+    con = connect()
+    con.executescript(SCHEMA)
+    for k, v in DEFAULT_CONTROL.items():
+        con.execute("INSERT OR IGNORE INTO control(key,value) VALUES(?,?)", (k, v))
+    con.commit()
+    return con
+
+
+def get_control(con, key, default=None):
+    row = con.execute("SELECT value FROM control WHERE key=?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_control(con, key, value):
+    con.execute("INSERT INTO control(key,value) VALUES(?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, str(value)))
+    con.commit()
+
+
+def log(con, kind, text):
+    con.execute("INSERT INTO events(ts,kind,text) VALUES(?,?,?)",
+                (time.time(), kind, text))
+    con.commit()
+
+
+def add_variant(con, name, knobs, role, parent=None, note=""):
+    con.execute(
+        "INSERT OR REPLACE INTO variants(name,knobs,role,status,parent,note,created)"
+        " VALUES(?,?,?,'active',?,?,?)",
+        (name, json.dumps(knobs, sort_keys=True), role, parent, note, time.time()))
+    con.commit()
+
+
+def close_variant(con, name, status):
+    con.execute("UPDATE variants SET status=?, closed=? WHERE name=?",
+                (status, time.time(), name))
+    con.commit()
+
+
+def record_game(con, variant, opponent, map_, seed, seat, won, cond, turns):
+    con.execute(
+        "INSERT INTO games(variant,opponent,map,seed,seat,won,cond,turns,ts)"
+        " VALUES(?,?,?,?,?,?,?,?,?)",
+        (variant, opponent, map_, seed, seat, int(won), cond, turns, time.time()))
+    con.commit()
+
+
+def tally(con, variant):
+    row = con.execute(
+        "SELECT COUNT(*) n, COALESCE(SUM(won),0) w FROM games WHERE variant=?",
+        (variant,)).fetchone()
+    return row["w"], row["n"]
+
+
+def wilson(w, n, z=1.96):
+    """(point, low, high) as percentages. n=0 -> a band covering everything."""
+    if not n:
+        return 0.0, 0.0, 100.0
+    p = w / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    half = z * sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return 100 * p, 100 * max(0.0, c - half), 100 * min(1.0, c + half)
+
+
+def knobs_of(con, name):
+    row = con.execute("SELECT knobs FROM variants WHERE name=?", (name,)).fetchone()
+    return json.loads(row["knobs"]) if row else None
+
+
+def champion(con):
+    row = con.execute(
+        "SELECT * FROM variants WHERE role='champion' AND status='active'"
+        " ORDER BY created DESC LIMIT 1").fetchone()
+    return row
+
+
+def active(con, role):
+    return con.execute(
+        "SELECT * FROM variants WHERE role=? AND status='active' ORDER BY created",
+        (role,)).fetchall()
