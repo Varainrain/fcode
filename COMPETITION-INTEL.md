@@ -1,3 +1,21 @@
+# 📅 2026-08-07 midday: JYTHON 4-1, ORE BLINDNESS FIXED, COREFLOOD IS THE OPEN PROBLEM
+## Jython scrim (c2da0e10): WE WIN 4-1 — and they are Pareto-ion renamed (Cambridge silver)
+Their current archetype: **BARRIER FORTRESS** — bar8-36/game (g4: 36!), g22-28 gunners,
+near-zero econ (h0-5). In 3 of our 4 wins they dealt ZERO core damage; we won two
+t1000 tiebreaks on economy (the poverty-trap fix earning its keep at #2 level).
+## ORE BLINDNESS FIXED (v55, ACTIVE): the harvest scorer zeroed all ore beyond dist^2
+160 from our core (`max(0,160-dist)`) — far ore mathematically invisible forever
+(heart: 3 harvesters in 409t vs Coreflood's 10+). Now a penalty, never a cutoff.
+Mirror 52% kills 28-26; heart flips 3/4. ic3d's "doesn't pathfind titanium" = exact.
+## COREFLOOD (0-5 TWICE, incl. post-fix): the open problem
+Their profile: **big-econ machine** — b8-12, cv54-78, h3-14, s1-3, L1-2 (launchers!).
+Against them specifically our eco still collapses (h0-4, g1: LITERALLY ZERO eco builds
+on fjordgate). Something they DO suppresses our economy — likely early harass on eco
+builders (needs autopsy with fixed parser). Fresh replays: prod/d8375ef2*.
+## ⚠ TOOLING ALERT #2: damage events ALSO unreadable in fresh replays (both sides read
+0 dealt/healed in games that ended Core Destroyed) — same nesting-change family as the
+move events. replay_stats damage branch needs the same both-formats fix. DO NOT trust
+any dealt/healed numbers from replays downloaded after ~14:00 today until fixed.
 # 🌅 MORNING SPEC: THE team-lazy GAP IS THROUGHPUT, NOT TEMPO (2026-08-07, fixed-parser numbers)
 Five-game spec table vs the team that beats everyone (their L/W vs us):
 
