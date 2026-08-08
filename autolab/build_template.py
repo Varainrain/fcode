@@ -60,6 +60,19 @@ KNOB_SPEC = {
     # 4 hp and adds nothing to the scale. This is also the first mechanism that
     # would explain the v85 bake-off's "guns past 3 rarely matter".
     "SEAT_MAX_OWN":  (0,    0,   6, "int",  "attack"),
+    # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
+    # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
+    # ONE core hit outranks any number of enemy guns, permanently. A core is 500
+    # hp and a gunner 25, so that ordering is an untested assumption. With
+    # ROT_WEIGHTED on, the tuple becomes a weighted sum and the weights become
+    # searchable. Ray length caps each count at 3, so the defaults below
+    # (1000/100/10/1) reproduce the lexicographic order exactly - the knob
+    # changes the search space, not the default behaviour.
+    "ROT_WEIGHTED":  (0,    0,    1, "bool", "attack"),
+    "ROT_W_CORE":    (1000, 0, 2000, "int", "attack"),
+    "ROT_W_THREAT":  (100,  0, 2000, "int", "attack"),
+    "ROT_W_GUN":     (10,   0, 2000, "int", "attack"),
+    "ROT_W_OTHER":   (1,    0, 2000, "int", "attack"),
     "AMMO_CEIL":     (16,   8, 120, "int",  "core"),
     "AMMO_RESERVE":  (28,   0, 120, "int",  "core"),
     "SPAWN_MIN":     (5,    2,  10, "int",  "econ"),
@@ -174,6 +187,18 @@ MAIN_SUBS = [
      b'        if KNOBS["SEAT_FALLBACK"] and bestAttacker is None:\r\n'
      b"            return fbAttacker\r\n"
      b"        return bestAttacker\r\n"),
+    # gunner: make the target priority ORDER searchable (ROT_WEIGHTED)
+    # Keep the chassis line intact and add a guarded OVERRIDE after it, so the
+    # default folds to a bare `if 0:` block the verifier strips. An if/else pair
+    # does not fold - the else survives the strip and the diff fails.
+    (b"            score = (coreHits, coreThreatHits, gunnerHits, otherHits)\r\n",
+     b"            score = (coreHits, coreThreatHits, gunnerHits, otherHits)\r\n"
+     b'            if KNOBS["ROT_WEIGHTED"]:\r\n'
+     b'                score = (coreHits * KNOBS["ROT_W_CORE"]\r\n'
+     b'                         + coreThreatHits * KNOBS["ROT_W_THREAT"]\r\n'
+     b'                         + gunnerHits * KNOBS["ROT_W_GUN"]\r\n'
+     b'                         + otherHits * KNOBS["ROT_W_OTHER"],\r\n'
+     b"                         coreThreatHits, gunnerHits, otherHits)\r\n"),
     # gunner: rotation ray scoring - RAY_FIRST reproduces gated candidate oa_a9
     (b"            for tile in ct.get_attackable_tiles_from(myPos, d, EntityType.GUNNER):\r\n"
      b"                tileId = ct.get_tile_building_id(tile)\r\n"
