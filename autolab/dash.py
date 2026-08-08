@@ -91,8 +91,21 @@ def page(con):
         nw = nn = 0
         npct, nlo, nhi = 0.0, 0.0, 100.0
 
+    # A stalled runner used to be invisible: the page still rendered, the
+    # numbers just stopped moving. It died silently for an hour once, so the
+    # heartbeat is the first thing on the page.
+    beat = float(store.get_control(con, "heartbeat", "0") or 0)
+    age = time.time() - beat if beat else 1e9
+    if age > 180:
+        banner = (f'<div class=card style="border-color:#f87171">'
+                  f'<b class=bad>RUNNER NOT RESPONDING</b> — no heartbeat for '
+                  f'{int(age)//60} min. Games are NOT being played. '
+                  f'Check <code>lab_err.txt</code>, then '
+                  f'<code>python -m autolab.runner</code>.</div>')
+    else:
+        banner = ""
     h = [f"<style>{CSS}</style><div class=wrap>",
-         "<h1>AUTOLAB — self-iterating knob search</h1>",
+         "<h1>AUTOLAB — self-iterating knob search</h1>", banner,
          f'<div class=sub>{total} games in the book &middot; '
          f'{"<span class=warn>PAUSED</span>" if paused else "<span class=good>running</span>"} '
          f'&middot; {workers} workers &middot; lanes: {html.escape(lanes)} '

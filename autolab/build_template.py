@@ -89,6 +89,18 @@ KNOB_SPEC = {
     # thing from the other side: krb2 removed the buddy-wait and scored 42% -
     # "the buddy-wait IS the wave; solo arrivals die piecemeal". 0 = off.
     "ATTACK_BUDDY":  (0,    0,   4, "int",  "attack"),
+    # SIEGE_DENY_HEAL: barrier the tiles orthogonally adjacent to the ENEMY core.
+    # Healing is orthogonal-adjacent only (1 Ti per 4 hp, no cooldown, and a
+    # builder cannot move and heal in the same turn), so a 2x2 core can only be
+    # healed from the 8 tiles touching it. Put OUR barrier on one and that heal
+    # slot is gone - enemy units cannot pass our barriers.
+    # This repo already proved the mechanic from the wrong side: krb3 sealed our
+    # OWN ring and made our own core unhealable ("THE deep 2.3 fact of the
+    # night", 29%). Nobody tried it offensively.
+    # The cost law makes it nearly free: a barrier is 3 Ti at +1% scale, against
+    # a gunner's +20%. Eight barriers cost less scale than half a gunner, and we
+    # deal 658 core damage a game and still lose to healing.
+    "SIEGE_DENY_HEAL": (0,  0,   1, "bool", "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -175,6 +187,23 @@ MAIN_SUBS = [
      b"                        return\r\n"
      b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
      b"                        ct.build_gunner(gunnerSpot, gunnerDir)\r\n"),
+    # attack: deny the enemy core's heal slots with barriers (SIEGE_DENY_HEAL)
+    (b"            if ct.get_global_resources() >= KNOBS[\"SEAT_TI\"]:\r\n",
+     b'            if KNOBS["SIEGE_DENY_HEAL"] and ct.get_global_resources() >= 40:\r\n'
+     b"                ec = self.mapPf.enemyCorePos\r\n"
+     b"                coreTiles = [ec, ec.add(Direction.EAST), ec.add(Direction.SOUTH),\r\n"
+     b"                             ec.add(Direction.SOUTH).add(Direction.EAST)]\r\n"
+     b"                for ct2 in coreTiles:\r\n"
+     b"                    for d2 in CARDINALS:\r\n"
+     b"                        heal = ct2.add(d2)\r\n"
+     b"                        if heal in coreTiles:\r\n"
+     b"                            continue\r\n"
+     b"                        if myLoc.distance_squared(heal) != 1:\r\n"
+     b"                            continue\r\n"
+     b"                        if ct.can_build_barrier(heal):\r\n"
+     b"                            ct.build_barrier(heal)\r\n"
+     b"                            return\r\n"
+     b"            if ct.get_global_resources() >= KNOBS[\"SEAT_TI\"]:\r\n"),
     # attack: score the seat by adjacency to the TARGET, not to the attacker
     (b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))\r\n",
      b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))\r\n"

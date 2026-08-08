@@ -61,6 +61,7 @@ DEFAULT_CONTROL = {
     "max_games": "800",             # games after which an undecided one retires
     "candidates": "3",              # candidates live at once
     "request": "",                  # one-shot command from the dashboard
+    "heartbeat": "0",               # runner stamps this every cycle
 }
 
 

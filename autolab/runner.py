@@ -48,6 +48,7 @@ BOTS = ROOT / "bots"
 MAPS = sorted(p.stem for p in (ROOT / "maps").glob("*.map26"))
 WIN = re.compile(r"Winner:\s+(\S+)\s+\((.*?),\s*turn\s*(\d+)\)")
 SEQ = itertools.count(int(time.time()) % 100000)
+_BAD_SOURCE = set()
 
 
 # ---------------------------------------------------------------- materialise
@@ -450,6 +451,22 @@ def source_fingerprint():
     return h.hexdigest()[:16]
 
 
+def source_is_sane():
+    """Every autolab module compiles. Checked BEFORE re-exec.
+
+    The re-exec-on-change feature killed the runner once already: it fired while
+    build_template.py was mid-edit and syntactically broken, the new process
+    died on import, and the search silently stopped for an hour. A watchdog that
+    restarts into code it has not checked is worse than no watchdog.
+    """
+    for f in sorted((ROOT / "autolab").glob("*.py")):
+        try:
+            compile(f.read_bytes(), str(f), "exec")
+        except SyntaxError as exc:
+            return False, f"{f.name}: {exc}"
+    return True, ""
+
+
 def check_own_source(con, boot):
     """Re-exec when autolab's own code changes underneath a long-running loop.
 
@@ -459,7 +476,17 @@ def check_own_source(con, boot):
     KeyError on a knob that had already been added, and how a chassis switch
     was quietly ignored.
     """
-    if source_fingerprint() == boot:
+    fp = source_fingerprint()
+    if fp == boot or fp in _BAD_SOURCE:
+        return
+    ok, why = source_is_sane()
+    if not ok:
+        # Keep running the OLD code and say so. Retrying every cycle would spam
+        # the log, so this exact fingerprint is remembered as bad until edited.
+        _BAD_SOURCE.add(fp)
+        store.log(con, "error",
+                  f"autolab source changed but does NOT compile ({why}) - "
+                  f"staying on the running version")
         return
     store.log(con, "restart", "autolab source changed - re-exec'ing the runner")
     lock = ROOT / "autolab" / "runner.pid"
@@ -523,6 +550,7 @@ def main():
             time.sleep(3)
             continue
         check_own_source(con, boot)
+        store.set_control(con, "heartbeat", "%.0f" % time.time())
         try:
             cycle(con, rng)
         except Exception as exc:                       # noqa: BLE001
