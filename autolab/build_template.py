@@ -53,6 +53,13 @@ KNOB_SPEC = {
     # buildGunnerFor(), which the eco/defence path already uses to answer a
     # turret, so it is the chassis' placement logic and not a new one.
     "COUNTER_BATTERY": (0,  0,   1, "bool", "attack"),
+    # SEAT_MAX_OWN: stop adding seats past N and tend the ones we have instead.
+    # 0 = off (current behaviour). Grounded in the 2026-08-08 cost measurement:
+    # a GUNNER is +20% scale, exactly as much as an extra builder, so the 5th
+    # seat makes every future purchase ~2x. Healing an existing gun is 1 Ti per
+    # 4 hp and adds nothing to the scale. This is also the first mechanism that
+    # would explain the v85 bake-off's "guns past 3 rarely matter".
+    "SEAT_MAX_OWN":  (0,    0,   6, "int",  "attack"),
     "AMMO_CEIL":     (16,   8, 120, "int",  "core"),
     "AMMO_RESERVE":  (28,   0, 120, "int",  "core"),
     "SPAWN_MIN":     (5,    2,  10, "int",  "econ"),
@@ -103,6 +110,16 @@ MAIN_SUBS = [
      b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
      b"                continue\r\n"
      b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))"),
+    # attack: past N seats, tend what we have instead of buying scale (SEAT_MAX_OWN)
+    (b"                gunnerStuff = self.findGunnerSpot(ct)\r\n",
+     b'                if KNOBS["SEAT_MAX_OWN"]:\r\n'
+     b"                    ownGuns = 0\r\n"
+     b"                    for b in ct.get_nearby_buildings():\r\n"
+     b"                        if ct.get_team(b) == ct.get_team() and ct.get_entity_type(b) == EntityType.GUNNER:\r\n"
+     b"                            ownGuns += 1\r\n"
+     b'                    if ownGuns >= KNOBS["SEAT_MAX_OWN"] and self.healTeamGunners(ct):\r\n'
+     b"                        return\r\n"
+     b"                gunnerStuff = self.findGunnerSpot(ct)\r\n"),
     # attack: no seat -> kill the turret denying it (COUNTER_BATTERY)
     (b"                gunnerStuff = self.findGunnerSpot(ct)\r\n"
      b"                if gunnerStuff:\r\n",
