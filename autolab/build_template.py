@@ -123,6 +123,19 @@ KNOB_SPEC = {
     # below the null looks like. So this knob only RE-AIMS; pair it with
     # SEAT_FALLBACK to test the skip-vs-fallback question separately.
     "SEAT_HIT_FACING": (0,  0,   1, "bool", "attack"),
+    # TURRET_CULL: destroy one of OUR OWN gunners when it is aimed at a friendly
+    # building, i.e. permanently blocked and firing at nothing. 0 = off.
+    # This is the one lever that works WITH the cost law instead of against it.
+    # Scale tracks LIVING entities - destroying a conveyor refunds its 1%, so
+    # destroying a dead gunner refunds 20% on every future purchase. And
+    # destroy() "does not cost action cooldown", so the builder still takes its
+    # normal turn: the refund is free.
+    # Evidence: across 18 ladder losses we built 199 gunners of which only 32
+    # (16%) were siege guns within d4 of the enemy core; 69 (35%) were built
+    # mid-map near neither core. Those 69 alone inflated every purchase by ~69%.
+    # The sources describe exactly this: teams self-destructed turrets proven to
+    # have no ammo or no feeders, specifically to lower the team's cost scale.
+    "TURRET_CULL":   (0,    0,   1, "bool", "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -460,6 +473,31 @@ MAIN_SUBS = [
      b'                floor = KNOBS["ROT_FLOOR_GUN"]\r\n'
      b"            else:\r\n"
      b'                floor = KNOBS["ROT_FLOOR"]\r\n'),
+    # attack: cull our own blocked turrets to claw back cost scale (TURRET_CULL)
+    (b"    def runAttack(self, ct: Controller):\r\n"
+     b"        myLoc = ct.get_position()\r\n",
+     b"    def runAttack(self, ct: Controller):\r\n"
+     b"        myLoc = ct.get_position()\r\n"
+     b'        if KNOBS["TURRET_CULL"]:\r\n'
+     b"            _me = ct.get_team()\r\n"
+     b"            for _b in ct.get_nearby_buildings():\r\n"
+     b"                try:\r\n"
+     b"                    if ct.get_team(_b) != _me or ct.get_entity_type(_b) != EntityType.GUNNER:\r\n"
+     b"                        continue\r\n"
+     b"                    _bp = ct.get_position(_b)\r\n"
+     b"                    if myLoc.distance_squared(_bp) != 1:\r\n"
+     b"                        continue\r\n"
+     b"                    _blocked = False\r\n"
+     b"                    for _tl in ct.get_attackable_tiles_from(_bp, ct.get_direction(_b), EntityType.GUNNER):\r\n"
+     b"                        _tid = ct.get_tile_building_id(_tl)\r\n"
+     b"                        if _tid is not None:\r\n"
+     b"                            _blocked = ct.get_team(_tid) == _me\r\n"
+     b"                            break\r\n"
+     b"                    if _blocked and ct.can_destroy(_bp):\r\n"
+     b"                        ct.destroy(_bp)\r\n"
+     b"                        break\r\n"
+     b"                except Exception:\r\n"
+     b"                    continue\r\n"),
     # attack: engine-truth facing (ic3d's v60 _hitFacing, ported to v58). Adds
     # the helper and RE-AIMS the seat; deliberately does not skip the seat, so
     # the skip-vs-fallback question can be tested separately.

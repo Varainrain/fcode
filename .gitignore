@@ -18,3 +18,5 @@ autolab/runner.pid
 lab_run.txt
 lab_err.txt
 ladder_replays/
+loss_narratives.txt
+loss_digest.txt
