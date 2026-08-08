@@ -149,8 +149,13 @@ def record_game(con, variant, opponent, map_, seed, seat, won, cond, turns):
 
 def margin_stats(con, variant, opponent):
     """(mean, standard error, n) of this variant's per-game margin."""
+    # margin != 0 excludes rows written before the column existed. margin_of()
+    # never returns exactly 0 (a tiebreak is +-0.1), so this is an exact test for
+    # "legacy row". Without it, legacy zeros drag every mean to 0 AND collapse
+    # the standard error, which would put a near-zero denominator in the screen
+    # and manufacture prunes out of nothing.
     rows = [r["margin"] for r in con.execute(
-        "SELECT margin FROM games WHERE variant=? AND opponent=?",
+        "SELECT margin FROM games WHERE variant=? AND opponent=? AND margin != 0",
         (variant, opponent)).fetchall()]
     n = len(rows)
     if n < 2:

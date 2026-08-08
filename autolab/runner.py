@@ -341,7 +341,7 @@ def adjudicate(con, champ, null):
     max_games = int(store.get_control(con, "max_games", "800"))
     # The null needs its own sample before it can referee anything.
     null_ready = nn >= min_prune
-    nmean, nse, _ = store.margin_stats(con, null["name"], champ["name"])
+    nmean, nse, nmn = store.margin_stats(con, null["name"], champ["name"])
     for c in store.active(con, "candidate"):
         w, n = store.tally(con, c["name"], champ["name"])
         pct, lo, hi = store.wilson(w, n)
@@ -366,9 +366,11 @@ def adjudicate(con, champ, null):
         # fitness alongside win/loss to cut variance. Threshold is deliberately
         # harsh (4 standard errors) because killing a good candidate early is
         # the expensive mistake; the win-rate rules below still decide fate.
-        if null_ready and n >= max(20, min_prune // 3):
-            cmean, cse, _ = store.margin_stats(con, c["name"], champ["name"])
-            se = (cse * cse + nse * nse) ** 0.5 or 1.0
+        cmean, cse, cmn = store.margin_stats(con, c["name"], champ["name"])
+        # both sides need real margin samples, and a floor on the SE so a small
+        # sample can never divide its way to a confident-looking verdict
+        if null_ready and cmn >= 20 and nmn >= 20:
+            se = max(0.02, (cse * cse + nse * nse) ** 0.5)
             if (nmean - cmean) / se > 4.0:
                 store.close_variant(con, c["name"], "rejected")
                 store.log(con, "reject",
