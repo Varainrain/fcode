@@ -1,4 +1,10 @@
-# 🎯 SPRINT PATCH: v59 ACTIVE = v58 + ic3d's two watched defects fixed (2026-08-08)
+# 🔧 SPRINT PATCH 2: v60 ACTIVE (2026-08-08) — ic3d's replay watch, round two
+1a92b5b5 g2 verified tile-by-tile: t2 gunner at manhattan 4 from their core (the
+perfect one), then THREE at manhattan 9-10 from core / 2-3 from harvesters. The v59
+harass gate (d^2<=72) was too loose — the SEAT follows the HARVESTER, so the radius
+must mean "harvesters at the core doorstep". v60: (1) harass radius d^2<=18;
+(2) CORE SEATS BEFORE HARASS — harass only when no core seat is buildable this turn.
+Gate 49% n=150 = free; the defect is now impossible by ordering, not improbable.# 🎯 SPRINT PATCH: v59 ACTIVE = v58 + ic3d's two watched defects fixed (2026-08-08)
 1. **Misaligned diagonal gunners** (lost sprint games): geometric (spot,dir) pairs and
    `direction_to` were NEVER validated against the engine. Fix: `_hitFacing()` — the
    first facing whose ray ACTUALLY hits, engine-checked via can_fire_from, at all
