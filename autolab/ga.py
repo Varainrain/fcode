@@ -47,16 +47,35 @@ def attack_knobs(lanes):
     return [k for k, v in KNOB_SPEC.items() if v[4] in lanes]
 
 
+def _mutate_gene(g, k, base, rng):
+    default, lo, hi, kind, _ = KNOB_SPEC[k]
+    if kind == "bool":
+        g[k] = 1 - int(g[k])
+        return
+    span = max(1, (hi - lo) // 6)
+    for _ in range(8):                     # a step of 0 is not a mutation
+        val = max(lo, min(hi, g[k] + rng.randint(-span, span)))
+        if val != g[k]:
+            g[k] = val
+            return
+
+
 def random_genome(base, knobs, rng):
+    """A genome that is guaranteed to DIFFER from base.
+
+    The first version mutated each gene with probability 0.5 by randint(-span,
+    span), which can return 0 - so a large share of every population came out
+    byte-identical to the champion and the search spent its budget re-testing
+    the thing it was trying to beat. (The smoke run had 3 of 4 genomes identical
+    in one generation; usefully, they scored +0.52, +0.16 and -0.45 at n=6,
+    which is the noise floor drawn from life.)
+    """
     g = dict(base)
     for k in knobs:
-        if rng.random() < 0.5:                     # mutate about half the genes
-            default, lo, hi, kind, _ = KNOB_SPEC[k]
-            if kind == "bool":
-                g[k] = rng.randint(0, 1)
-            else:
-                span = max(1, (hi - lo) // 6)
-                g[k] = max(lo, min(hi, base[k] + rng.randint(-span, span)))
+        if rng.random() < 0.5:
+            _mutate_gene(g, k, base, rng)
+    if g == base:                          # never hand back a duplicate
+        _mutate_gene(g, rng.choice(knobs), base, rng)
     return g
 
 
@@ -66,12 +85,7 @@ def crossover(a, b, knobs, rng, mutation=0.05):
     for k in knobs:
         child[k] = (a if rng.random() < 0.5 else b)[k]
         if rng.random() < mutation:
-            default, lo, hi, kind, _ = KNOB_SPEC[k]
-            if kind == "bool":
-                child[k] = 1 - int(child[k])
-            else:
-                span = max(1, (hi - lo) // 6)
-                child[k] = max(lo, min(hi, child[k] + rng.randint(-span, span)))
+            _mutate_gene(child, k, a, rng)
     return child
 
 
@@ -141,6 +155,17 @@ def main():
             names, meta = [], {}
             # index 0 of every generation is the CONTROL: byte-identical to the
             # champion, fresh name, so its spread is this generation's noise floor
+            # dedupe within the generation too: two identical genomes are two
+            # samples of the same thing, not two experiments
+            seen, uniq = set(), []
+            for genome in population:
+                key = json.dumps(genome, sort_keys=True)
+                if key in seen or genome == base:
+                    genome = random_genome(base, knobs, rng)
+                    key = json.dumps(genome, sort_keys=True)
+                seen.add(key)
+                uniq.append(genome)
+            population = uniq
             for i, genome in enumerate([dict(base)] + population[:args.pop - 1]):
                 name = f"ga_g{gen}_{next(SEQ)}"
                 runner.materialise(name, genome)
