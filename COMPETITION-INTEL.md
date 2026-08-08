@@ -1,4 +1,22 @@
-# ✅ 300-GAME AUDIT VERDICTS (2026-08-07 evening)
+# 🏁 SPRINT-DAY TOURNAMENT: p57 "barrier routing fix" IS THE BOT — ACTIVE (2026-08-08)
+Full bracket, every live candidate vs the then-active p58, league pool:
+
+| candidate | vs p58 (n=60) | verdict |
+|---|---|---|
+| **p57 barrier-routing-fix (Oogway)** | 53% → **53% at n=300 (158/300, kills 132-124)** | **CHAMPION, ACTIVE** |
+| p55 covered-tiles (Oogway) | 43% | out |
+| v55 ore-fix line (ours) | 42% | out — Oogway's overnight line lapped ours |
+| v51 | 35% | out |
+| v42-stack | 12% | museum piece |
+(p56 skipped — Oogway self-marked WORSE. That self-audit is the culture working.)
+
+Field validation: **p57/p58 beat Pivot 3-2** (they 0-5'd us 48h ago) and both lose 1-4
+to sporks — identical, so p57's mirror edge is free. **Board: sporks #1 2114 pulled
+away, Pantheon #2 2031 resurging, Lorem Ipsum #3 from nowhere. We are #7 of 111.**
+SPORKS IS THE FRONTIER: t154-278 kills, they beat everything we field. Their scrim
+replays: prod/5fbb384e* + 7f6e12c5*. Next real work after the sprint = sporks autopsy
++ the two structural moves already specced (crew-size sweep, sentinel-weighted attack,
+Coreflood-style cost-law optimization).# ✅ 300-GAME AUDIT VERDICTS (2026-08-07 evening)
 | disputed fix | my n=60 claim | Oogway's n=300 | MY n=300 (league pool, both sides, 10 seeds) |
 |---|---|---|---|
 | v54 bootstrap-first heals | 53% | 44% | **52% (155/300, kills 140-136) — FREE** |
