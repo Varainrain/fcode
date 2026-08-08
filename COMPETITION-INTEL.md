@@ -1,13 +1,14 @@
-# ↩️ CORRECTION: v58 REINSTATED FOR THE SPRINT (2026-08-08, ic3d's catch)
-ic3d asked the right question: v58 was performing on the ladder (#7 of 111, real rated
-receipts). My p57 activation was wrong by MY OWN rules: p57's 53%-at-300 sits EXACTLY
-on oni's measured mirror-null (byte-identical bots read 53.3% in this harness), the
-kill diff was 8 in 256, and field scrims were identical — while v58 carries actual
-rated history and p57 carries none. Field > mirror; don't churn the active bot on
-null-band evidence. **v58 active for the sprint. p57 stays on the shelf as the
-equal-strength alternate.** The tournament's real findings stand: p57/p58 are the
-two best (co-champions within measurement), everything else is 43% or below, Pivot
-falls 3-2 to this line, sporks (1-4) is the frontier.# 🏁 SPRINT-DAY TOURNAMENT: p57 "barrier routing fix" IS THE BOT — ACTIVE (2026-08-08)
+# 🎯 SPRINT PATCH: v59 ACTIVE = v58 + ic3d's two watched defects fixed (2026-08-08)
+1. **Misaligned diagonal gunners** (lost sprint games): geometric (spot,dir) pairs and
+   `direction_to` were NEVER validated against the engine. Fix: `_hitFacing()` — the
+   first facing whose ray ACTUALLY hits, engine-checked via can_fire_from, at all
+   three build sites; seat skipped if nothing hits.
+2. **Opening rush gunners built far from their core**: attackHarvesterWithGunner runs
+   at Ti>=30, BEFORE core seats (Ti>=96) — the rush chased mid-map harvesters. Fix:
+   harass only harvesters within d^2<=72 of the enemy core.
+Gate: 50.0% at n=150, kills 64-64 = mirror-free (defect fixes are rare-event value;
+mirrors can't see them, they just must not cost). Pivot sanity scrim 2-3 (v58 got
+3-2 — five-game noise). v59 active for the sprint.# 🏁 SPRINT-DAY TOURNAMENT: p57 "barrier routing fix" IS THE BOT — ACTIVE (2026-08-08)
 Full bracket, every live candidate vs the then-active p58, league pool:
 
 | candidate | vs p58 (n=60) | verdict |
