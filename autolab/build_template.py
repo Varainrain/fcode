@@ -78,6 +78,17 @@ KNOB_SPEC = {
     # ⚠ A sentinel CANNOT ROTATE (rotate() is gunner-only), so the facing chosen
     # at build time is permanent.
     "SIEGE_SENTINEL": (0,   0,   1, "bool", "attack"),
+    # SEAT_PREFER_CORE: score seats by closeness to the ENEMY CORE first, not to
+    # the attacker. Ours picks the seat nearest ITSELF with distance-to-core as
+    # the last tiebreak. Pantheon scored placements globally with "a step
+    # discount [which] prioritizes placing gunners directly adjacent to targets".
+    "SEAT_PREFER_CORE": (0, 0,   1, "bool", "attack"),
+    # ATTACK_BUDDY: do not spend on a seat unless N friendly builders are within
+    # vision. Pantheon only engaged when they "locally outnumber the threat"
+    # (>=2 allies vs 1 enemy within range 25), and this repo measured the same
+    # thing from the other side: krb2 removed the buddy-wait and scored 42% -
+    # "the buddy-wait IS the wave; solo arrivals die piecemeal". 0 = off.
+    "ATTACK_BUDDY":  (0,    0,   4, "int",  "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -164,6 +175,23 @@ MAIN_SUBS = [
      b"                        return\r\n"
      b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
      b"                        ct.build_gunner(gunnerSpot, gunnerDir)\r\n"),
+    # attack: score the seat by adjacency to the TARGET, not to the attacker
+    (b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))\r\n",
+     b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))\r\n"
+     b'            if KNOBS["SEAT_PREFER_CORE"]:\r\n'
+     b"                score = (seatCov, spotPos.distance_squared(enemyCore), myLoc.distance_squared(spotPos))\r\n"),
+    # attack: do not siege alone (ATTACK_BUDDY)
+    (b"                gunnerStuff = self.findGunnerSpot(ct)\r\n",
+     b'                if KNOBS["ATTACK_BUDDY"]:\r\n'
+     b"                    mates = 1\r\n"
+     b"                    for u in ct.get_nearby_units():\r\n"
+     b"                        if ct.get_team(u) == ct.get_team() and ct.get_entity_type(u) == EntityType.BUILDER_BOT and u != ct.get_id():\r\n"
+     b"                            mates += 1\r\n"
+     b'                    if mates < KNOBS["ATTACK_BUDDY"]:\r\n'
+     b"                        self.drawState(ct, C_MARCH_ATTACK, self.mapPf.enemyCorePos)\r\n"
+     b"                        self.mapPf.moveTo(ct, self.mapPf.enemyCorePos)\r\n"
+     b"                        return\r\n"
+     b"                gunnerStuff = self.findGunnerSpot(ct)\r\n"),
     # attack: past N seats, tend what we have instead of buying scale (SEAT_MAX_OWN)
     (b"                gunnerStuff = self.findGunnerSpot(ct)\r\n",
      b'                if KNOBS["SEAT_MAX_OWN"]:\r\n'
