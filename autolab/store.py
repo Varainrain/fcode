@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS games (
     won       INTEGER NOT NULL,       -- 1/0; draws and crashes count as 0
     cond      TEXT,
     turns     INTEGER,
+    margin    REAL NOT NULL DEFAULT 0,
     ts        REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS games_variant ON games(variant);
@@ -78,6 +79,9 @@ def init():
     have = {r["name"] for r in con.execute("PRAGMA table_info(variants)")}
     if "external" not in have:
         con.execute("ALTER TABLE variants ADD COLUMN external INTEGER NOT NULL DEFAULT 0")
+    gcols = {r["name"] for r in con.execute("PRAGMA table_info(games)")}
+    if "margin" not in gcols:
+        con.execute("ALTER TABLE games ADD COLUMN margin REAL NOT NULL DEFAULT 0")
     for k, v in DEFAULT_CONTROL.items():
         con.execute("INSERT OR IGNORE INTO control(key,value) VALUES(?,?)", (k, v))
     con.commit()
@@ -118,12 +122,42 @@ def close_variant(con, name, status):
     con.commit()
 
 
+def margin_of(won, cond, turns):
+    """A continuous score in [-1, 1] for one game: sign is the result, size is
+    decisiveness. Win/loss is one bit per game; a decisive core kill at t80 and
+    a tiebreak scrape at t1000 carry very different information about strength,
+    and throwing that away is why the binary signal needs ~400 games to say
+    anything. Used ONLY to decide where to spend games - never to promote.
+    """
+    decisive = "destroy" in (cond or "").lower()
+    if decisive:
+        speed = max(0.0, (1000.0 - min(turns or 1000, 1000)) / 1000.0)
+        mag = 0.2 + 0.8 * speed
+    else:
+        mag = 0.1                      # tiebreak: barely informative either way
+    return mag if won else -mag
+
+
 def record_game(con, variant, opponent, map_, seed, seat, won, cond, turns):
     con.execute(
-        "INSERT INTO games(variant,opponent,map,seed,seat,won,cond,turns,ts)"
-        " VALUES(?,?,?,?,?,?,?,?,?)",
-        (variant, opponent, map_, seed, seat, int(won), cond, turns, time.time()))
+        "INSERT INTO games(variant,opponent,map,seed,seat,won,cond,turns,margin,ts)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?)",
+        (variant, opponent, map_, seed, seat, int(won), cond, turns,
+         margin_of(won, cond, turns), time.time()))
     con.commit()
+
+
+def margin_stats(con, variant, opponent):
+    """(mean, standard error, n) of this variant's per-game margin."""
+    rows = [r["margin"] for r in con.execute(
+        "SELECT margin FROM games WHERE variant=? AND opponent=?",
+        (variant, opponent)).fetchall()]
+    n = len(rows)
+    if n < 2:
+        return 0.0, 1.0, n
+    mean = sum(rows) / n
+    var = sum((x - mean) ** 2 for x in rows) / (n - 1)
+    return mean, (var / n) ** 0.5, n
 
 
 def tally(con, variant, opponent=None):

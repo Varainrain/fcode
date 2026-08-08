@@ -143,10 +143,13 @@ def page(con):
     else:
         base = {}
 
+    nmean_d = (store.margin_stats(con, null["name"], champ["name"])[0]
+               if (null and champ) else 0.0)
+
     # ---- live candidates
     h.append('<div class=card><h2>candidates in the arena</h2><table>'
              '<tr><th>variant</th><th>change</th><th>games</th><th>win%</th>'
-             '<th>95% CI vs null band</th><th></th></tr>')
+             '<th>margin</th><th>95% CI vs null band</th><th></th></tr>')
     rows = store.active(con, "candidate")
     if not rows:
         h.append('<tr><td colspan=6 class=dim>none live — the runner will '
@@ -155,9 +158,13 @@ def page(con):
         w, n = store.tally(con, c["name"], champ["name"] if champ else None)
         pct, lo, hi = store.wilson(w, n)
         colour = "#4ade80" if lo > nhi else ("#f87171" if hi < nlo else "#7cc4ff")
+        cmean, _, _ = store.margin_stats(con, c["name"],
+                                         champ["name"] if champ else None)
         h.append(f'<tr><td>{html.escape(c["name"])}</td>'
                  f'<td>{html.escape(c["note"] or "")}</td><td>{n}</td>'
-                 f'<td>{pct:.1f}</td><td>{bar(lo, hi, pct, nlo, nhi, colour)}</td>'
+                 f'<td>{pct:.1f}</td>'
+                 f'<td class={"good" if cmean > nmean_d else "dim"}>{cmean:+.3f}</td>'
+                 f'<td>{bar(lo, hi, pct, nlo, nhi, colour)}</td>'
                  f'<td><a href="/req?q=kill+{html.escape(c["name"])}" '
                  f'class=dim>kill</a></td></tr>')
     h.append("</table></div>")

@@ -341,6 +341,7 @@ def adjudicate(con, champ, null):
     max_games = int(store.get_control(con, "max_games", "800"))
     # The null needs its own sample before it can referee anything.
     null_ready = nn >= min_prune
+    nmean, nse, _ = store.margin_stats(con, null["name"], champ["name"])
     for c in store.active(con, "candidate"):
         w, n = store.tally(con, c["name"], champ["name"])
         pct, lo, hi = store.wilson(w, n)
@@ -359,6 +360,22 @@ def adjudicate(con, champ, null):
                       f"{c['name']} ({c['note']}) {pct:.1f}% CI {lo:.1f}-{hi:.1f} "
                       f"over null {nlo:.1f}-{nhi:.1f} at n={n} -> {newname}")
             return True
+        # MARGIN SCREEN (prune only, never promote). Win/loss is one bit; the
+        # per-game margin carries decisiveness too, so a hopeless candidate is
+        # visible far earlier. Halite III teams did the same thing - continuous
+        # fitness alongside win/loss to cut variance. Threshold is deliberately
+        # harsh (4 standard errors) because killing a good candidate early is
+        # the expensive mistake; the win-rate rules below still decide fate.
+        if null_ready and n >= max(20, min_prune // 3):
+            cmean, cse, _ = store.margin_stats(con, c["name"], champ["name"])
+            se = (cse * cse + nse * nse) ** 0.5 or 1.0
+            if (nmean - cmean) / se > 4.0:
+                store.close_variant(con, c["name"], "rejected")
+                store.log(con, "reject",
+                          f"{c['name']} ({c['note']}) margin screen at n={n}: "
+                          f"{cmean:+.3f} vs null {nmean:+.3f} "
+                          f"({(nmean-cmean)/se:.1f} SE worse)")
+                continue
         if null_ready and n >= min_prune and hi < nlo:
             store.close_variant(con, c["name"], "rejected")
             store.log(con, "reject",
