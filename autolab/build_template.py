@@ -60,6 +60,24 @@ KNOB_SPEC = {
     # 4 hp and adds nothing to the scale. This is also the first mechanism that
     # would explain the v85 bake-off's "guns past 3 rarely matter".
     "SEAT_MAX_OWN":  (0,    0,   6, "int",  "attack"),
+    # SIEGE_SENTINEL: seat a SENTINEL instead of a gunner. 0 = off.
+    # Ladder evidence 2026-08-08: across 10 games vs Clankers and team lazy the
+    # correlation is exact - every game where they built a sentinel our core took
+    # damage (504-1152), every game where they built none it took ZERO. They kill
+    # us with sentinels; we have built zero sentinels in every game on record.
+    # The 2.3.6 numbers say we have this backwards. Both turret types cost the
+    # same +20% scale, which is the binding constraint, and per turret:
+    #     gunner   20 Ti  7 dmg /1 turn = 7 DPS   25 hp  range r2 13
+    #     sentinel 30 Ti 18 dmg /2 turns= 9 DPS   40 hp  range r2 32, ignores obstacles
+    # Pantheon's postmortem calls gunners the better siege tool, but that was a
+    # balance where a gunner did 10 dmg on a 1-turn reload (10 DPS). The 2.3.6
+    # nerf (10->7 dmg, 40->25 hp, 10->20 Ti) inverted it and nobody re-tested.
+    # The decisive part: two builders healing is 8 hp/turn, which fully negates a
+    # 7-DPS gunner and does NOT stop a 9-DPS sentinel - and out-healing is exactly
+    # what our 658-core-damage-and-still-lose games look like.
+    # ⚠ A sentinel CANNOT ROTATE (rotate() is gunner-only), so the facing chosen
+    # at build time is permanent.
+    "SIEGE_SENTINEL": (0,   0,   1, "bool", "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -77,6 +95,13 @@ KNOB_SPEC = {
     "AMMO_RESERVE":  (28,   0, 120, "int",  "core"),
     "SPAWN_MIN":     (5,    2,  10, "int",  "econ"),
     "SPAWN_TI":      (360, 80, 600, "int",  "econ"),
+    # SPAWN_ALLY_STEP / SPAWN_TI_HI: Pantheon's scale-aware spawn gate, from the
+    # battlecode sources - "baseline = 400 if allies >= 12 else 200", i.e. the
+    # titanium bar for spawning RISES as the roster grows. v58 spawns on a flat
+    # bar while every unit is +20% scale, so late builders quietly double the
+    # price of everything. 0 = off (flat bar, current behaviour).
+    "SPAWN_ALLY_STEP": (0,  0,  20, "int",  "econ"),
+    "SPAWN_TI_HI":   (500, 80, 900, "int",  "econ"),
 }
 
 KNOB_LINE = "KNOBS = {" + ", ".join(
@@ -92,6 +117,12 @@ MAIN_SUBS = [
     # core: spawn policy
     (b"if self.numSpawned < 5 or globalTitanium > 360:",
      b'if self.numSpawned < KNOBS["SPAWN_MIN"] or globalTitanium > KNOBS["SPAWN_TI"]:'),
+    # core: scale-aware spawn bar (Pantheon precedent). Guarded so it folds to
+    # `if 0 and ...:` at the default and the template still verifies.
+    (b"            if spawnableTiles:\r\n",
+     b'            if KNOBS["SPAWN_ALLY_STEP"] and ct.get_unit_count() >= KNOBS["SPAWN_ALLY_STEP"] and globalTitanium <= KNOBS["SPAWN_TI_HI"]:\r\n'
+     b"                spawnableTiles = []\r\n"
+     b"            if spawnableTiles:\r\n"),
     # core: ammo conversion ceiling and reserve
     (b"convertAmount = min(16 - globalAmmo, globalTitanium - 28)",
      b'convertAmount = min(KNOBS["AMMO_CEIL"] - globalAmmo, globalTitanium - KNOBS["AMMO_RESERVE"])'),
@@ -123,6 +154,16 @@ MAIN_SUBS = [
      b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
      b"                continue\r\n"
      b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))"),
+    # attack: seat a sentinel rather than a gunner (SIEGE_SENTINEL). Guarded and
+    # placed BEFORE the gunner build so the chassis line survives untouched; the
+    # sentinel line shot ignores obstacles, so the gunner's seat still reaches.
+    (b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
+     b"                        ct.build_gunner(gunnerSpot, gunnerDir)\r\n",
+     b'                    if KNOBS["SIEGE_SENTINEL"] and ct.can_build_sentinel(gunnerSpot, gunnerDir):\r\n'
+     b"                        ct.build_sentinel(gunnerSpot, gunnerDir)\r\n"
+     b"                        return\r\n"
+     b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
+     b"                        ct.build_gunner(gunnerSpot, gunnerDir)\r\n"),
     # attack: past N seats, tend what we have instead of buying scale (SEAT_MAX_OWN)
     (b"                gunnerStuff = self.findGunnerSpot(ct)\r\n",
      b'                if KNOBS["SEAT_MAX_OWN"]:\r\n'
