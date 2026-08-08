@@ -148,6 +148,20 @@ KNOB_SPEC = {
     # WORKING: theirs was killing a core, ours was dying without firing. The
     # gate decides which effect dominates here.
     "SEAT_COOLDOWN": (0,    0, 200, "int",  "attack"),
+    # DEFENSE_GUN_MAX: cap how many of OUR OWN turrets may exist before the eco
+    # crew stops answering an enemy turret with a counter-turret. 0 = off (no
+    # cap, current behaviour).
+    # Across 18 ladder losses we built 199 gunners and 98 of them (49%) were
+    # defensive, each adding a permanent +20% to every future purchase. The
+    # sources call a counter-turret "a trap" for exactly that reason: a builder
+    # heals 4 hp/turn for 1 Ti with NO scale cost, and an enemy gunner only deals
+    # 7 dmg/turn, so healing through it is cheaper than answering it. Pantheon
+    # kept ZERO permanent defensive turrets and one home-guard builder.
+    # ⚠ DEFENCE IS ic3d's LANE - this is measured here, not merged by me. And
+    # this repo has receipts that the defensive money-gate is load-bearing in the
+    # OTHER direction (removing it collapsed the economy, 24%/17%); capping the
+    # count is the untested direction.
+    "DEFENSE_GUN_MAX": (0,  0,  12, "int",  "defense"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -485,6 +499,17 @@ MAIN_SUBS = [
      b'                floor = KNOBS["ROT_FLOOR_GUN"]\r\n'
      b"            else:\r\n"
      b'                floor = KNOBS["ROT_FLOOR"]\r\n'),
+    # defence: stop answering enemy turrets with counter-turrets past a cap
+    (b"        if uncoveredTurrets and ct.get_global_resources() >= ct.get_gunner_cost(): # only respond if we can afford a gunner\r\n",
+     b'        if KNOBS["DEFENSE_GUN_MAX"] and uncoveredTurrets:\r\n'
+     b"            _mine = 0\r\n"
+     b"            _me = ct.get_team()\r\n"
+     b"            for _b in ct.get_nearby_buildings():\r\n"
+     b"                if ct.get_team(_b) == _me and ct.get_entity_type(_b) in (EntityType.GUNNER, EntityType.SENTINEL):\r\n"
+     b"                    _mine += 1\r\n"
+     b'            if _mine >= KNOBS["DEFENSE_GUN_MAX"]:\r\n'
+     b"                uncoveredTurrets = []\r\n"
+     b"        if uncoveredTurrets and ct.get_global_resources() >= ct.get_gunner_cost(): # only respond if we can afford a gunner\r\n"),
     # attack: remember seats we already built on and stop retrying them
     # (SEAT_COOLDOWN). Two halves: record on build, skip on select.
     (b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
