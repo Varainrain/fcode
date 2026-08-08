@@ -168,6 +168,18 @@ KNOB_SPEC = {
     # CURRENT facing only - masking all 8 possible gunner facings would make
     # most of the map unroutable.
     "OWN_LANE_COST": (0,    0,  64, "int",  "path"),
+    # OWN_LANE_VETO: refuse to BUILD a conveyor on a tile one of our turrets is
+    # firing along. 0 = off.
+    # This is the placement-time version of OWN_LANE_COST, and the sources say
+    # placement is where the top teams solved it - Khaos filtered out placements
+    # that would cut off an existing turret, and explicitly did "not spam roads
+    # in front of our gunners to keep their firing path unblocked".
+    # The routing-cost version backfired for a reason the sources also give:
+    # conveyor cost scales QUADRATICALLY with route length, so making the router
+    # detour around lanes spikes titanium and starves the economy. A veto skips
+    # one tile and lets the router pick the next best; it never lengthens a route
+    # to avoid a lane.
+    "OWN_LANE_VETO": (0,    0,   1, "bool", "path"),
 }
 
 KNOB_LINE = "KNOBS = {" + ", ".join(
@@ -213,6 +225,19 @@ PF_SUBS = [
      b"            if (tile.x, tile.y) in self._ownLanes:\r\n"
      b'                cost = cost + KNOBS["OWN_LANE_COST"]\r\n'
      b"        if cost is not None and (tile.x, tile.y) in enemyThreatened:\r\n"),
+    # OWN_LANE_VETO: never lay a conveyor into an existing turret's firing lane.
+    (b"        if ct.can_build_conveyor(curEnd, bestNextDir):\r\n",
+     b'        if KNOBS["OWN_LANE_VETO"]:\r\n'
+     b"            _me = ct.get_team()\r\n"
+     b"            for _b in ct.get_nearby_buildings():\r\n"
+     b"                if ct.get_team(_b) != _me:\r\n"
+     b"                    continue\r\n"
+     b"                _bt = ct.get_entity_type(_b)\r\n"
+     b"                if _bt == EntityType.GUNNER or _bt == EntityType.SENTINEL:\r\n"
+     b"                    for _tl in ct.get_attackable_tiles_from(ct.get_position(_b), ct.get_direction(_b), _bt):\r\n"
+     b"                        if _tl.x == curEnd.x and _tl.y == curEnd.y:\r\n"
+     b"                            return\r\n"
+     b"        if ct.can_build_conveyor(curEnd, bestNextDir):\r\n"),
     # PF_SETTLE: the A* fill early-exits the moment it POPS the bot's own tile,
     # but that only settles that tile - the neighbours it then compares may be
     # relaxed upper bounds, so the greedy step can pick the wrong direction.
