@@ -155,6 +155,19 @@ KNOB_SPEC = {
     # PF_UNSEEN_COST: cost charged for a tile outside vision. 0 = off (assume
     # clear, cost 1). Khaos treated unseen tiles as impassable instead.
     "PF_UNSEEN_COST": (0,   0, 200, "int",  "path"),
+    # OWN_LANE_COST: extra conveyor-routing cost for a tile that one of OUR OWN
+    # turrets is currently firing along. 0 = off.
+    # The chassis already computes an ENEMY threat mask and charges +24 to route
+    # through it (conveyorTileCostSafe) - there is no equivalent for our own
+    # firing lanes, so the economy lays track straight through them. Measured on
+    # v58: 468 of 821 gunner-turns (57%) had the gun aimed at our own building,
+    # mostly our own conveyors, so those turrets never fire at all.
+    # This is the "hard threat mask" the sources describe: top teams forced
+    # conveyor routing to treat their own active firing paths as impassable, so
+    # "a new placement never cuts off an existing turret". Uses each turret's
+    # CURRENT facing only - masking all 8 possible gunner facings would make
+    # most of the map unroutable.
+    "OWN_LANE_COST": (0,    0,  64, "int",  "path"),
 }
 
 KNOB_LINE = "KNOBS = {" + ", ".join(
@@ -177,6 +190,29 @@ PF_SUBS = [
      b'            if KNOBS["PF_UNSEEN_COST"]:\r\n'
      b'                return KNOBS["PF_UNSEEN_COST"]\r\n'
      b"            return openCost\r\n"),
+    # OWN_LANE_COST: keep the economy out of our own turrets' firing lanes.
+    # Inlined and cached per round rather than added as a method, because a bare
+    # `def` cannot fold back to the chassis at the default.
+    (b"        cost, status = self.conveyorTileCost(ct, tile, curEnd)\r\n"
+     b"        if cost is not None and (tile.x, tile.y) in enemyThreatened:\r\n",
+     b"        cost, status = self.conveyorTileCost(ct, tile, curEnd)\r\n"
+     b'        if KNOBS["OWN_LANE_COST"] and cost is not None:\r\n'
+     b"            _r = ct.get_current_round()\r\n"
+     b"            if getattr(self, '_ownLaneRound', -1) != _r:\r\n"
+     b"                self._ownLaneRound = _r\r\n"
+     b"                _lanes = set()\r\n"
+     b"                _me = ct.get_team()\r\n"
+     b"                for _b in ct.get_nearby_buildings():\r\n"
+     b"                    if ct.get_team(_b) != _me:\r\n"
+     b"                        continue\r\n"
+     b"                    _bt = ct.get_entity_type(_b)\r\n"
+     b"                    if _bt == EntityType.GUNNER or _bt == EntityType.SENTINEL:\r\n"
+     b"                        for _tl in ct.get_attackable_tiles_from(ct.get_position(_b), ct.get_direction(_b), _bt):\r\n"
+     b"                            _lanes.add((_tl.x, _tl.y))\r\n"
+     b"                self._ownLanes = _lanes\r\n"
+     b"            if (tile.x, tile.y) in self._ownLanes:\r\n"
+     b'                cost = cost + KNOBS["OWN_LANE_COST"]\r\n'
+     b"        if cost is not None and (tile.x, tile.y) in enemyThreatened:\r\n"),
     # PF_SETTLE: the A* fill early-exits the moment it POPS the bot's own tile,
     # but that only settles that tile - the neighbours it then compares may be
     # relaxed upper bounds, so the greedy step can pick the wrong direction.
