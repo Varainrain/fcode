@@ -126,10 +126,23 @@ def record_game(con, variant, opponent, map_, seed, seat, won, cond, turns):
     con.commit()
 
 
-def tally(con, variant):
-    row = con.execute(
-        "SELECT COUNT(*) n, COALESCE(SUM(won),0) w FROM games WHERE variant=?",
-        (variant,)).fetchone()
+def tally(con, variant, opponent=None):
+    """Wins/games for a variant, optionally only against one opponent.
+
+    ALWAYS pass the current champion. A variant's row survives a chassis change
+    but its old games are against a different bot, so an unqualified tally mixes
+    eras: re-benching sub_v49 after the rebase counted its 402 games against the
+    OLD champion and retired it at max_games before it played a single game
+    against the new one.
+    """
+    if opponent:
+        row = con.execute(
+            "SELECT COUNT(*) n, COALESCE(SUM(won),0) w FROM games"
+            " WHERE variant=? AND opponent=?", (variant, opponent)).fetchone()
+    else:
+        row = con.execute(
+            "SELECT COUNT(*) n, COALESCE(SUM(won),0) w FROM games WHERE variant=?",
+            (variant,)).fetchone()
     return row["w"], row["n"]
 
 

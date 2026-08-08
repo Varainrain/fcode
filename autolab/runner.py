@@ -77,6 +77,19 @@ def defaults():
     return {k: v[0] for k, v in KNOB_SPEC.items()}
 
 
+def full_knobs(raw):
+    """A stored knob vector, filled from the spec for knobs added since.
+
+    Anything reading knobs out of the database goes through this. Twice now a
+    knob added mid-run has crashed a caller that indexed the dict directly -
+    materialise() raised on it, then propose() raised on it and killed the
+    runner for hours.
+    """
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    return dict(defaults(), **(raw or {}))
+
+
 def lanes_enabled(con):
     return {s.strip() for s in
             (store.get_control(con, "lanes", "attack") or "").split(",") if s.strip()}
@@ -239,7 +252,7 @@ def check_chassis(con):
     # differs from defaults() only by that absent key, which used to manufacture
     # a "carry-forward" candidate with an empty diff - a duplicate of the
     # champion wearing a candidate's hat.
-    old_knobs = dict(defaults(), **json.loads(old["knobs"]))
+    old_knobs = full_knobs(old["knobs"])
     for row in list(store.active(con, "champion")) + list(store.active(con, "null"))             + list(store.active(con, "candidate")):
         store.close_variant(con, row["name"], "retired")
     name = f"lab_champ_{next(SEQ)}"
@@ -299,7 +312,7 @@ def refill(con, champ, rng):
     tried = {r["knobs"] for r in
              con.execute("SELECT knobs FROM variants").fetchall()}
     lanes = lanes_enabled(con)
-    champ_knobs = json.loads(champ["knobs"])
+    champ_knobs = full_knobs(champ["knobs"])
     for _ in range(want - len(live)):
         cand, desc = propose(con, champ_knobs, tried, lanes, rng, champ["name"])
         if cand is None:
@@ -321,7 +334,7 @@ def adjudicate(con, champ, null):
     chassis change, not a knob move, and chassis changes go through the team's
     merge pipeline, not an automatic swap (26/26 transplant law).
     """
-    nw, nn = store.tally(con, null["name"])
+    nw, nn = store.tally(con, null["name"], champ["name"])
     _, nlo, nhi = store.wilson(nw, nn)
     min_prune = int(store.get_control(con, "min_prune", "60"))
     min_promote = int(store.get_control(con, "min_promote", "400"))
@@ -329,7 +342,7 @@ def adjudicate(con, champ, null):
     # The null needs its own sample before it can referee anything.
     null_ready = nn >= min_prune
     for c in store.active(con, "candidate"):
-        w, n = store.tally(con, c["name"])
+        w, n = store.tally(con, c["name"], champ["name"])
         pct, lo, hi = store.wilson(w, n)
         if null_ready and n >= min_promote and lo > nhi:
             store.close_variant(con, c["name"], "promoted")
@@ -357,7 +370,7 @@ def adjudicate(con, champ, null):
                       f"{c['name']} ({c['note']}) undecided at n={n}: "
                       f"{pct:.1f}% CI {lo:.1f}-{hi:.1f} vs null {nlo:.1f}-{nhi:.1f}")
     for b in store.active(con, "bench"):
-        w, n = store.tally(con, b["name"])
+        w, n = store.tally(con, b["name"], champ["name"])
         pct, lo, hi = store.wilson(w, n)
         if n >= max_games:
             store.close_variant(con, b["name"], "retired")
@@ -380,7 +393,7 @@ def handle_request(con, champ, rng):
             store.close_variant(con, arg.strip(), "retired")
             store.log(con, "manual", f"killed {arg.strip()}")
         elif cmd == "try":
-            knobs = dict(json.loads(champ["knobs"]), **json.loads(arg))
+            knobs = dict(full_knobs(champ["knobs"]), **json.loads(arg))
             name = f"lab_c{next(SEQ)}"
             materialise(name, knobs)
             store.add_variant(con, name, knobs, "candidate", parent=champ["name"],
@@ -491,8 +504,20 @@ def main():
             time.sleep(3)
             continue
         check_own_source(con, boot)
+        try:
+            cycle(con, rng)
+        except Exception as exc:                       # noqa: BLE001
+            # Log and carry on. An unattended searcher that dies on one bad
+            # cycle is worse than the bug that killed it: the loop stopped for
+            # hours on a KeyError and the only symptom was games not going up.
+            store.log(con, "error",
+                      f"cycle failed: {type(exc).__name__}: {exc}")
+            time.sleep(5)
+
+
+def cycle(con, rng):
         if check_chassis(con):
-            continue
+            return
         champ, null = ensure_arena(con, rng)
         handle_request(con, champ, rng)
         refill(con, champ, rng)
@@ -500,12 +525,12 @@ def main():
                  + list(store.active(con, "bench")))
         if len(arena) < 2:
             time.sleep(5)
-            continue
+            return
         workers = max(1, int(store.get_control(con, "workers", "6")))
         # Fewest games first: the null keeps pace with the candidates, so its
         # band is always current rather than a stale number from an hour ago.
         jobs = []
-        counts = {v["name"]: store.tally(con, v["name"])[1] for v in arena}
+        counts = {v["name"]: store.tally(con, v["name"], champ["name"])[1] for v in arena}
         for _ in range(workers * 2):
             pick = min(arena, key=lambda v: counts[v["name"]])
             k = counts[pick["name"]]
@@ -529,8 +554,7 @@ def main():
                     continue
                 store.record_game(con, variant, champ["name"], map_, seed, seat,
                                   won, cond, turns)
-        if adjudicate(con, champ, null):
-            continue
+        adjudicate(con, champ, null)
 
 
 if __name__ == "__main__":

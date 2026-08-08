@@ -85,7 +85,7 @@ def page(con):
     total = con.execute("SELECT COUNT(*) c FROM games").fetchone()["c"]
 
     if null:
-        nw, nn = store.tally(con, null["name"])
+        nw, nn = store.tally(con, null["name"], champ["name"] if champ else None)
         npct, nlo, nhi = store.wilson(nw, nn)
     else:
         nw = nn = 0
@@ -152,7 +152,7 @@ def page(con):
         h.append('<tr><td colspan=6 class=dim>none live — the runner will '
                  'propose more on its next cycle</td></tr>')
     for c in rows:
-        w, n = store.tally(con, c["name"])
+        w, n = store.tally(con, c["name"], champ["name"] if champ else None)
         pct, lo, hi = store.wilson(w, n)
         colour = "#4ade80" if lo > nhi else ("#f87171" if hi < nlo else "#7cc4ff")
         h.append(f'<tr><td>{html.escape(c["name"])}</td>'
@@ -175,7 +175,7 @@ def page(con):
                  '<tr><th>bot</th><th>state</th><th>games</th><th>win%</th>'
                  '<th>95% CI vs null band</th><th></th></tr>')
         for b in bench:
-            w, n = store.tally(con, b["name"])
+            w, n = store.tally(con, b["name"], champ["name"] if champ else None)
             pct, lo, hi = store.wilson(w, n)
             colour = "#4ade80" if lo > nhi else ("#f87171" if hi < nlo else "#7cc4ff")
             verdict = ("ABOVE null" if lo > nhi else
@@ -199,7 +199,7 @@ def page(con):
     if not closed:
         h.append('<tr><td colspan=5 class=dim>nothing closed yet</td></tr>')
     for c in closed:
-        w, n = store.tally(con, c["name"])
+        w, n = store.tally(con, c["name"], champ["name"] if champ else None)
         pct, _, _ = store.wilson(w, n)
         klass = {"promoted": "good", "rejected": "bad"}.get(c["status"], "dim")
         h.append(f'<tr><td>{html.escape(c["name"])}</td>'

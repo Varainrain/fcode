@@ -32,8 +32,11 @@ KNOB_SPEC = {
     "HARASS_TI":     (30,  10, 200, "int",  "attack"),
     "SEAT_COV_MAX":  (1,    0,   3, "int",  "attack"),
     "ATTACK_MOD":    (3,    2,   5, "int",  "attack"),
-    "ROT_FLOOR_DEF": (20,   0, 200, "int",  "attack"),
-    "ROT_FLOOR":     (80,   0, 300, "int",  "attack"),
+    # v58 split the rotation affordability floor into three tiers: defending the
+    # core, hitting some other turret, and everything else.
+    "ROT_FLOOR_DEF": (35,   0, 200, "int",  "attack"),
+    "ROT_FLOOR_GUN": (50,   0, 250, "int",  "attack"),
+    "ROT_FLOOR":     (85,   0, 300, "int",  "attack"),
     "RAY_FIRST":     (0,    0,   1, "bool", "attack"),
     # SEAT_FALLBACK: when every candidate seat exceeds SEAT_COV_MAX, take the
     # least-covered one anyway instead of returning None. Ladder evidence
@@ -77,9 +80,8 @@ MAIN_SUBS = [
      b'if nextNum % KNOBS["ATTACK_MOD"] == 1 and nextNum not in (5, 7):'),
     (b"if self.mapPf.myNum % 3 == 1 and self.mapPf.myNum not in (5, 7):",
      b'if self.mapPf.myNum % KNOBS["ATTACK_MOD"] == 1 and self.mapPf.myNum not in (5, 7):'),
-    # attack: titanium gates
-    (b"if ct.get_global_resources() < 96:",
-     b'if ct.get_global_resources() < KNOBS["SEAT_TI"]:'),
+    # attack: titanium gates. v58 dropped the "too poor -> just march" early
+    # return, so SEAT_TI now has a single call site.
     (b"if ct.get_global_resources() >= 30 and self.attackHarvesterWithGunner(ct):",
      b'if ct.get_global_resources() >= KNOBS["HARASS_TI"] and self.attackHarvesterWithGunner(ct):'),
     (b"if ct.get_global_resources() >= 96:",
@@ -173,8 +175,16 @@ MAIN_SUBS = [
      b'                    if KNOBS["RAY_FIRST"]:\r\n'
      b"                        break\r\n"),
     # gunner: rotation affordability floors
-    (b"floor = 20 if bestIsCoreDefense else 80",
-     b'floor = KNOBS["ROT_FLOOR_DEF"] if bestIsCoreDefense else KNOBS["ROT_FLOOR"]'),
+    (b"                floor = 35\r\n"
+     b"            elif gunnerHits > 0:\r\n"
+     b"                floor = 50\r\n"
+     b"            else:\r\n"
+     b"                floor = 85\r\n",
+     b'                floor = KNOBS["ROT_FLOOR_DEF"]\r\n'
+     b"            elif gunnerHits > 0:\r\n"
+     b'                floor = KNOBS["ROT_FLOOR_GUN"]\r\n'
+     b"            else:\r\n"
+     b'                floor = KNOBS["ROT_FLOOR"]\r\n'),
 ]
 
 
