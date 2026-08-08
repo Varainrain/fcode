@@ -373,7 +373,13 @@ def adjudicate(con, champ, null):
         cmean, cse, cmn = store.margin_stats(con, c["name"], champ["name"])
         # both sides need real margin samples, and a floor on the SE so a small
         # sample can never divide its way to a confident-looking verdict
-        if null_ready and cmn >= 20 and nmn >= 20:
+        # 100, not 20. At n=21 the margin's own standard error is ~0.11, so a
+        # 4-SE gap is reachable by chance - and it fired, killing SEAT_RAY_CLEAR
+        # and SEAT_RAY_CLEAR+DENY_HEAL at 21 games each, the two hypotheses with
+        # the strongest mechanical evidence behind them (57% of gunner-turns
+        # aimed at our own buildings). A screen that culls faster than the
+        # evidence arrives is not a screen, it is a random number generator.
+        if null_ready and cmn >= 100 and nmn >= 100:
             se = max(0.02, (cse * cse + nse * nse) ** 0.5)
             if (nmean - cmean) / se > 4.0:
                 store.close_variant(con, c["name"], "rejected")

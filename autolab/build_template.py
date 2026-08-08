@@ -111,6 +111,18 @@ KNOB_SPEC = {
     # placement time too: a penalty for placements that would destroy an ally
     # conveyor, and never letting a new placement cut off an existing turret.
     "SEAT_RAY_CLEAR": (0,   0,   1, "bool", "attack"),
+    # SEAT_HIT_FACING: ic3d's v60 fix, ported so it can be measured on v58.
+    # Ask the ENGINE which facing actually hits the core from this seat
+    # (can_fire_from) instead of trusting direction_to, and re-aim accordingly.
+    # Strictly better than SEAT_RAY_CLEAR, which re-implements ray geometry with
+    # rayBlockedByTeam: can_fire_from accounts for blocking, range and geometry
+    # in one authoritative call.
+    # ⚠ v60 SKIPS the seat when no facing hits. Combined with our measured
+    # failure mode - 0-1 seats landed in every game we lose - a stricter seat
+    # filter could starve the siege outright, which is what v59/v60 benching
+    # below the null looks like. So this knob only RE-AIMS; pair it with
+    # SEAT_FALLBACK to test the skip-vs-fallback question separately.
+    "SEAT_HIT_FACING": (0,  0,   1, "bool", "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -387,6 +399,21 @@ MAIN_SUBS = [
      b'                floor = KNOBS["ROT_FLOOR_GUN"]\r\n'
      b"            else:\r\n"
      b'                floor = KNOBS["ROT_FLOOR"]\r\n'),
+    # attack: engine-truth facing (ic3d's v60 _hitFacing, ported to v58). Adds
+    # the helper and RE-AIMS the seat; deliberately does not skip the seat, so
+    # the skip-vs-fallback question can be tested separately.
+    # Inlined rather than added as a helper method: a bare `def` cannot fold
+    # away at the default, and verify_template rightly rejected that.
+    (b"                    self.drawState(ct, C_TURRET_SPOT, gunnerSpot)\r\n",
+     b"                    self.drawState(ct, C_TURRET_SPOT, gunnerSpot)\r\n"
+     b'                    if KNOBS["SEAT_HIT_FACING"]:\r\n'
+     b"                        for _f in [gunnerDir] + [d for d in DIRECTIONS if d is not gunnerDir]:\r\n"
+     b"                            try:\r\n"
+     b"                                if ct.can_fire_from(gunnerSpot, _f, EntityType.GUNNER, self.mapPf.enemyCorePos):\r\n"
+     b"                                    gunnerDir = _f\r\n"
+     b"                                    break\r\n"
+     b"                            except Exception:\r\n"
+     b"                                continue\r\n"),
     # attack: refuse a seat whose line of fire is blocked by our own buildings.
     # Ordered AFTER the SEAT_PREFER_CORE sub so the score line it anchors on is
     # the one that survives that substitution - anchor order is load-bearing.
