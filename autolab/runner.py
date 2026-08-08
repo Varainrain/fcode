@@ -67,10 +67,13 @@ def materialise(name, knobs):
     new = ("KNOBS = {" + ", ".join(
         '"%s": %d' % (k, int(knobs.get(k, KNOB_SPEC[k][0])))
         for k in KNOB_SPEC) + "}  # autolab").encode()
-    b, n = line_re.subn(new, b, count=1)
-    if n != 1:
-        raise RuntimeError(f"{name}: KNOBS line not found in template")
-    p.write_bytes(b)
+    # both files carry a KNOBS line: main.py and mapPathfinding.py
+    for fname in ("main.py", "mapPathfinding.py"):
+        p = dest / fname
+        b, n = line_re.subn(new, p.read_bytes(), count=1)
+        if n != 1:
+            raise RuntimeError(f"{name}: KNOBS line not found in {fname}")
+        p.write_bytes(b)
     return dest
 
 

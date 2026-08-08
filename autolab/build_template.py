@@ -125,10 +125,62 @@ KNOB_SPEC = {
     # price of everything. 0 = off (flat bar, current behaviour).
     "SPAWN_ALLY_STEP": (0,  0,  20, "int",  "econ"),
     "SPAWN_TI_HI":   (500, 80, 900, "int",  "econ"),
+    # --- pathfinding (chassis file; flagged to Oogway, measured here) ---
+    # PF_SETTLE: finish the A* fill so every cardinal neighbour of the bot is
+    # settled before stepping. Measured 2.6% of fills exit with an unsettled
+    # neighbour, i.e. an upper bound the greedy step may act on.
+    "PF_SETTLE":     (0,    0,   1, "bool", "path"),
+    # PF_UNSEEN_COST: cost charged for a tile outside vision. 0 = off (assume
+    # clear, cost 1). Khaos treated unseen tiles as impassable instead.
+    "PF_UNSEEN_COST": (0,   0, 200, "int",  "path"),
 }
 
 KNOB_LINE = "KNOBS = {" + ", ".join(
     '"%s": %d' % (k, v[0]) for k, v in KNOB_SPEC.items()) + "}"
+
+# --- mapPathfinding.py substitutions -----------------------------------------
+# Reviewed against the sources 2026-08-08. Both defects are real; both are
+# guarded so the default folds back to the chassis byte-for-byte.
+PF_SUBS = [
+    (b"CARDINALS = [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]",
+     b"CARDINALS = [Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST]\r\n"
+     + KNOB_LINE.encode() + b"  # autolab"),
+    # PF_UNSEEN_COST: tiles outside vision are assumed to be clear terrain at
+    # cost 1. Pantheon's Khaos treated unseen tiles as IMPASSABLE and filled the
+    # map in via symmetry broadcast instead, so units never route through
+    # corridors that may not exist. 0 = off (optimistic, current behaviour).
+    (b"        if dx * dx + dy * dy > 20: # outside vision: assume clear terrain\r\n"
+     b"            return openCost\r\n",
+     b"        if dx * dx + dy * dy > 20: # outside vision: assume clear terrain\r\n"
+     b'            if KNOBS["PF_UNSEEN_COST"]:\r\n'
+     b'                return KNOBS["PF_UNSEEN_COST"]\r\n'
+     b"            return openCost\r\n"),
+    # PF_SETTLE: the A* fill early-exits the moment it POPS the bot's own tile,
+    # but that only settles that tile - the neighbours it then compares may be
+    # relaxed upper bounds, so the greedy step can pick the wrong direction.
+    # Measured: 2.6% of fills (24 of 917) exit with an unsettled neighbour.
+    # With this on, the fill keeps going until every cardinal neighbour of the
+    # bot has been popped, which is what a full reverse Dijkstra guarantees.
+    (b"        self.fillCount += 1\r\n",
+     b'        if KNOBS["PF_SETTLE"]:\r\n'
+     b"            _hit = None\r\n"
+     b"            _neigh = set()\r\n"
+     b"        self.fillCount += 1\r\n"),
+    (b"            if cx == mx and cy == my:\r\n"
+     b"                return g\r\n",
+     b'            if KNOBS["PF_SETTLE"]:\r\n'
+     b"                _neigh.discard((cx, cy))\r\n"
+     b"                if cx == mx and cy == my:\r\n"
+     b"                    _hit = g\r\n"
+     b"                    for _dx, _dy in cardDeltas:\r\n"
+     b"                        _nx, _ny = mx + _dx, my + _dy\r\n"
+     b"                        if 0 <= _nx < w and 0 <= _ny < h and distStamp[_nx][_ny] == fill:\r\n"
+     b"                            _neigh.add((_nx, _ny))\r\n"
+     b"                if _hit is not None and not _neigh:\r\n"
+     b"                    return _hit\r\n"
+     b"            if cx == mx and cy == my:\r\n"
+     b"                return g\r\n"),
+]
 
 # (anchor, replacement) applied to main.py, in order. Anchors are byte-exact and
 # each must appear exactly once.
@@ -328,6 +380,25 @@ MAIN_SUBS = [
 ]
 
 
+def _apply(path, subs, label):
+    """Apply anchored substitutions to one file, asserting every anchor."""
+    # Normalise to CRLF first. Chassis files reach us by two routes with two
+    # conventions - git checkouts are CRLF here, bots unzipped from a platform
+    # submission are LF - and the anchors below are written with \r\n, so an LF
+    # chassis would fail every multi-line anchor for a reason that has nothing
+    # to do with the code having changed.
+    b = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    for i, (anchor, repl) in enumerate(subs):
+        n = b.count(anchor)
+        if n != 1:
+            raise SystemExit(
+                f"{label} anchor {i} matched {n} times, expected 1 - the chassis "
+                f"moved under us. Fix autolab/build_template.py before searching."
+                f"\n  anchor: {anchor[:80]!r}")
+        b = b.replace(anchor, repl, 1)
+    path.write_bytes(b)
+
+
 def build(chassis="OogwayAttack"):
     src = ROOT / "bots" / chassis
     if not (src / "main.py").is_file():
@@ -336,26 +407,16 @@ def build(chassis="OogwayAttack"):
         shutil.rmtree(TEMPLATE)
     shutil.copytree(src, TEMPLATE, ignore=shutil.ignore_patterns("__pycache__"))
 
-    p = TEMPLATE / "main.py"
-    # Normalise to CRLF first. Chassis files reach us by two routes with two
-    # conventions - git checkouts are CRLF here, bots unzipped from a platform
-    # submission are LF - and the anchors below are written with \r\n, so an LF
-    # chassis would fail every multi-line anchor for a reason that has nothing
-    # to do with the code having changed.
-    b = p.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
-    for i, (anchor, repl) in enumerate(MAIN_SUBS):
-        n = b.count(anchor)
-        if n != 1:
-            raise SystemExit(
-                f"anchor {i} matched {n} times, expected 1 - the chassis moved "
-                f"under us. Fix autolab/build_template.py before searching.\n"
-                f"  anchor: {anchor[:80]!r}")
-        b = b.replace(anchor, repl, 1)
-    p.write_bytes(b)
+    _apply(TEMPLATE / "main.py", MAIN_SUBS, "main.py")
+    # mapPathfinding.py carries its own copy of the KNOBS line: it is a separate
+    # module with no import of main, so pathfinding knobs need the dict locally.
+    # materialise() rewrites the line in BOTH files.
+    _apply(TEMPLATE / "mapPathfinding.py", PF_SUBS, "mapPathfinding.py")
     (TEMPLATE / "AUTOLAB_TEMPLATE").write_text(
         f"generated from bots/{chassis} by autolab.build_template\n")
     print(f"built bots/_template from bots/{chassis} "
-          f"({len(MAIN_SUBS)} anchors, {len(KNOB_SPEC)} knobs)")
+          f"({len(MAIN_SUBS)} main + {len(PF_SUBS)} pathfinding anchors, "
+          f"{len(KNOB_SPEC)} knobs)")
     return TEMPLATE
 
 

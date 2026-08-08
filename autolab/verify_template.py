@@ -44,16 +44,21 @@ def fold_defaults(text):
 
 
 def main(chassis="OogwayAttack"):
-    src = (ROOT / "bots" / chassis / "main.py").read_text(encoding="utf-8")
-    tpl = (TEMPLATE / "main.py").read_text(encoding="utf-8")
-    folded = fold_defaults(tpl)
-    if folded == src:
+    bad = []
+    for fname in ("main.py", "mapPathfinding.py"):
+        src = (ROOT / "bots" / chassis / fname).read_text(encoding="utf-8")
+        tpl = (TEMPLATE / fname).read_text(encoding="utf-8")
+        if fold_defaults(tpl) != src:
+            bad.append((fname, src, fold_defaults(tpl)))
+    if not bad:
         print(f"OK - bots/_template at default knobs is byte-identical to "
-              f"bots/{chassis}/main.py ({len(KNOB_SPEC)} knobs fold away cleanly)")
+              f"bots/{chassis} in main.py AND mapPathfinding.py "
+              f"({len(KNOB_SPEC)} knobs fold away cleanly)")
         return 0
+    fname, src, folded = bad[0]
     diff = list(difflib.unified_diff(
         src.splitlines(), folded.splitlines(),
-        fromfile=f"bots/{chassis}/main.py", tofile="template@defaults", lineterm=""))
+        fromfile=f"bots/{chassis}/{fname}", tofile="template@defaults", lineterm=""))
     print("MISMATCH - the template is NOT the chassis at default knobs:\n")
     print("\n".join(diff[:60]))
     print(f"\n({len(diff)} diff lines) - fix autolab/build_template.py")
