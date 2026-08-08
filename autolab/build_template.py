@@ -136,6 +136,18 @@ KNOB_SPEC = {
     # The sources describe exactly this: teams self-destructed turrets proven to
     # have no ammo or no feeders, specifically to lower the team's cost scale.
     "TURRET_CULL":   (0,    0,   1, "bool", "attack"),
+    # SEAT_COOLDOWN: after building a gun at a tile, do not choose that same
+    # tile again for N turns. 0 = off (current behaviour: no memory at all).
+    # Replay evidence: one attacker rebuilt the SAME seat at t19, t28, t33 and
+    # t39, each gun dying within a few turns, and the enemy core took zero
+    # damage all game. Every rebuild also costs another +20% on the cost scale.
+    # The sources call this a "temporary failure cache" - Pantheon parked a
+    # failed target tile for the next 100 rounds so builders stopped retrying it.
+    # NOTE this cuts against persistence, which lastpopperian used to win
+    # (rebuilding one seat 12 times). The difference is whether the seat is
+    # WORKING: theirs was killing a core, ours was dying without firing. The
+    # gate decides which effect dominates here.
+    "SEAT_COOLDOWN": (0,    0, 200, "int",  "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -473,6 +485,38 @@ MAIN_SUBS = [
      b'                floor = KNOBS["ROT_FLOOR_GUN"]\r\n'
      b"            else:\r\n"
      b'                floor = KNOBS["ROT_FLOOR"]\r\n'),
+    # attack: remember seats we already built on and stop retrying them
+    # (SEAT_COOLDOWN). Two halves: record on build, skip on select.
+    (b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
+     b"                        ct.build_gunner(gunnerSpot, gunnerDir)\r\n",
+     b"                    if ct.can_build_gunner(gunnerSpot, gunnerDir):\r\n"
+     b"                        ct.build_gunner(gunnerSpot, gunnerDir)\r\n"
+     b'                        if KNOBS["SEAT_COOLDOWN"]:\r\n'
+     b"                            if not hasattr(self, '_seatCool'):\r\n"
+     b"                                self._seatCool = {}\r\n"
+     b"                            self._seatCool[(gunnerSpot.x, gunnerSpot.y)] = ct.get_current_round()\r\n"),
+    (b"            if not ct.is_in_vision(spotPos):\r\n"
+     b"                continue\r\n"
+     b"            if ct.get_tile_building_id(spotPos) is not None:\r\n"
+     b"                continue\r\n"
+     b"            if ct.get_tile_env(spotPos) != Environment.EMPTY:\r\n"
+     b"                continue\r\n"
+     b"            seatCov = enemyCoverage.get((spotPos.x, spotPos.y), 0)\r\n"
+     b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
+     b'                if KNOBS["SEAT_FALLBACK"]:\r\n',
+     b"            if not ct.is_in_vision(spotPos):\r\n"
+     b"                continue\r\n"
+     b"            if ct.get_tile_building_id(spotPos) is not None:\r\n"
+     b"                continue\r\n"
+     b"            if ct.get_tile_env(spotPos) != Environment.EMPTY:\r\n"
+     b"                continue\r\n"
+     b'            if KNOBS["SEAT_COOLDOWN"] and hasattr(self, "_seatCool"):\r\n'
+     b"                _when = self._seatCool.get((spotPos.x, spotPos.y))\r\n"
+     b'                if _when is not None and ct.get_current_round() - _when < KNOBS["SEAT_COOLDOWN"]:\r\n'
+     b"                    continue\r\n"
+     b"            seatCov = enemyCoverage.get((spotPos.x, spotPos.y), 0)\r\n"
+     b'            if seatCov > KNOBS["SEAT_COV_MAX"]:\r\n'
+     b'                if KNOBS["SEAT_FALLBACK"]:\r\n'),
     # attack: cull our own blocked turrets to claw back cost scale (TURRET_CULL)
     (b"    def runAttack(self, ct: Controller):\r\n"
      b"        myLoc = ct.get_position()\r\n",
