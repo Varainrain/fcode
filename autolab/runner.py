@@ -578,8 +578,14 @@ def cycle(con, rng):
         # band is always current rather than a stale number from an hour ago.
         jobs = []
         counts = {v["name"]: store.tally(con, v["name"], champ["name"])[1] for v in arena}
-        for _ in range(workers * 2):
-            pick = min(arena, key=lambda v: counts[v["name"]])
+        # ROUND-ROBIN, not fewest-first. Strict fewest-first sends every job in
+        # the batch to whichever arm is furthest behind, so a candidate joining
+        # at n=0 while the rest sit at n=200 monopolises the machine for
+        # hundreds of games and every other arm stops accumulating entirely.
+        # Sorted by games so the newcomer still goes first within each pass.
+        order = sorted(arena, key=lambda v: counts[v["name"]])
+        for i in range(workers * 2):
+            pick = order[i % len(order)]
             k = counts[pick["name"]]
             counts[pick["name"]] += 1
             map_, seat_a = schedule(pick["name"], k)
