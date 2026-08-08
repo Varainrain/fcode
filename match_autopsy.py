@@ -206,9 +206,107 @@ def report(losses_only=False):
           f"{agg['res'].count('t1k')} tiebreak  ({n} games)")
 
 
+def narrate(path, we_are_a, limit_turns=None):
+    """A compact round-by-round account of ONE game, as plain text.
+
+    Built to be fed to a research assistant that knows FCL strategy but has
+    never seen our replays: it needs what happened and when, not a byte dump.
+    Every line is an event, positions are given relative to BOTH cores so
+    "where" is interpretable without the map.
+    """
+    data = open(path, "rb").read()
+    top = walk(data)
+    turns = top[(3, 'm')]
+    ent, cores = {}, {}
+    if (1, 'm') in top:
+        mp = walk(top[(1, 'm')][0]) or {}
+        for cm in mp.get((4, 'm'), []):
+            c = walk(cm) or {}
+            cid = c.get((1, 'v'), [None])[0]
+            team = c.get((2, 'v'), [0])[0]
+            p = pos_of(c[(3, 'm')][0]) if (3, 'm') in c else (-1, -1)
+            if cid is not None:
+                ent[cid] = {"team": team, "type": "core", "pos": p}
+                cores[team] = p
+    us, them = (0, 1) if we_are_a else (1, 0)
+
+    def coredist(p, team):
+        """Manhattan to the NEAREST tile of a 2x2 core, not to its top-left.
+
+        Measuring to the top-left alone overstates distance by up to 2 and made
+        a seat that is exactly in gunner range look hopelessly out of it.
+        """
+        c = cores.get(team)
+        if c is None:
+            return -1
+        return min(man(p, (c[0] + dx, c[1] + dy)) for dx in (0, 1) for dy in (0, 1))
+
+    def where(p):
+        return "d%d/d%d" % (coredist(p, us), coredist(p, them))
+
+    out = ["GAME: %d turns. Positions are given as dOUR/dTHEIR = manhattan "
+           "distance to our core / to their core." % len(turns), ""]
+    dmg = {us: 0, them: 0}
+    last_report = -50
+    for r, tm in enumerate(turns):
+        if limit_turns and r > limit_turns:
+            break
+        t = walk(tm)
+        if not t:
+            continue
+        for e in t.get((1, 'm'), []):
+            se = walk(e)
+            if not se:
+                continue
+            if (1, 'm') in se:
+                outer = walk(se[(1, 'm')][0]) or {}
+                c = walk(outer[(1, 'm')][0]) if (1, 'm') in outer else outer
+                c = c or {}
+                eid = c.get((1, 'v'), [None])[0]
+                team = c.get((2, 'v'), [0])[0]
+                p = pos_of(c[(3, 'm')][0]) if (3, 'm') in c else (-1, -1)
+                ty = "?"
+                for (fn, k) in c:
+                    if k == 'm' and fn >= 10:
+                        ty = PAYLOAD_TYPE.get(fn, "t%d" % fn)
+                ent[eid] = {"team": team, "type": ty, "pos": p}
+                if ty in ("gunner", "sentinel", "harvester", "launcher", "barrier"):
+                    out.append("t%-4d %-4s built %-9s at %s"
+                               % (r, "US" if team == us else "THEM", ty, where(p)))
+            elif (5, 'm') in se:
+                d = walk(se[(5, 'm')][0]) or {}
+                eid = d.get((1, 'v'), [None])[0]
+                delta = signed(d.get((2, 'v'), [0])[0])
+                if eid in ent and ent[eid]["type"] == "core" and delta < 0:
+                    # CUMULATIVE DAMAGE, not hp: heals are positive deltas and
+                    # are deliberately not netted off, so "damage dealt far above
+                    # 500 on a 500 hp core" is visible as the heal wall it is.
+                    dmg[ent[eid]["team"]] -= delta
+                    if r - last_report >= 25:
+                        out.append("t%-4d cumulative core damage TAKEN: us %d, them %d "
+                                   "(core max hp is 500; anything above that was healed back)"
+                                   % (r, dmg.get(us, 0), dmg.get(them, 0)))
+                        last_report = r
+            elif (3, 'm') in se or (13, 'm') in se:
+                key = (3, 'm') if (3, 'm') in se else (13, 'm')
+                d = walk(se[key][0]) or {}
+                eid = d.get((1, 'v'), [None])[0]
+                if eid in ent and ent[eid]["type"] in ("gunner", "sentinel", "core", "harvester"):
+                    out.append("t%-4d %-4s LOST %-9s at %s"
+                               % (r, "US" if ent[eid]["team"] == us else "THEM",
+                                  ent[eid]["type"], where(ent[eid]["pos"])))
+    return "\n".join(out)
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "report"
-    if cmd == "fetch":
+    if cmd == "narrate":
+        idx = json.loads((DIR / "index.json").read_text())
+        losses = [(m, g) for m in idx if not m["won"] for g in m["games"]]
+        m, g = losses[int(sys.argv[2]) if len(sys.argv) > 2 else 0]
+        print("# LADDER LOSS vs %s (match %s, %s)" % (m["them"], m["id"][:8], g))
+        print(narrate(str(DIR / g), m["we_are_a"]))
+    elif cmd == "fetch":
         lim = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else 8
         fetch(lim)
     else:
