@@ -101,6 +101,16 @@ KNOB_SPEC = {
     # a gunner's +20%. Eight barriers cost less scale than half a gunner, and we
     # deal 658 core damage a game and still lose to healing.
     "SIEGE_DENY_HEAL": (0,  0,   1, "bool", "attack"),
+    # SEAT_RAY_CLEAR: reject a seat whose line to the core is blocked by OUR OWN
+    # buildings. Gunners "can only shoot the first target in range" and friendly
+    # buildings absorb the shot, so a seat behind our own conveyor is a turret
+    # that never fires. Measured on v58 with an instrumented copy: 468 of 821
+    # gunner-turns (57%) had the gun aimed at our own conveyor or our own gunner.
+    # The chassis already has rayBlockedByTeam() and buildGunnerFor() uses it -
+    # findGunnerSpot, the siege path, never calls it. Pantheon solved this at
+    # placement time too: a penalty for placements that would destroy an ally
+    # conveyor, and never letting a new placement cut off an existing turret.
+    "SEAT_RAY_CLEAR": (0,   0,   1, "bool", "attack"),
     # ROT_WEIGHTED + ROT_W_*: the gunner rotation scorer is a hardcoded
     # lexicographic tuple (coreHits, coreThreatHits, gunnerHits, otherHits), so
     # ONE core hit outranks any number of enemy guns, permanently. A core is 500
@@ -377,6 +387,13 @@ MAIN_SUBS = [
      b'                floor = KNOBS["ROT_FLOOR_GUN"]\r\n'
      b"            else:\r\n"
      b'                floor = KNOBS["ROT_FLOOR"]\r\n'),
+    # attack: refuse a seat whose line of fire is blocked by our own buildings.
+    # Ordered AFTER the SEAT_PREFER_CORE sub so the score line it anchors on is
+    # the one that survives that substitution - anchor order is load-bearing.
+    (b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))\r\n",
+     b'            if KNOBS["SEAT_RAY_CLEAR"] and self.rayBlockedByTeam(ct, spotPos, enemyCore, spotDir, ct.get_team()):\r\n'
+     b"                continue\r\n"
+     b"            score = (seatCov, myLoc.distance_squared(spotPos), spotPos.distance_squared(enemyCore))\r\n"),
 ]
 
 

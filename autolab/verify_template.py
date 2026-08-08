@@ -44,6 +44,24 @@ def fold_defaults(text):
 
 
 def main(chassis="OogwayAttack"):
+    # A FAILED build leaves bots/_template as a pristine copy of the chassis,
+    # and a pristine copy folds to the chassis trivially - so "byte-identical"
+    # alone is not evidence the template is usable. It has to actually be
+    # knobbed. This check exists because exactly that happened: an anchor
+    # mismatch aborted build(), and the verifier then reported OK on a template
+    # with no KNOBS line in it at all.
+    for fname in ("main.py", "mapPathfinding.py"):
+        text = (TEMPLATE / fname).read_text(encoding="utf-8")
+        if "# autolab" not in text:
+            print(f"MISMATCH - {fname} has no KNOBS line: bots/_template is an "
+                  f"UNBUILT copy of the chassis. Re-run build_template and read "
+                  f"its error; it aborted.")
+            return 1
+        used = sum(1 for k in KNOB_SPEC if f'KNOBS["{k}"]' in text)
+        if fname == "main.py" and used < 5:
+            print(f"MISMATCH - {fname} references only {used} knobs; the build "
+                  f"did not complete.")
+            return 1
     bad = []
     for fname in ("main.py", "mapPathfinding.py"):
         src = (ROOT / "bots" / chassis / fname).read_text(encoding="utf-8")
