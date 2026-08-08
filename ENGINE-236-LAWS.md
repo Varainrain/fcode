@@ -46,14 +46,52 @@ core than we do — 8.8 / 7.0 / 6.2 against our 4.0.*
 Measured law, from a probe that pinned the unit count and built/destroyed
 conveyors one at a time:
 
+**CORRECTED 2026-08-08.** The first version of this section said "every building
+is +1%". That was wrong: it generalised from a probe that only ever built
+conveyors. The scale is **per entity type**:
+
 ```
-scale%  =  100  +  20 x (living units - 1)  +  1 x (living buildings)
-cost    =  base cost x scale% / 100
+cost   =  floor(scale x base)
+scale% =  100  +  1 x conveyors / splitters / barriers
+               +  5 x harvesters
+               + 10 x launchers
+               + 20 x builder bots, GUNNERS and sentinels
 ```
 
-- Verified linear: 1 unit → 100%, 2 → 120%, … 12 → 363%; each conveyor built
-  moved it +1 and each conveyor **destroyed moved it back -1**, so the term is
-  *alive*, not *ever built*.
+- Measured on 2.3.6 (`bots/probe_types`, `bots/probe_gun`): conveyor **+1**,
+  harvester **+5**, builder **+20**, **gunner +20**.
+- The spec sources disagree on the gunner: one says +10% ("Automata"), one says
+  +20% ("Alternative"). **The live engine is +20%** — a probe whose core spawns
+  exactly once still showed +20 per build while it was seating gunners.
+- **`get_unit_count()` COUNTS TURRETS**, not just builder bots. This is why the
+  gunner tier took three attempts to isolate: the probes looked like they were
+  spawning builders and were actually building gunners. Any logic that reasons
+  about "how many builders do we have" from `get_unit_count()` is wrong.
+- The term is *alive*, not *ever built*: destroying a conveyor gives the 1%
+  back (verified both directions), and the spec agrees ("destroying an entity
+  removes its contribution").
+
+**The consequence for the attack lane is severe and it is the best mechanical
+explanation we have for our 4.0-guns-on-core ceiling.** A gunner does not just
+cost titanium, it raises the price of *everything you buy afterwards* by 20% —
+exactly as much as an extra builder. Seat five and every future harvester,
+builder and gun costs double. That prices the siege out by itself, with no help
+from the opponent, and it independently explains two measured results nobody
+could account for: "guns past 3 rarely matter" from the v85 siege bake-off, and
+the four sentinel-siege attempts that failed at 20% / 13% / 10% / 19%.
+
+Corollary worth testing: **killing enemy turrets makes their economy cheaper**,
+and losing our own guns makes ours cheaper. Attrition on turrets is not neutral.
+
+**Why this matters more than it looks, for the attack lane:** if combat
+structures are +10% each, a siege taxes itself. The 5th gunner costs ~1.5x the
+first, *and* every harvester and builder you buy afterwards is dearer too. And
+sentinels at +20% cost the same in scaling as an entire extra builder. That is a
+mechanical explanation for two things this repo measured and never explained:
+"guns past 3 rarely matter" from the v85-era siege bake-off, and the four
+sentinel-siege attempts that failed at 20% / 13% / 10% / 19% — not because
+sentinels are weak per shot (18 dmg, 40 hp) but because each one inflates the
+whole economy by as much as a builder does.
 - Observed in a real game: a gunner costs **20 Ti at t0 and 58-72 Ti by t40-240**
   (probe log: r5 → 40, r40 → 58, r240 → 72). Builders go 30 → 108.
 
