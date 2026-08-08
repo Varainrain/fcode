@@ -1,0 +1,86 @@
+{
+ "captured": "2026-08-08 16:51",
+ "activated": "v61",
+ "matches": [
+  {
+   "id": "d7a36720",
+   "v": 61,
+   "opp": "Pantheon",
+   "score": "4-1",
+   "elo": 16.45,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "ff289409",
+   "v": 61,
+   "opp": "Lorem Ipsum",
+   "score": "2-3",
+   "elo": 0.83,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "6a399c94",
+   "v": 60,
+   "opp": "Jython",
+   "score": "4-1",
+   "elo": 11.2,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "21066afb",
+   "v": 60,
+   "opp": "The Flotte Experience",
+   "score": "3-2",
+   "elo": 5.06,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "d9f96c10",
+   "v": 60,
+   "opp": "not adgato",
+   "score": "0-5",
+   "elo": -12.28,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "7792409c",
+   "v": 60,
+   "opp": "HTTP 418",
+   "score": "2-3",
+   "elo": -7.25,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "301b033a",
+   "v": 60,
+   "opp": "Pantheon",
+   "score": "2-3",
+   "elo": 3.37,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "d1594178",
+   "v": 60,
+   "opp": "sporks",
+   "score": "0-5",
+   "elo": -6.73,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "ccdfda26",
+   "v": 60,
+   "opp": "Lorem Ipsum",
+   "score": "0-5",
+   "elo": -13.43,
+   "rating_after": 1894.2
+  },
+  {
+   "id": "dca4edab",
+   "v": 60,
+   "opp": "Jython",
+   "score": "1-4",
+   "elo": -10.83,
+   "rating_after": 1894.2
+  }
+ ]
+}
