@@ -1,4 +1,24 @@
-# 🔧 SPRINT PATCH 2: v60 ACTIVE (2026-08-08) — ic3d's replay watch, round two
+# 🛤️ CONVEYOR ROUTING SPEC — oni's ask, quantified (2026-08-09, fresh Pantheon scrim 35c8c9b7, WE WON 3-2 with v67)
+| game | side | conveyors built | died | cv per harvester | sprawl (avg dist from core) |
+|---|---|---|---|---|---|
+| **lighthouse (tiebreak LOSS — the money game)** | US | **50** | **45 (90% churn!)** | 16.7 | 6.4 |
+| | PANTHEON | 36 | 5 | 9.0 | 8.1 |
+| archi (W) | US | 36 | 19 | 18.0 | 7.0 |
+| | PANTHEON | 28 | 6 | 5.6 | 6.9 |
+| atoll (L) | US | 16 | 3 | 5.3 | 7.6 |
+| | PANTHEON | 38 | 1 | 12.7 | 9.8 |
+
+**THE FINDING: our problem is CHURN, not placement geometry.** In long games our conveyor
+deaths run 3-9x Pantheon's (45 vs 5 in the econ race we lost by titanium count). Each
+death = 3 Ti + a builder action + (cost law) the rebuilt conveyor re-taxes every gun +1%.
+Note Pantheon's SPRAWL is LARGER than ours (8-9 vs 6-7) with far fewer deaths: they route
+LONG lines through SAFE space; we route short lines through contested corridors and
+rebuild in-place after every cut. Second metric: cv-per-harvester — Pantheon ~9 in econ
+games, us 16-18 (chains too long per mine; place harvesters nearer existing chains).
+LANES: (eco/Oogway) reroute-on-cut — after a conveyor dies twice at the same tile, path
+the replacement around, not through; (attack/oni) our trunk-cutting of THEIR lines is
+exactly what they do to us — your eco-siphon idea's little sibling and measurably why
+they win these. v67 beat Pantheon 3-2 overall — the fixes are compounding. #7 @ 1939.# 🔧 SPRINT PATCH 2: v60 ACTIVE (2026-08-08) — ic3d's replay watch, round two
 1a92b5b5 g2 verified tile-by-tile: t2 gunner at manhattan 4 from their core (the
 perfect one), then THREE at manhattan 9-10 from core / 2-3 from harvesters. The v59
 harass gate (d^2<=72) was too loose — the SEAT follows the HARVESTER, so the radius
