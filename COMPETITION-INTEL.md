@@ -1,3 +1,18 @@
+# 🚰 v73 ACTIVE: SPAWN RATE LIMIT — the adgato mystery solved (2026-08-10, night)
+ic3d's "wtf happened on ladder" was the right question: the evening blowouts
+(0-5 not adgato, 1-4 Lorem) exposed a CHASSIS bug older than every module —
+`numSpawned < 5 or Ti > 360` is a respawn faucet with no memory. Against
+not adgato's barrier+gunner nets our core fed **76-109 builders (2-3k Ti) into
+the same kill zone per game** — v70 did it worse than v71, it was never a
+regression. THIS is why adgato was our worst, least-understood matchup: they
+farm our respawn logic, not our units.
+**v73 (local v77) = active + 8-round respawn cooldown after the opening 5.**
+Gate 51% n=150, flattest spread of the day. adgato field test: builder deaths
+76-109 → 1-26 per game (same ruler), score 0-5 → 1-4, games last ~2x longer.
+Elo context for the room: the queue fed us the entire top-5 in rotation from
+19:30; v70 bled 1969→1945 before v71 existed. Seal/entomb behaved correctly in
+every blowout game (inert vs gunner rushes — verified, zero misfires).
+
 # 💰 THE SPORKS VERDICT: IT'S THE ECONOMY — defense measured, necessary, NOT SUFFICIENT (2026-08-10, late)
 ic3d watched ladder loss 816102ee and called it: **sporks steals our conveyor
 corridors (7 retakes within ~1 round of our conveyor dying in g3) and plugs their
