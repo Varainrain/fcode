@@ -1,4 +1,22 @@
-# 🛤️ CONVEYOR ROUTING SPEC — oni's ask, quantified (2026-08-09, fresh Pantheon scrim 35c8c9b7, WE WON 3-2 with v67)
+# 🔀 v68 ACTIVE: CONVEYOR DEATH-MEMORY + TIMED ECO-SIPHON — PANTHEON 4-1 (2026-08-10)
+Both built in-chassis on oni's v67, one theme each, gated:
+1. **Churn fix**: per-builder memory of tiles where OUR conveyors died; router prices
+   dead corridors +45/death (capped) so replacements path around the blade.
+2. **Eco siphon (oni's sprint-finals find)**: v67's routeHarvesterTask NEVER FILTERED
+   HARVESTERS BY TEAM — connecting an enemy harvester was always legal, never aimed.
+   Docs confirm output is round-robin to adjacent buildings, ownership unchecked → a
+   connected enemy harvester feeds us ~1/4 of its output AND denies them the flow.
+   Patch = 2.5x route-score boost for enemy harvesters, **time-bounded to t>50**.
+   ⚠ The unbounded version went 0/10 ON ANTLER: small maps put enemy harvesters in
+   reach from the opening and eco builders wired THEIR economy instead of building
+   ours. PITFALLS law reconfirmed: every policy needs a resource condition AND a time
+   bound. Isolation (churn-only vs siphon-only on antler) found it in 12 games.
+Gate: 53% n=150 kills 69-64, no map collapse. **Field: PANTHEON 4-1** incl heart t949 —
+the long-grind class we historically lose. Honest mechanism note: churn in narrow-map
+grinds is still high in absolute terms (heart: 68/52) — death-memory reroutes where an
+alternate lane EXISTS; the win likely owes as much to the siphon. Watch rated churn.
+@oni note: your v61-67 line dropped the ore-cap fix (harvestTask max(0,160-dist) is
+back) — one line if you want far-ore expansion again.# 🛤️ CONVEYOR ROUTING SPEC — oni's ask, quantified (2026-08-09, fresh Pantheon scrim 35c8c9b7, WE WON 3-2 with v67)
 | game | side | conveyors built | died | cv per harvester | sprawl (avg dist from core) |
 |---|---|---|---|---|---|
 | **lighthouse (tiebreak LOSS — the money game)** | US | **50** | **45 (90% churn!)** | 16.7 | 6.4 |
