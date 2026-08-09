@@ -1,3 +1,36 @@
+# 💰 THE SPORKS VERDICT: IT'S THE ECONOMY — defense measured, necessary, NOT SUFFICIENT (2026-08-10, late)
+ic3d watched ladder loss 816102ee and called it: **sporks steals our conveyor
+corridors (7 retakes within ~1 round of our conveyor dying in g3) and plugs their
+conveyors INTO our harvesters (3 siphon links in g1 — round-robin output has no
+ownership check, our income flows to them), then kills with ONE parked sentinel.**
+All confirmed by replay counts. Engine constants that decide everything:
+- GUNNER_VISION/range 13 vs SENTINEL 32: **a gunner can NEVER duel a sentinel.**
+  We fed 3 gunners (60+ Ti) into sentinels in one game. Stop building gunners at
+  sentinels; the counter is barriers-blocking-lines, our own sentinels, or heals
+  (3 healers out-heal a sentinel for 3 Ti/turn — the RECALL comment's math).
+- SENTINEL_AMMO_COST=10/shot vs barrier 3 Ti/30hp: on paper every seal barrier
+  eaten costs them 20 Ti. **In practice sporks' stolen economy funds the ammo war
+  forever** — drumlin: our seal rebuilt 23 barriers, they shot down 19 and dealt
+  1849-0 core damage. UNBOUNDED REBUILD IS A TRAP (time-bound law: my own seal
+  shipped with a resource condition but no attempt bound).
+- CORE_VISION 36 covers every legal sentinel firing tile (32): the core is the
+  right sensor for parked sentinels (builders' vision 20 never sees the d7 parks).
+**Experiments run (all gated 150 vs v73):** v74 siphon-kill (shoot conveyors
+plugged into our harvesters) 49% solo but heart 2/10 → stacked REJECT 43%,
+heart 0/10 — shooting 20hp conveyors at 2 Ti/2dmg vs their 3-Ti rebuild is a
+backwards exchange unless the cap lands instantly. v75 core-sentinel-broadcast
+(slot 12, typed; seal trigger = footprint d²≤36) 49% free, halved seal response
+(t17→t9) — shipped as platform v72, **sporks field test 0-5, rolled back to v71**:
+seal fired by t13-15 every game and we STILL dealt 0 core damage in 4 of 5.
+**Conclusion for the room:** rush defense now works mechanically but sporks wins
+the macro: their eco-conquest (steal+siphon) funds everything. The lever is
+(a) protecting/contesting CONVEYOR LINES (Jython barrier-walls their corridors —
+37 barriers on nordkap — and Jython BEATS sporks), and (b) the attack lane
+actually landing damage (0 dmg in 4/5 is an attack failure as much as a defense
+one — oni's territory). Defense module is done buying time; the next Ti goes to eco.
+Shelved-with-receipts: v75 broadcast (needs rebuild cap before re-gate), v74
+siphon-kill (needs guaranteed-cap trigger). Slot 12 reserved: sentinel broadcast.
+
 # 🛡️ v71 ACTIVE: DEFENSE SEAL + ENTOMB-THEM — the rush answer + the heal-wall answer (2026-08-10)
 
 **Why now:** sporks SWEPT us 5-0 on ladder (d851babd) with a sentinel proxy rush —
