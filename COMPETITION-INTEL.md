@@ -1,3 +1,26 @@
+# 🎯 v74 ACTIVE: COUNTER-BATTERY + SENTINEL RADAR — the artillery answer (2026-08-10)
+ic3d flagged rated loss 3e2efaab: **arsonist duck (1773!) beat v71 3-2 with a PURE
+sentinel bot** — 2-6 sentinels parked at d5-9, zero gunners, zero barriers. This is
+the shape the engine math favors (gunner range 13 can never duel sentinel range 32)
+and more teams WILL find it before freeze. Three gaps it exposed: builders (vision
+20) never see d5-9 parks; sustained artillery pins core hp under the seal's 350
+triage floor so the seal disables itself; and we had no unit that trades with a
+sentinel — we had never built one in any autopsied game.
+**v74 (local v78) = v73 + the anti-artillery unit:**
+1. **Counter-battery sentinel** (slot 11 claim, max 2 alive, threat-triggered): OUR
+   sentinel near the core facing theirs. Range parity + adjacent healers (12 hp/turn
+   vs its 9 dmg/turn) = our defender out-heals the duel, theirs dies in 3 shots. No
+   triage gate — under sustained artillery, killing the battery is the only out.
+2. **Sentinel radar** (slot 12, the shelved v75 broadcast): CORE_VISION 36 covers
+   every legal sentinel firing tile (32); core publishes up to 2 parks.
+3. **Seal rebuild cap** (slot 15, 20 barriers/game): the missing bound that sank
+   v75 — the ammo-war shredder can never return.
+**Receipts:** gate 50% n=150 flat (all three dormant vs a sentinel-less mirror).
+**Field: arsonist duck 5-0 SWEEP (was 2-3 rated loss).** g3: their t2 park answered
+by TWO CB sentinels at t4. g4 fjordgate: survived a full t1000 grind inside the
+seal cap and won the tiebreak — the loss class Lorem took off us yesterday.
+Store slots now: 11 CB claim, 12 radar, 13 seal claim, 15 seal cap (14 healer rsvd).
+
 # 🚰 v73 ACTIVE: SPAWN RATE LIMIT — the adgato mystery solved (2026-08-10, night)
 ic3d's "wtf happened on ladder" was the right question: the evening blowouts
 (0-5 not adgato, 1-4 Lorem) exposed a CHASSIS bug older than every module —
