@@ -1,4 +1,20 @@
-# 🔀 v68 ACTIVE: CONVEYOR DEATH-MEMORY + TIMED ECO-SIPHON — PANTHEON 4-1 (2026-08-10)
+# 🏔️ v69 ACTIVE + TOP-5 SCRIM TOUR (2026-08-10)
+v69 = v68 + crash armor on run() (dev26 rule: uncaught exception = permanent unit
+death; insurance can only save) + the ore-cap restoration (penalty-not-cutoff, which
+the v61-67 line had dropped). Gate 51% n=150, kills 72-68 — free, as insurance and
+restorations should be.
+
+**TOP-5 TOUR (all unrated, v69, replays secured):**
+| rank | team | result |
+|---|---|---|
+| #1 | sporks | **L 2-3** — best result EVER vs them (was 1-4 x3) |
+| #2 | Clankers (new, Melbourne, Cambridge-postmortem team) | **W 4-1** |
+| #3 | Pivot | L 2-3 |
+| #4 | not adgato | L 1-4 |
+| #5 | Pantheon | **W 3-2** |
+2W-3L vs the elite, competitive in 4 of 5. THE OUTLIER: not adgato 1-4 — the only
+non-close series. Their replays + sporks' are the next autopsies; not adgato is now
+the least-understood team above us.# 🔀 v68 ACTIVE: CONVEYOR DEATH-MEMORY + TIMED ECO-SIPHON — PANTHEON 4-1 (2026-08-10)
 Both built in-chassis on oni's v67, one theme each, gated:
 1. **Churn fix**: per-builder memory of tiles where OUR conveyors died; router prices
    dead corridors +45/death (capped) so replacements path around the blade.
