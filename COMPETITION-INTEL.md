@@ -1,4 +1,19 @@
-# 🏔️ v69 ACTIVE + TOP-5 SCRIM TOUR (2026-08-10)
+# ✂️ v70 ACTIVE: CUT-AND-CAP — ic3d's watch, validated at the top, shipped (2026-08-10)
+ic3d saw Pantheon barrier a tile after destroying a conveyor there. The detector
+confirmed it's an elite meta: **Jython BEAT #1 sporks 3-2 doing exactly this**
+(bceeffad: sporks took 53 conveyor deaths, 3 capped — a capped cut can never rebuild
+in place, the reroute tax is permanent). Flotte did it to us twice in ca50940b.
+We did it ZERO times — until now.
+**v70**: track visible enemy conveyor tiles; when one dies, any adjacent builder caps
+the tile with a 3-Ti barrier within 4 rounds (rare trigger, one action — NOT the 29%
+plink-hook mistake). Synergy: our own death-memory (v68) already routes around enemy
+caps — v70 is the offensive half of the same coin. Gate 52% n=150 kills 74-66,
+snowflake 10/10 (watch meander 2/10). **sporks scrim: 2-3 — second straight game-5
+series vs the #1** (three 1-4s before this week).
+Also answered: ic3d's "wtf" game (ca50940b g1 antler) — the map-wide conveyor carpet
+was OURS: 70 conveyors + 9 harvesters from the ore-restore + siphon expanding hard.
+Won that game, but 70 buildings = +70% gunner tax — over-expansion is now a watch
+item (a conveyor-count cap may be worth one gate).# 🏔️ v69 ACTIVE + TOP-5 SCRIM TOUR (2026-08-10)
 v69 = v68 + crash armor on run() (dev26 rule: uncaught exception = permanent unit
 death; insurance can only save) + the ore-cap restoration (penalty-not-cutoff, which
 the v61-67 line had dropped). Gate 51% n=150, kills 72-68 — free, as insurance and
