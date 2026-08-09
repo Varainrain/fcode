@@ -1,4 +1,48 @@
-# ✂️ v70 ACTIVE: CUT-AND-CAP — ic3d's watch, validated at the top, shipped (2026-08-10)
+# 🛡️ v71 ACTIVE: DEFENSE SEAL + ENTOMB-THEM — the rush answer + the heal-wall answer (2026-08-10)
+
+**Why now:** sporks SWEPT us 5-0 on ladder (d851babd) with a sentinel proxy rush —
+sentinel at manhattan 3-5 of our core by t3-15 in 4 of 5 games; we dealt ZERO core
+damage in 4 of 5. Jython took a 3-2 scrim with the same shape (gunner at d1 by t11
+on moonrise). The platform chassis had NO anti-rush defense: pitfall #17
+(carry-forward) live on the ladder — the seal with 4-1 receipts sat unintegrated in
+modules/. Lorem Ipsum's 2 games off us (656a4d7f, we won 3-2): a 23-barrier core
+wall that zeroed our 8-gunner siege, and healing through 2261 of our core damage.
+
+**Ships (platform v71 = local v73 = v70 + two gated changes):**
+1. **Reactive anti-sentinel seal** (the defense-module port): when an enemy SENTINEL
+   is within manhattan 7 of our core (sentinel_is_core_threat's exact radius), ONE
+   eco builder per round (store slot 13 claim) barriers the threat-side tiles of the
+   12-tile seal geometry. Triage below 350 core hp. Bonus: each 3-Ti barrier eats ~2
+   sentinel shots that would have hit the core — ablative armor even when it dies.
+2. **Entomb-them**: attacker builders with a friendly turret already sieging cap
+   enemy-core-adjacent ring tiles with OUR barriers (passable only to us) — denies
+   the standing spots enemy healers need. Opportunistic only (no pathfinding), skip
+   tiles on our own turret firing rays, ≥30 Ti, max 4/builder.
+
+**⚠️ TWO MEASURED INTEGRATION LANDMINES (critical for the modules-bot merge):**
+- The PROACTIVE 12-tile seal is eco-poison on the attack chassis: conveyors connect
+  cardinally and the 8 lane tiles close every cardinal approach to the core —
+  measured 340 mined in 735 turns. On OogwayPlus it survived because that chassis
+  hooks eco before sealing. REACTIVE-ONLY on any chassis that routes continuously,
+  and always leave the 2 away-side lanes open.
+- Trigger on SENTINELS ONLY. Triggering on gunners sent eco builders marching into
+  harass fire: 4 of 5 builders dead, drumlin 0/10 (a formerly WINNING side inverted).
+  The chassis turret-response already beats gunner harass; the seal exists for the
+  outranging siege piece.
+
+**Receipts:** v71-seal 49% n=150 (drumlin 0/10→4/10 after the sentinel scoping);
+v72-entomb 51% n=150 kills 71-66; v73 stack 51% n=150, flat map spread. Adversarial
+review caught a stale-position bug in entomb (the ≥96-Ti branch moves without
+returning; phantom caps burned the budget — fixed with a re-fetch).
+**Field:** sporks 1-4 (up from 0-5; SNOWFLAKE CONVERTED — the t123 ladder kill map,
+won t171 with 4 entomb caps + zero builder deaths; 13 caps in the series; seal
+answered t6 sentinel same-turn in g1). Jython 2-3 (MOONRISE CONVERTED — their t129
+proxy-rush map, won t370). Both mechanisms verified firing in prod replays.
+**Watch:** sporks fast-kill trio heart/fjordgate/antler still loses to the full
+rush package; entomb caps deny our own future gunner seats on the ring (gate priced
+it free, but revisit if sieges stall); nordkap 2/10 in one v71 gate (noise check).
+
+# ✂️ v70: CUT-AND-CAP — ic3d's watch, validated at the top, shipped (2026-08-10)
 ic3d saw Pantheon barrier a tile after destroying a conveyor there. The detector
 confirmed it's an elite meta: **Jython BEAT #1 sporks 3-2 doing exactly this**
 (bceeffad: sporks took 53 conveyor deaths, 3 capped — a capped cut can never rebuild
