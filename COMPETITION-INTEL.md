@@ -1,3 +1,26 @@
+# ⚰️ HEIMDALL v4 "GRAVEDIGGER" (platform v79, active) — the adgato ledger broken (2026-08-10 pm)
+ic3d flagged the elo bleed; the ledger analysis found it was ONE matchup:
+not adgato took -27 elo in 4 matches in 4 hours. Ten-game autopsy found their
+kill mechanism: **their heal wall repairs EXACTLY 100% of siege damage**
+(1771 dealt/1771 healed, 826/826, 595/595, 21/21...), funded by h18-22
+harvesters and b10-14 builders. They never all-in; our damage just evaporates.
+The one game our damage exceeded their heal, we won. (O(1)'s 2989-outheal =
+same class.)
+**v4 = gravedigger:** entomb upgraded with a heal-stall detector — a sieging
+builder that watches the enemy core hp refuse to drop for 30 turns raises its
+cap budget 4→10 and DELIBERATELY walks the heal ring, capping every empty
+cardinal tile (8 exist; our own firing lanes spared). Removing one 3-Ti cap
+costs their builders 15 shots and 30 Ti of NOT healing.
+**Receipts:** gate 54% n=150, kills 72-61, no map <5. Fortress bench: walled
+core cracked t117 (v82 took 174). **adgato field: 2-3 — first competitive
+series vs them ALL SEASON** (career best was 1-4). Heal ledger in the wins:
+100% repair → 44% and 63% (11 ring caps in g5).
+**Remaining adgato gap (attack lane, oni):** the 3 losses we dealt ZERO — their
+g20-39 gunner walls stop the siege before it reaches the core. Heal denial is
+solved; siege PENETRATION through massed gunner walls is the open problem.
+Elo context: -45 from the 1984 peak = -27 adgato + -19 one old-code Pivot 0-5;
+everything else is null-band 2-3s vs the 1900-2140 pack.
+
 # 🗺️ MAPFORGE + STRESS SUITE — ic3d's idea: make our own maps (2026-08-10)
 **mapforge.py** (in ic3d-battlecode, copy in tools/ here) compiles .map26 files
 — encoder roundtrip-verified BYTE-IDENTICAL against the league pool. Format:
