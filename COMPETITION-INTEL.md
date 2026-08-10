@@ -1,3 +1,37 @@
+# ⚔️ v75 ACTIVE: SIEGE SENTINEL + JAMMER — Pantheon's formula, stolen and field-proven (2026-08-10)
+ic3d asked two things: replicate sporks, and find out HOW Pantheon beats them
+(d96022a1). The answer reshaped our attack lane.
+**The Pantheon formula (from their 3-2 over sporks):** park ONE eco-backed
+sentinel at d2-3 of the enemy core ~t50 with gunner escort. Sustained 9 dmg/turn
+beats sporks' measured 5.2/turn heal response; g3's 1224 core damage was exactly
+one sentinel's output. Their other pillars: 17-21 barriers walling their own
+conveyor CORRIDORS (never their core), and mass conveyor slaughter (sporks lost
+110 conveyors in one game). Their weakness: NO anti-rush defense — sporks' t2-6
+sentinel parks beat them exactly like they used to beat us (we have the seal/CB/
+radar stack; they don't).
+**Shipped (platform v75 = local v80):**
+1. **Siege sentinel** in the attack lane: attackers place ONE ray-aligned
+   sentinel in firing range of the enemy core before gunner spam (range parity
+   beats heal walls; gunners at range 13 never could). Gate vs v79: **77%,
+   kills 105-31 — biggest margin ever recorded in this repo.** Six 10/10 maps.
+2. **The jammer** (ic3d's idea): a builder keeps a 3-Ti barrier on a parked
+   sentinel's muzzle — every rebuild costs them 20 Ti of ammo. Review panel
+   caught 2 game-losing bugs pre-ship (out-of-vision tile queries RAISE — the
+   radar-fed approach was a silent no-op; nearest-threat commitment starved
+   jammable targets). Fixed, gated free.
+3. **sporkmic** (bots/sporkmic): local sporks replica — sentinel at d3-5 of the
+   enemy core by t1-2 on fjordgate, byte-faithful to the shape that swept us.
+   Our shipped defense held it to a t1000 tiebreak. Use it to gate all anti-rush
+   work; no more waiting for prod scrims to test the rush matchup.
+**Field:** Pantheon 4-1 (three kills under t160 — their own formula, faster);
+sporks 2-3 with an ATOLL KILL IN 108 TURNS (fastest we have ever killed the #1).
+**Known trade (open item):** snowflake 0/10 + jackpot 2/10 in the gate, both
+confirmed in the field — on fortress-race maps the siege bounces off barrier
+walls (35 dmg into Pantheon's 14-barrier wall) while its Ti cost starves home
+CB. Next gate-sized fix: bounced-siege detector (damage stalled -> stop
+reinforcing, pivot to eco harass). Store slots: 10 jam claim, 11 CB, 12 radar,
+13 seal claim, 15 defensive-barrier budget (14 healer rsvd).
+
 # 🎯 v74 ACTIVE: COUNTER-BATTERY + SENTINEL RADAR — the artillery answer (2026-08-10)
 ic3d flagged rated loss 3e2efaab: **arsonist duck (1773!) beat v71 3-2 with a PURE
 sentinel bot** — 2-6 sentinels parked at d5-9, zero gunners, zero barriers. This is
