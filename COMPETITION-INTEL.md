@@ -32,7 +32,11 @@ His mapPathfinding also deleted the churn death-pricing (memoryless purity).
 **⚠️ ENGINE 2.3.7 IS OUT** — maps sync + full re-gate before trusting ANY
 number above for the sprint. Ladder is on v79 (HEIMDALL v4, field-proven).
 Local: bots/oogstates (his bot), bots/v84b/v84c (merge isolates, receipts in
-lab_results.csv).
+lab_results.csv). Final pack number: v84c vs oogstates head-to-head = 51%
+(null) with the map polarization INTACT inside the pair (his tempo maps stay
+his 0-1/10, our grind maps stay ours) — even though v84c gates 69% vs v83
+and oogstates only 55%. Non-transitive meta: neither half is the answer
+alone; the integration is.
 
 # ⚰️ HEIMDALL v4 "GRAVEDIGGER" (platform v79, active) — the adgato ledger broken (2026-08-10 pm)
 ic3d flagged the elo bleed; the ledger analysis found it was ONE matchup:
