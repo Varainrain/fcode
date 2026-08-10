@@ -1,3 +1,25 @@
+# 📯 HEIMDALL v3 "EARLY HORN" (platform v78, active 2026-08-10 midday)
+New threat class appeared and was answered same-day. **Powered by SmartFridge
+(1712!) shipped a barrier-armored point-blank gunner-pair hyper-rush**: conveyor
+highway across the map, 2 gunners at d2-3 of our core by t13 (one shielded
+behind their own barrier vs counter-fire), 14 dmg/turn at cooldown-1 — core
+dead t42-86. Beat v76 AND v77 (1-4): the pack-seal can't block d2-3 rays and
+one claimant/round is outpaced. Frame-by-frame: our core healed 8 hp all game —
+eco builders 5+ tiles out never SEE the damaged core (no heal-lock) and the
+hp<400 recall math loses (healers arrive ~t28 at 12/turn vs 14/turn incoming).
+**v3 = early pack-recall:** the core itself (vision 36) detects >=2 enemy
+turrets in firing range before t120 AND first damage landed -> sounds RECALL
+immediately (~t14 vs ~t20). 4-5 healers = 16-20/turn out-heal the pair; their
+eco-less all-in starves. The damage-landed condition matters: without it,
+sporkmic's parked-but-sealed sentinels false-alarmed 5 builders into nursing an
+undamaged core for 120 turns (caught in smoke, fixed).
+**Receipts:** gate 51% n=150 flat, kills 62-62. sporkmic now dies t265 (was
+t1000 tiebreak). **SmartFridge field: 3-2 WIN (was 2-3, 1-4)** incl. a t1000
+tiebreak survival of the rush class that killed us at t42. Residual: fjordgate
+t88 (closest cores — the pair fires before any recall can land) + meander grind.
+Ladder note: the Pivot 5-0 was old-code v76, and Pivot is now v104 (they last
+studied at v86) — their new build is unprofiled, next autopsy target.
+
 # 🗡️ THE BOT HAS A NAME: HEIMDALL (platform v76/v77, 2026-08-10)
 ic3d asked for a Valhalla name. **HEIMDALL** — the watchman who sees a hundred
 leagues (the slot-12 radar), guards the bridge (the seal), and sounds
