@@ -1,3 +1,26 @@
+# 🎭 FAITHFUL REPLICAS, ROUND ONE (2026-08-11, engine 2.3.7)
+Per the monoculture finding, built real-DNA sparring partners from replay
+measurements:
+**bots/sporkstrue** (sporks replica v2): escorted sentinel rush + UNBOUNDED
+4x siphon + corridor steal (enemy conveyor graves get a -20 routing discount
+so our lines take over their corridors — mirrors their ~1-round retakes).
+**Fidelity: SPLIT.** vs v83 organ line: 61% — matches the real field record
+(rush axis FAITHFUL, first honest anti-rush bench the lab has ever had).
+vs v85 arbiter line: 29% where real sporks went 5-0 — the replica lacks
+their ECO-CONQUEST engine (h14 / 110-conveyor machine that out-collects
+tiebreaks). Eco-war axis still unfaithful; usable NOW as the anti-rush gate
+for all defensive work, not yet as an eco referee.
+**bots/adgatomic** (adgato replica v1): b10-14 spawn corps, 1/3 attackers,
+always-on heal wall, forward-defensive gunner+barrier belt. NOT faithful
+after two iterations (0-3 smokes, fast losses) — their sauce is PLACEMENT
+QUALITY, which knob-turning on our chassis can't reach. Needs a real
+wall-placement design — Oogway's pathfinding lane, flagged.
+**Attack-gap status:** still blocked on defense-side fidelity (benching our
+attack needs THEIR walls, not ours). Next: eco-conquest module for
+sporkstrue (their harvest/expand curves are measurable from the 20+ secured
+replays), adgato wall-placement study, then the attack bench opens.
+Toggle note: active = Oogway's v82 throughout; no changes made.
+
 # 🪞 THE MIRROR MONOCULTURE — the week's biggest finding (2026-08-10 night, engine 2.3.7)
 Full merge built as ic3d proposed: **v85 = Oogway's v82 arbiter + all eight
 HEIMDALL organs + hp-armed defense bidding** (defense states bid in the
