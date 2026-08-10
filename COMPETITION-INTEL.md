@@ -1,3 +1,21 @@
+# 🗡️ THE BOT HAS A NAME: HEIMDALL (platform v76/v77, 2026-08-10)
+ic3d asked for a Valhalla name. **HEIMDALL** — the watchman who sees a hundred
+leagues (the slot-12 radar), guards the bridge (the seal), and sounds
+Gjallarhorn so every defender answers at once (the core broadcast). Submission
+naming convention from here: "HEIMDALL vN - <change>".
+**Ladder: 1984 peak** — rated 4-1 over Clankers (2114) and 4-1 over Pantheon.
+**HEIMDALL v2 (platform v77, active) = pack-seal:** 9-loss autopsy of the three
+rated game-fives (Lorem, Jython, O(1)) showed 6 of 9 losses opened with a
+GUNNER PACK at d3-6 by t22-54 — and seal/CB/radar all read zero because the
+whole defensive kit was sentinel-scoped. Fix: >=2 gunners inside footprint-
+manhattan 5 of the core count as a siege and trigger the seal (gunner range is
+13 — a d2 barrier hard-blocks the ray). Single gunners still ignored — that
+threshold is what keeps the drumlin 0/10 death-march fixed (verified: drumlin
+5/10 in the gate, beat lastpop2/krb5 gunner rushes in smoke). Gate 49% n=150.
+Remaining known loss classes (next experiments): bounced siege (0 dmg into
+barrier walls — detector + eco-harass pivot), heal-wall outlasting us (O(1)
+out-healed 2989 — entomb budget worth revisiting).
+
 # ⚔️ v75 ACTIVE: SIEGE SENTINEL + JAMMER — Pantheon's formula, stolen and field-proven (2026-08-10)
 ic3d asked two things: replicate sporks, and find out HOW Pantheon beats them
 (d96022a1). The answer reshaped our attack lane.
