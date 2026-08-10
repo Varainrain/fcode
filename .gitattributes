@@ -1,2 +1,3 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+bots/champion/*.py whitespace=-blank-at-eol
+bots/generalist-v2/*.py whitespace=-blank-at-eol
+bots/generalist-v3/*.py whitespace=-blank-at-eol

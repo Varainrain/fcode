@@ -1,0 +1,48 @@
+{
+  "engine": "fcode 2.3.2.dev29",
+  "base": "bots/generalist-v2 (live submission v89 source)",
+  "change": "one safe-builder bounded countergun trade under two or more visible core-hitting turrets; the 120-Ti reserve is waived only for this trade",
+  "mechanism": {
+    "champion_showdown_16_games": {
+      "plans": 20,
+      "builds": 4
+    },
+    "second_opponent_family_builds": 0
+  },
+  "gates": {
+    "generalist-v2": {
+      "wins": 90,
+      "games": 168,
+      "core_kills_for": 79,
+      "core_kills_against": 69
+    },
+    "champion": {
+      "wins": 135,
+      "games": 168,
+      "core_kills_for": 120,
+      "core_kills_against": 21,
+      "control_wins": 125
+    },
+    "lastpop2": {
+      "wins": 153,
+      "games": 168,
+      "core_kills_for": 147,
+      "core_kills_against": 14,
+      "control_wins": 149
+    },
+    "OogwayOld": {
+      "wins": 146,
+      "games": 168,
+      "core_kills_for": 143,
+      "core_kills_against": 15,
+      "control_wins": 142
+    }
+  },
+  "sha256": {
+    "main.py": "CB6CD12A6FCFFA76A2A200A7860F738B229DF560DC310F432E68F7FA39407193",
+    "initialSpawning.py": "E6D48213A505729ED98BBBC1B55623484BC83B202B2E78D4FA9E929686D40BB6",
+    "mapPathfinding.py": "971A102A26E8792E6B0FED6FE8F7710641FD1D03D299322F97423A43342AE4A6",
+    "symmetry.py": "8C4AB5843AB90F8C0907E261E2049B75588BC88BFB8CEEA2CC236E3CD10CD9A1",
+    "generalist-v3.zip": "78A450D36F8CC7102822F96C39326A6D656E49C33ECF15A42C38898B10E502DD"
+  }
+}

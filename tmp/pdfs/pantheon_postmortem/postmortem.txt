@@ -1,0 +1,1679 @@
+===== PAGE 1 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                   Cambridge       Battlecode    Postmortem                         
+                                                                                    
+                                                                                    
+                                    Team Pantheon                                   
+                                                                                    
+                   Derek Wang                         Yufan Wang                    
+                  UniversityofOxford             GeorgiaInstituteofTechnology       
+                                                                                    
+                 Alex Thummalapalli                  Ioannis Pantidis               
+               GeorgiaInstituteofTechnology       DelftUniversityofTechnology       
+                                                                                    
+                                                                                    
+       Overview                             Eachmatchisplayedonarectangularmap,ranginginsize
+       WecompetedintheinauguralCambridgeBattlecodeasTeam                            
+                                            from20×20to50×50andguaranteedtobehorizontally,
+       Pantheon, consisting of Derek Wang, Yufan Wang, Alex vertically,orrotationallysymmetric.Eachteamstartswith
+       Thummalapalli,andIoannisPantidis.    asinglecoreunitthatcanspawnbuilderbots,eachrunning
+                                            anindependentcopyofthesameprogram.      
+       Weenteredthecompetitionwithmixedlevelsofexperience.                          
+       For three of us, this was our first year doing Battlecode. Thoughthemapisinitiallycomposedoffourbasictiletypes
+       Ultimately,weplacedfirstintheGrandFinalswithourbot, (empty,titaniumore,axioniteore,walls),builderbotscan
+       Khaos.Thefinalbot,alongwithourtooling,canbefoundin constructnewinfrastructurethroughoutthegamesuchas
+       ourGitHubrepository.                 conveyors,turrets,androads.             
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                            Figure2:Mapfeatures:titaniumoreinblue,axionite
+                                            oreinorange,andwallsinblack.            
+       Figure 1: A Grand Finals match between Pantheon                              
+       (gold)andsomethingelse(silver).                                              
+                                            Resources                               
+       GameOverview                         Titaniumistheprimaryresourceandisusedtobuildbuild-
+                                            ings,heal,andasammunitionformostturrets.Rawaxionite
+       CambridgeBattlecodeisasix-weekcompetitioninwhich                             
+                                            iswhatisminedfromaxioniteore.Rawaxioniteandtitanium
+       teamsdesignanddevelopalgorithmstoautonomouslyplay                            
+                                            canbecombinedtocreaterefinedaxionite(typicallyreferred
+       aturn-basedstrategygame.Thisyear’sgameinvolvedbal-                           
+                                            toassimply“axionite”),whichisapremiumresourcewith
+       ancingresourcemanagement,mapcontrol,andcombatby                              
+                                            morelimiteduses,althoughitcanbeconvertedbackinto
+       dynamicallyroutingconveyorlinesacrossa2Dmap.                                 
+                                            titaniumorusedfortiebreaks.             
+       ThoughitwasinspiredbyMITBattlecode,thiscompetition                           
+       featuredsomekeydifferences;notably,aswitchfromJava                           
+       toPython,newtimelimitconstraintsinplaceofbytecode                            
+       counting,andalargejumpincomplexity.                                          
+
+===== PAGE 2 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+           Core    BuilderBot Conveyor ArmouredConveyor Bridge Splitter Harvester   
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+          Foundry   Gunner    Sentinel  Breach    Launcher   Road     Barrier       
+                              Figure3:Gameentitiesandbuildings.                     
+                                                                                    
+       Core                                 EconomicBuildings                       
+                                                                                    
+       Eachteamstartswithacore,placedsymmetricallyonoppo-                           
+                                            • Harvesterscan be builton titaniumor axioniteore to
+       sitesidesofthemap.Thecoreisanimmobile3×3building.                            
+                                             harvestresources.Theyoutputresourceseveryfourturns
+                                             toacardinallyadjacentbuilding,likeaconveyororturret.
+       Itcanspawnbuilderbotunitsononeofitstilesonceper                              
+       turn,anditiswalkableonlybyalliedbuilderbots. • Foundriesconverttitaniumandrawaxioniteintorefined
+                                             axionite.Theyacceptinputfromanysideandwillout-
+       Resourcesmustbedeliveredtothecorebeforetheybecome                            
+                                             putrefinedaxioniteafterconsumingbothtypesofinput
+       globallyaccessibletoallunits.Thecorealsohastheability                        
+                                             resources.                             
+       toconvertaxionitetotitaniumina1:4ratio.                                      
+                                            Turrets                                 
+       BuilderBots                                                                  
+                                            Turretsaretheprimarywayofattacking.Allturrettypes
+       Theprimaryunitinthegameisthebuilderbot.Itistheonly                           
+                                            exceptlaunchersrequireammotofire,meaningresources
+       unitthatcanmoveorconstructbuildings.                                         
+                                            mustbefedintothemfromanon-facingside.Therearefour
+       Builderbotscanmoveonceperturntoanadjacenttilewitha typesofturrets:           
+       walkablebuildingonit.Theycanalsoperformanactiononce                          
+                                            • Gunnersarehigh-DPS,low-rangeturretsthatcanonly
+       perturntohealanadjacententity,constructabuildingon                           
+                                             shootthefirsttargetinrange.Theycanturnbyspending
+       anadjacenttile,orattackabuildingonthetiletheyoccupy.                         
+                                             titanium.                              
+       Builderbotscanalsofreelydestroyadjacentallybuildings                         
+       withoutusinguptheiraction.           • Sentinels are lower-DPS turrets with a long and wide
+                                             range. Unlike gunners, they can shoot any tile within
+       BuilderbotvisionextendstosquaredEuclideandistance20.                         
+                                             theirrange.                            
+       Conveyors                            • Breachesareveryhigh-DPSturretsthatdealsplashdam-
+                                             age.However,theycanonlyuserefinedaxioniteasammo,
+       • Conveyors send resources to the tile in front of them.                     
+                                             sotheyareseldomused.                   
+         Theyacceptresourcesfromthethreecardinalnon-facing                          
+         sides.                             • Launchersareutilityturretsthatcanpickupandlaunch
+                                             adjacentbuilderbotsoneitherteamtoanywalkabletile
+       • Armouredconveyorsactlikeregularconveyorsbuthave                            
+                                             intheirvision.                         
+         morehealthandcannotbedamagedbybuilderbots.They                             
+         costbothtitaniumandaxionitetobuild. MiscellaneousBuildings                 
+       • Bridges are more expensive than conveyors but have • Roadsarecheap,walkablebuildings.Sincebuilderbots
+         moreoutputoptions:anytilewithinsquareddistance≤9.                          
+                                             cannotwalkonemptytiles,aroadmustbeplacedbefore
+         Theyacceptresourcesfromanyside.     thattileispassable.                    
+       • Splittersonlyacceptresourcesfrombehind,buttheysend • Barriers are cheap, high-health buildings that block
+         outputsequallytothethreeremainingcardinalsides. buildermovement.           
+
+===== PAGE 3 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+       WinningtheGame                                                               
+                                                                                    
+       Therearetwowinconditions:eitherdestroyingtheenemy                            
+       coreorwinningbytiebreakafter2000roundshavepassed.                            
+       Tiebreakersaredeterminedinorder:                                             
+       • Axionitecollected                                                          
+                                                                                    
+       • Titaniumcollected                                                          
+       • Harvestersalive                                                            
+                                                                                    
+       • Axionitestored                                                             
+       • Titaniumstored                                                             
+                                                                                    
+       BotSummary                                                                   
+       We went through several substantial iterations and even                      
+                                               Figure5:Artemis(Gold)vsStarter(Silver)
+       entirerewritesoverthecourseofthecompetition.                                 
+       Starter                                                                      
+                                            Artemis also used a defensive launcher network both to
+                                            protectourconveyorsandharvestersandtohelpallybots
+                                            quicklymoveacrossthemap.                
+                                                                                    
+                                            Demeter                                 
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+           Figure4:Starter(Gold)vsStarter(Silver)                                   
+                                                                                    
+                                                                                    
+       WestartedwithabasiceconomybotwithA*pathfinding,                              
+       conveyorrouting,andminimalattacking.                                         
+       Artemis                                 Figure6:Demeter(Gold)vsArtemis(Silver)
+                                                                                    
+       Our initial baseline evolved into a launcher-centric bot                     
+       namedArtemis.                                                                
+                                            AftermergingwithTeamFood,webug-fixedAlex’sbotand
+       Adedicatedbuilderbotwouldrushtheenemycoreusing portedoverourmapinfo,pathfinding,andgunnerlogicfrom
+       launcherstolaunchitselfforwardinhopesofdisruptingtheir Artemis. This defensive bot solely focused on developing
+       earlyeconomyveryquickly.Thenitwouldfindaconveyor infrastructure,butalsohaddynamicturretplacementlogic
+       toattempttoattackandreplacewithaturrettodestroythe thatwouldrepurposeourownconveyorlinesiftheywere
+       enemycore.Itwouldplaceadditionallauncherstoflingaway neededmorefordefense.However,wesoonhitaplateau
+       anyenemybuilderbotattemptingtohealthetiletherusher duetoovercomplicatedcodeandstrategiesandhadtobegin
+       wasattacking.                        arewrite.                               
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+
+===== PAGE 4 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+                                            newsystemusedfactorslikeclosestbuildertoatargettile
+                                            todecidewhethertopursueatask.           
+                                            Khaos                                   
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+           Figure7:Lethe(Gold)vsDemeter(Silver)                                     
+                                                                                    
+       Lethe                                                                        
+       Keepingonlyourmapinfoandpathfindingmodules,wefully                           
+       rewroteourbotwithamemorylessarchitecture.Theidea Figure9:Khaos(Gold)vsHades(Silver)
+       behindthememorylesssystemwastohaveourbotrecom-                               
+       puteinformationeveryturnbasedonglobalmapknowledge, Adaybeforethefinalsubmissiondeadline,wemergedina
+       ratherthanretainingstalestrategiesorstates.Thisallowed brand new chokepoint detection system and attack route
+       ourbottobehighlydynamicandmakemuchmoreoptimal strategy that greatly improved our win rate. We named
+       decisionseachturn,andwefinallystartedwinninggames thisbotKhaosduetoitsunpredictableanddynamicnature,
+       againsttopteamslikeBlueDragon.       whichmadeitdifficultforopponentstocounter.
+       Hades                                StrategicOverview                       
+                                            TherestofthispostmortemdocumentshowKhaosworks.
+                                            We’llstartwithgeneralstrategies,thencovertechnicalim-
+                                            plementationfromthemapinfolayerthroughpathfinding,
+                                            states,turretlogic,andruntimeoptimization.
+                                                                                    
+                                            MemorylessArchitecture                  
+                                            Ourbitmaskedmapinfolayerisfastenoughforustorecom-
+                                            putekeydecision-makingandplanninglogicfromscratch
+                                            eachturn.Ratherthandefiningstatetransitionsbasedon
+                                            previousstates,wescoresevencandidatestateseachturn
+                                            basedoncurrentmapknowledgeandexecutethehighest
+                                            scoringstate.                           
+                                            Theintentisforlong-termbehaviortoemergefromevery
+                                            builderactingoptimallyonitscurrentlocalknowledge.This
+                                            makeseachbot’sactionsmuchmoredynamic,sincethey
+            Figure8:Hades(Gold)vsLethe(Silver) don’tpersiststalegoalsandcaneasilyadapttotheactions
+                                            ofotherbots,newlydiscoveredinformation,etc.
+       AftertheUSQualifiers,weaddedmanysmallimprovements                            
+                                            AdversarialStrategies                   
+       andpartialrewritestoLethe.Wealsorevampedourcoordi-                           
+       nationsystem,whichpreviouslyusedmarkersforbotcoor- Althoughtheseterritorialstrategiesarenothard-coded,they
+       dination,sinceitwasbeingdisruptedbyotherteamsplacing emergefromourstatemanagementandscoringsystemand
+       roadseverywhereandblockingmarkerplacementspots.The areworthhighlighting.     
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+
+===== PAGE 5 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+                                                                                    
+       Ore hopping (Figure 10) is our strategy of using ally-                       
+       controlled harvesters as staging points for attack turrets.                  
+       By placing turrets along the frontier of our controlled                      
+       territory,wecanshootthedefensesaroundnearbyopponent                          
+       harvesters.Ourbuilderbotscanthentakeovertheenemy                             
+       harvesterbybuildingmoreturretsaroundit.                                      
+       Orehoppingisaconsistentwayofpushingourfrontline                              
+                                                  Before            After           
+       forward,sinceslowlytakingoverenemyharvestersbolsters                         
+       our economy and increases map control. This often will                       
+                                                       Figure11:Seeding.            
+       createturretcombatalongthefrontier.                                          
+       Theonlydownsideoforehoppingisthatitishighlydepen- Wefrequentlyusegeometrictranslationsofasetoftilesby
+       dentonorespreadacrossthemap.Iforeclumpsaren’tspread usingtheintegershifts≪1,≫1,≪𝑊,≫𝑊 toshiftatileset
+       outenough,aturretplacedatanallyorecannotreachan east,west,south,northrespectively.Thesegeometrictrans-
+       enemyore,anditishardertohopandmeaningfullyexpand lationsareusefulforshiftingbitmaskedfrontiers,computing
+       ourterritory.                        neighborhoods/zones,etc.                
+                                            Overall,map_infomaintainsaroundthirtyderivedmasksto
+                                            storeinformationabout:                  
+                                               • Environment/Entitytype             
+                                               • Facingdirection                    
+                                               • Current/previousvisibility         
+                                               • Resourceflow                       
+                                               • Dangerzones                        
+                                               • Placementlegality                  
+                                                                                    
+             Before             After       Wecancombinethesemaskstoqueryvariousrelevantsub-
+                                            setsoftheboard.Forexample,anavoidmaskcanbequickly
+                 Figure10:Orehopping.       computedbyORingwalls,enemyturretthreatmasks,and
+                                            somebuildings.                          
+       Seeding (Figure 11) is a more aggressive way of gaining                      
+                                            ValuesthatcannotbeasinglebitarestoredinPythonlists
+       territory.Thisinvolvesbuilderbotsinterceptinganenemy                         
+                                            indexedby𝑛:buildingid,entitytype,hitpoints,facing,con-
+       conveyorlinebyattackingituntilanallied“seed”turretcan                        
+                                            veyoroutputtile,andareverse-adjacencybitmaskofevery
+       beplacedinthegap.Theanalogyisthatmuchlikeseeding                             
+                                            conveyor-typebuildingthatoutputsonto𝑛.Thatreversead-
+       a plant, our infrastructure can grow from a single turret                    
+                                            jacencyoftheconveyorgraphallowsforveryfastconveyor
+       investmentasitdestroysenemytargetsarounditandfrees                           
+                                            flowrelatedcalculations.                
+       upspaceformoreofourturretsandconveyorstobeplaced.                            
+       Seedingiseasilycounteredbyenemybuilderbotssimply UpdatingVision              
+       out-healing the attack if nearby, though there are special update_at(pos) calls the cambc controller to update our
+       casesdescribedlaterwherethiscanbeprevented. knowledgeofaspecifictile.Itiscalledforeverytileinourvi-
+                                            sion.Wealsocallitonrelevanttilesafterwebuildsomething
+       MapInfo                                                                      
+                                            orwhennewtilesenterourvisionaftermoving.
+       Themapisatmost𝑊×𝐻 ≤50×50tiles,sowecanfitbinary                               
+                                            Sincethismethodiscalledsofrequently,weonlyupdaterel-
+       information about tiles within a Python big integer of at                    
+                                            evantinfotoavoidwastingruntimeonunneededcontroller
+       most2500bits.Weencodeinformationabouttile (𝑥,𝑦) in                           
+                                            calls:                                  
+       bit𝑛 =𝑥 +𝑦𝑊.Byusingbigintegersforvariousproperties                           
+       (whetheratileisawall,ifwe’vevisitedatile,etc.),wecan (1) Core-area tiles are handled by separate core logic;
+       quicklyqueryandcomposespatialinformationaboutthe onlycorehealthisrefreshedeachturnandthefunc-
+       mapwithC-levelbitwiseoperations.         tionreturnsearly.                   
+
+===== PAGE 6 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+         (2) Symmetry tracking runs once per newly-seen tile. Forsomemasks,wealsoaddourobservedresourcebitmasks
+            Observingatilethatcontradictsasymmetricalcoun- to the cache key so that the masks are recomputed as re-
+            terpartclearsthatsymmetryflag.  sourcesflow:                            
+                                            cache_key = (_struct_version,           
+         (3) Wallscanneverholdabuildingandneverchange,                              
+                                                   _bm_conv_ti,                     
+            soiftheobservedtileisawall,thefunctionreturns                           
+                                                   _bm_conv_raw_ax,                 
+            beforethebuildinglookup.               _bm_conv_refined)                
+         (4) Otherwise, we check the building id. If it is un-                      
+                                            DerivedMasks                            
+            changedfromlastturn,weonlyrefreshhealthand                              
+            stored resources, as well as facing direction for Weuseourbasicmapinfomaskstoderivemorecomplex
+            gunners(theoneunitthatturns).   masksfordecisionmaking.                 
+                                            Enemyturretthreat:Wecomputebothasoftmask(enemy
+         (5) If the building id changed or was cleared, we up-                      
+                                            sentinelattacktiles)andahardmask(enemygunner/breach
+            dateallofourbitmaskswiththenewentityinfoand                             
+                                            attacktiles)toguidebuilderdecisions.    
+            bumpthestructuralversioncountersoanycached                              
+            calculationsthatrelyonmapinfoaremarkedstale. Wepurposelyneverstepwithinhardmasktilesduetothe
+            Formarkers,weaddtheirdecodedmessageintothe higherDPSofgunnersandbreaches.Weallowsteppinginto
+            messagequeue.                   softmasktilesinourpathfinding,justatahighercost.
+                                            Toconstructthesemasks,weprecomputetheattackpatterns
+       PredictingSymmetry                                                           
+                                            ofsentinelsandbreachesforeachfacingdirection,thenapply
+       Sincemapsareguaranteedtobeeitherhorizontally,verti- thesepatternsforturretsfacingeachdirection:
+       cally,orrotationallysymmetric,welookfortilesthatcontra-                      
+       dicteachpossiblesymmetryuntilthereisonlyoneremain- for d in 8 directions:    
+                                              turrets_d = enemy_turrets & dir_mask[d]
+       ingcandidate.Wethenusethedeterminedsymmetrytoset                             
+                                              for (dx,dy) in OFFSETS[turret_type][d]:
+       theenemycorelocationandupdateourknowledgeabout acc |= shift(turrets_d & col_mask, dx + dy*W)
+       unseentiles:                                                                 
+                                            Sincegunnerscanonlyshootthefirsttileinfrontofthem,
+        if (hor + ver + rot) == 1 and not solved_sym:                               
+          solved_sym = True                 wechecktheirfacingdirectiononestepatatime,ignoring
+          # update enemy core location      anytilespastablockingwall.              
+          their_core = flip(my_core)                                                
+          # mirror seen tile envs to unseen half                                    
+                                            Thehardandsoftmasksarememoizedon_struct_version
+          for n in seen_tiles:              tominimizerecomputation.                
+            f = flipped_index(n)                                                    
+            if not (seen & bit(f)):         Turretfeedpropagation:Weconstructabitmasktomark
+              copy_env(n → f); seen |= bit(f) whichtilesareproperlyfed.Wepropagatewhetheratileis
+          struct_version += 1               fedfromharvesters,foundries,andconveyorswithvisible
+                                            resourcesonthemupto4stepsdownstream(basedonoutput
+       Iftherearetwoormorepossiblesymmetries,westillcom- tiles).Thisbitmaskisusedforturretplacementlogictoonly
+       mittoapredictiononwheretheenemycoreis.Wedefault considertileswithasourceoftitaniumorrefinedaxionite
+       toassumingrotationalsymmetryunlessit’salreadybeen feedingthem.               
+       eliminated,inwhichcasewepredictthecloserofthehori-                           
+                                            Routetargetsanddeadends:Onepasswalkstheconveyor
+       zontallyorverticallysymmetricalcorelocations,withthe                         
+                                            graphbackwardfromthecoreareaviathereverseadjacency,
+       tiebreakrememberedsothepredictiondoesn’toscillatebe-                         
+                                            inlayers,recordingboththereachedsetandatopological-ish
+       tweenturns.Thispredictedlocationisusedtopredictally                          
+                                            visitorder.Asecondpassthenoverlaysloadedandvisible
+       vsenemyterritoryandforattackrouting.                                         
+                                            state:                                  
+       Memoization                                                                  
+       We memoize complex bitmasks based on a struct version                        
+       counter that is incremented on structural changes to the                     
+       knownmap(walldiscoveredorbuildingdiscovered/placed                           
+       /destroyed).                                                                 
+
+===== PAGE 7 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+                                            Communication                           
+        reaches_core, order = route_reaches_core()                                  
+        # walk in core-ward order           Sincerobotsaresandboxed,allcommunicationmustbere-
+        for n in order:                     layedviamarkers.Aunitmayplaceatmostonemarkerper
+          rl = (run_len[target(n)] + 1      turncarryingau32value.                  
+             if loaded(n) else 0)                                                   
+          run_len[n] = rl                                                           
+                                            PayloadFormat                           
+          if rl == 4: # 4 in a row: line jammed                                     
+            mark 4 tiles from n unroutable  Earlier iterations also used markers to communicate task
+        # a *visible* 4-run jams the whole chain: claimsbetweenbuildersandtouselauncherstospeedup
+        # flood both up- and downstream through                                     
+                                            builderbotmovement,butthosewereretiredinHades.The
+        # my conveyors                                                              
+                                            symmetry-broadcastpayloadrepurposedthelowerbitsas
+        route_targets = core_area | (reaches_core                                   
+                 & ~unroutable              a 7-bit corresponding-position code, a 21-bit environment
+                 & ~guard_conveyor)         sample,and3symmetrybits.                
+                                            All field widths and shifts are module constants and the
+       Ifweobserve4loadedconveyorsinarow,weconsiderthat encode/decodepairisastraightbit-pack:
+       conveyorlineunroutable,andignoreitinourDijkstra’sfor                         
+       conveyorrouteplanning.Thisapproximatesmaxflowsince def encode(target, type, sym, sender):
+                                              return ((target & POS_MASK)           
+       wedon’twanttoconnectmoreharvesterstoaroutethatis                             
+                                                   | (sym << SYM_SHIFT)             
+       alreadyfull.                                | (sender << SENDER_SHIFT)       
+                                                   | (type << TYPE_SHIFT)) ^ key    
+       Asasideeffect,thesamepasssetsadead-endmask(targetsof                         
+       loadedconveyorswhoseoutputisnotanacceptingbuilding, ThefinalXORwithkeyencryptsourmarkers.Weinitially
+       plusconveyorspointingintoenemyhardbuildings)anda addedthisasajoke.However,wekeptitintomakeitharder
+       feeding-enemymask(loadedconveyorswhosetargetisan forteamstodecodemarkersinreplaystofigureouthowour
+       enemyturret).Theroutestateattemptstoroutedead-ends commssystemworks.         
+       andfeeding-enemyconveyorstoroutabletargets.                                  
+                                            SymmetryBroadcasts                      
+       We also have a visible-graph check for whether a turret                      
+                                            Althoughtheprimarypurposeofthismarkertypeistoshare
+       couldpossiblystillbefed.Thischeckisusedbyturretsto                           
+                                            mapsymmetry,wealsouseittosharemapknowledgeabout
+       decide self-destruction validity: any unseen adjacent tile                   
+                                            distantpartsofthemap.                   
+       oroff-screenupstreamfeederkeepstheanswerTrue,soa                             
+       turretisonlyallowedtoself-destructwhenthevisiblelocal Wefirstbucketthemapinto5×5cells.Sincemapdimen-
+       structureprovesitisnotcurrentlysupplied. sionsareatmost50×50,thereareupto100buckets,and
+                                            sowecancommunicatewhichbucketwearesharinginfo
+       Carrying resources: We also maintain a bitmask that                          
+                                            aboutwith7bits.Wethenuse21bitstocommunicatebinary
+       expands three steps up and downstream from a resource-                       
+                                            informationabout21tileswithinthebucket(alltileswithin
+       carrying conveyor. We maintain separate bitmasks for squared radius ≤ 5 from the center of the bucket). If the
+       eachresourcetypesowecancheckifatilecouldcarrya markerisplacedonaneven𝑥 coordinate,wecommunicate
+       particularresource.                                                          
+                                            whether or not the tile environment is a wall. Otherwise,
+                                            wecommunicatewhetherornotitisatitaniumore.This
+       Avoidpathing:Wealsomaintainamaskoftilesweshould                              
+                                            resultsineachtypebeingcommunicatedbyroughlyhalfof
+       avoidwhenpathfinding.Ouruniversalavoidmaskincludes                           
+                                            ourmarkers.                             
+       walls,non-walkablebuildings,tilesaroundenemylaunchers,                       
+       and tilescovered byenemy turrets. We canalso compute Anyallybotthatreadsthemarkerthenusesthelearnedinfo
+       avoidmasksthatincludeallyconveyors(sowedon’tchange toupdatethecorresponding_bm_enventryand_bm_seen:
+       existinginfrastructurewhenplanninganewconveyorroute),                        
+                                            def apply_symmetry_broadcast_map(marker_pos, bucket, bits):
+       enemyroadsadjacenttoenemybots(sincetheyareeasily                             
+                                              env = ORE_TI if marker_pos.x & 1 else WALL
+       healable),chokepoint barriers,andnon-landlockedorein for i in set_bits(bits):
+       theharvestzone.                           dx,dy = LEARN_MAP_OFFSETS[i]       
+                                                 note_env(bucket.x+dx, bucket.y+dy, env)
+       WealsohaveanenemyPOVmodetocalculateavoidmasks                                
+       with inverted perspective (shows how the enemy would Wallsarethemorevaluableofthetwopayloadtypes,since
+       perceivetilestoavoid).               knowledge of impassable tiles helps our pathfinding and
+
+===== PAGE 8 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+       chokepointdetectionlogic.Titaniumoreobservationsdon’t                        
+                                            # seed the four cost classes into the bucket
+       affectthesesinceoreispassable,butitdoeshelpformore                           
+                                            frontier[0] = target & no_barr & no_thr 
+       efficientharvestingsinceweknowwhereharvestersshould frontier[bcost] |= target & barr & no_thr
+       beplacedbeforeexploringthemap.       frontier[tcost] |= target & no_barr & thr
+                                            frontier[bcost+tcost]|= target & barr & thr
+       Overall,ourcommunicationsystemissupplementaryonly. i = 0                     
+       Botsdon’tdependoncommunicatedinfo,buttheycanben- while True:                 
+       efitfromusingmarkerstolearnmoreofthemap. cur = frontier[i % cyc] & ~visited  
+                                              visited |= cur                        
+       Pathfinding                            # reached a valid neighbor            
+                                              if cur & can_move_to: break           
+       WerunabitmaskedversionofDial’salgorithmtofindthe nbr = expand_chebyshev(cur) & ~visited & ~avoid
+       optimalpathtoagiventarget.Bychangingtheallowedsteps frontier[(i+1) % cyc] |= nbr & nb_nt
+                                              frontier[(i+1+bc) % cyc] |= nbr & b_nt
+       andcost,wecanusethisbothforbuilderbotmovementand                             
+                                              ... (3 more cost classes)             
+       conveyorrouteplanning.                                                       
+                                              i += 1                                
+       Thesearchisruninreverse,fromtargettilestostart,sothat                        
+       pathreconstructionisnotnecessary,asitcansimplyfind When a frontier bit lands on a valid neighbor of the bot
+       thelowestdistance-to-targettileitcanmoveonto. (thatis,aneighborwecanstepontorightnow),thatdirec-
+                                            tionischosen,afterafour-stagetiebreakamongreachable
+       Dijkstra’sforMovement                                                        
+                                            neighbors:                              
+       Formovement,wedefinefourdifferentedgetypes:anormal                           
+                                              (1) We prefer walkable tiles so we don’t waste our
+       step(cost1),astepdestroyinganallybarrier(cost15),astep                       
+                                                actioncooldownonbuildingaroad.      
+       intoasoftthreat(cost20),andboth(cost35).                                     
+                                              (2) Weskiptilesnexttobordersandfriendlybots
+       Weconsideranywallsornon-walkablebuildingstobeim-                             
+                                                uptoChebyshev4ifpossible.Avoidingedgesisgood
+       passable.Wedonotmarkbuilderbotsasimpassabletopre-                            
+                                                formaximizingvision.Avoidingbuilderbotshelps
+       ventoscillationsinourroutepathasbotsmovearound.In-                           
+                                                preventclumpingorsituationswhereweaccidentally
+       stead,weonlycheckoccupancyattheendofourDijkstra’s,                           
+                                                stepontoanotherbuilderbot’stargettile.
+       whenconsideringthemovewewouldmakethisturn.                                   
+       Wethenuseacirculararrayoffrontierbitmasksasabucket (3) Wepreferwalkinginzigzags.Ifwewalkalongthe
+       queue,startingfromamaskofourtargettilesanditerating samediagonalfortwosteps,weprefertheopposite
+       untilwereachatilewecouldmoveontothisturn: diagonalnext.Theintuitionisthatzigzagginggives
+                                                usadditionalvisioncoverage.         
+                                              (4) Wepreferdiagonalsovercardinals,againtomax-
+                                                imizevisioncoverage.                
+                                            Wealsobreakallybarriersandplaceroadsasneededwhen
+                                            movingontoatile.Wewilltrytoreplaceanybarrierswe
+                                            brokeatthestartofeachturn.              
+                                            Dijkstra’sforRouting                    
+                                            Forrouting,wedefinetwodifferentedgetypes:aconveyor
+                                            step(cost1)andabridgestep(cost6).       
+                                            Whenbuildingourtargettilemask,weallowforendingon
+       Figure12:Dijkstrafrontierexpansionoverfiveitera- existingconveyors,ratherthanthecoreitself.However,we
+       tions.                               add a cost of 4 to loaded conveyor tiles, to bias our route
+                                            plannertoformnewconveyorlinesunlesstheexistingline
+                                            issignificantlybetter.                  
+                                            SincewecannotstoreparentpointerswhenrunningDijk-
+                                            stra’s,westillneedtocalculatethedesiredoutputofthefirst
+                                            conveyororbridgeweshouldbuild.Wedothisbytesting
+
+===== PAGE 9 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+                                                                                    
+       eachpossibleoutputtoseeifitexistsinthematchingprior                          
+                                            my_front, other_front = my, others      
+       costlayertoourcurrenttile.                                                   
+                                            while remaining_claims and (my_front or other_front):
+                                              my_front = expand(my_front) & passable & ~claimed
+       Weusedifferenttargettilesetswhenattackroutingtothe                           
+                                              claimed |= my_front; remaining &= ~my_front
+       ringaroundtheenemycoreorroutingtoafoundry.                                   
+                                              other_front = expand(other_front) & passable & ~claimed
+                                              claimed |= other_front; remaining &= ~other_front
+       ConveyorCost                         return my_claimed & candidates          
+       Wecalculatethetitaniumcostoftheoptimalconveyorroute                          
+       todecidewhetherweshouldstartbuildingitnow.Thisisto StuckDetection            
+       preventbuildersfromstartingroutesfromveryfarawayif                           
+                                            Ifmorethan2+(idmod8) turnspasswithoutmovement
+       wearelowontitanium.                                                          
+                                            progress,builderbotswillmovetoarandomadjacenttileto
+                                            getunstuck.The(idmod8)termaddssomevariancebased
+       Wecalculatethecostusingthisformula:                                          
+                                            onbuilderbotidsothatthisbehaviordoesn’tinadvertently
+                                            syncupacrossbuilderbots.                
+             cost(𝑑) = (cid:0) 3𝑑𝑠+0.015𝑑(𝑑−1) (cid:1) ·0.65,                       
+                                            TheCore                                 
+       forpathlength𝑑atcurrentscale𝑠.Thisisanarithmeticseries Thecoreismainlyresponsibleforspawningbuilderbots.It
+       formulathatletsuscalculatethebase3𝑑𝑠costofbuildingthe willalsoconvertaxionitetotitaniumasneeded.
+       conveyors,withanadditional0.015𝑑(𝑑−1)termtoaccount                           
+                                            SpawningBots                            
+       fortheincreasedcostofeachconveyorasscalingincreases.                         
+                                            Thespawnpolicyhasmultiplechecks:        
+       The0.65constantisanarbitrarydiscountweapplytothe                             
+       total cost. We don’t want builders to be too conservative if not has_ally and closest_enemy:
+       aboutstartingroutesbacktothecore,sincewegaintitanium spawn_on_core_tile_nearest(closest_enemy)
+                                            else:                                   
+       overtime(frompassiveincomeeveryfourturns,orother                             
+                                              baseline = 400 if allies ≥ 12 else 200
+       existingroutes).                                                             
+                                              if titanium > baseline + scaling:     
+                                                 spawn_toward_plan() or spawn_toward_center()
+       BFSforClosestTarget                                                          
+       We used Dijkstra’s for navigation and routing since we Thefirstfourbuildersarespawnedindifferentdirectionsfor
+       wantedtoaccountformultipleedgeweights.However,we betterexplorationcoverageatthestartofthegame.After
+       useamuchfasterunweightedBFSwhenwewanttofind that,botsarespawnedtowardavisibleenemyifthereisno
+       theclosesttargetforactionplanning.   allynearbyasadefensivemechanism.Otherwise,wewait
+                                            untilwehaveenoughtitaniumandthenspawnalliestoward
+       This frontier BFS mimics builder bot movement by only thecenter.             
+       expandingpassabletiles,minustileswewanttoavoid(such                          
+       as tiles adjacent to enemy launchers). This is used when InitialSpawnPlan    
+       findingtheclosestallybuildingwecouldheal,theclosest                          
+                                            Thecoreorchestratesinitialexplorationbyspawningthe
+       enemywecouldchase,etc.                                                       
+                                            firstfourbuildersonthetilefacingthedirectiontheyshould
+       The closest function also exposes a side flag that lets us explore.          
+       optionallyruntheBFSfromtheenemy’spointofview.This                            
+                                            Tofindthebestdirections,wefirstcheckwhichoftheeight
+       is used to determine how far the enemy is from a target,                     
+                                            possibledirectionsshouldbeconsidered.Foreachdirection,
+       whichhelpsusreasonaboutwhetherornotwecouldreach                              
+                                            wechecktheraypointinginthatdirection.Iftheray’send-
+       thattargetfirst.                                                             
+                                            point is out of vision, or there is titanium along the ray
+                                            path,weconsiderthedirectionvalid,sincethereisvaluein
+       FloodfillforVoronoiPartition                                                 
+                                            sendingabuilderbotinthatdirection.      
+       Eachbuilderscoresitsstatesindependently,soanexplicit                         
+                                            Fromthesetofvaliddirections,wepickthefourthatmaxi-
+       mechanismisneededtostopbuildersfromcompetingover                             
+                                            mizetheproductofpairwiseangularseparations,tospread
+       tasks.Weuseaclaim-partitionpassthatperformscompeting                         
+                                            thedirectionsout:                       
+       simultaneousChebyshevflood-fillsfromthebotversusall                          
+       otherfriendlybotsandreturnsonlythecandidatesthebot                           
+       reachesfirst:                                                                
+
+===== PAGE 10 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                            PersistentBuilderState                  
+        best = argmax over 4-subsets S of                                           
+            prod(angular_dist(a,b) for a,b in pairs(S)) Thereareafewexceptionstoourmemorylessarchitecture.
+                                            WemaintainTTLcachesforeachstatesothatbuilderswill
+                                            notreconsidertargettilesthatfailedrecently.Wealsochange
+       We tiebreak by preferring diagonals if there are multiple                    
+                                            thebehaviorofthefirstfewbuilders:       
+       setsofdirectionswiththesamepairwiseangularseparation,                        
+       sincediagonalsgiveusbettervisioncoverage.                                    
+                                            The very first builder spawned will restrict its targets to
+                                            squareddistance≤100ofthecore,soitstaysnearthecore
+       Oncewehavethefourinitialdirections,wespawnbotsin                             
+                                            asaguard.                               
+       orderoftheirdirection’sproximitytothemapcenter,since                         
+       thatismorelikelytobeacontestedregionandwewantto Thefirstfourbuilderswillcheckthetiletheyspawnonto
+       gettherebeforetheenemydoes.          decidetheirinitialexploredirection(seeInitialExploration).
+                                            Theywillclearthistargetuponarrivaloraftera30-round
+       ConvertingAxionite                                                           
+                                            timeout.                                
+       Weusethefollowinglogicforaxioniteconversion:                                 
+                                            States                                  
+        if round < 1500 and titanium < 4 * harvester_cost:                          
+          convert(clamp((3*harvester_cost - titanium)//4)) Builderbotshavesevenpossiblestatestheycanrun.Every
+                                            stateexposesascore()functionthatusesglobalmapinfo
+                                            tocalculatestatepriorityandreturnavaluestrictlybelowa
+       Thisallowsustoconvertaxionitetotitaniumwhenweare                             
+                                            fixedceiling(showninTable1).Wethenrunthelogicfor
+       runninglow,upuntilturn1500,sinceaccumulatingaxionite                         
+                                            thehighestscoringstate.                 
+       forthetiebreakerisimportantinlong-runninggamesthat                           
+       mightreachround2000.                                                         
+                                                Table1:Builderstatesbyscoreceiling. 
+       BuilderBots                                                                  
+                                                State Max Role                      
+       Builderbotsdothefollowingeachturn:                                           
+                                                attack 9  buildsentinel/gunner      
+         (1) Updatemapinfousingthecambccontrollerand                                
+                                                heal  8   repair/chaseinvaders      
+            anylearnedmapinfofromallymarkers                                        
+                                                route 7.75 routeresourcesback       
+         (2) Rebuildbrokenbarriersifwedestroyedanypre- secure 7.5 surroundanoretile 
+            viouslyformovement                  harvest 4 buildaharvester           
+                                                disrupt 2 barrierenemy-sideore      
+         (3) Scorestatesandrunthebeststate                                          
+                                                explore 1 exploreunseentiles        
+         (4) Placealauncherorbarrierifwedetectanearby                               
+            chokepoint                      We calculate state scores in descending order of the max
+                                            possiblescoreforthatstate.Thisavoidshavingtocompute
+         (5) Healanadjacentbuildingandfallbacktohealing                             
+                                            score()onlower-ceilingstatesthatcannotwinoncewe’ve
+            ourselvesotherwise                                                      
+                                            foundaprovablybetterscore:              
+         (6) Destroyenemyfeedersifadjacent                                          
+                                            for state in states_desc: # sorted by MAX_SCORE
+         (7) Tryspammingroadsifemptytileadjacent if best_score ≥ state.MAX_SCORE:   
+                                                 break                              
+         (8) Placemarkertobroadcastsymmetryandmapinfo s = state.score()             
+                                              if s > best_score:                    
+       Anenemyfeederisanallyconveyor,bridge,orharvester best_score, best = s, state 
+       thatoutputsontoanenemyturret.Forharvesters,wealso                            
+       checkthattherearenoallyturretsbeforedestroyingit. StatePattern               
+       Whenspammingroads,weprioritizeplacingroadsadjacent Eachstatefollowsthesamepattern.Thescore()function
+       toallyconveyors.Wealsoplaceroadsaroundenemybots derivescandidatetilesforthestate(suchasbuildingswecan
+       orbuildingsifanenemyisnearby.Roadspamhelpsuswith healforhealstate).Weintersectthecandidatetilesetwitha
+       mapcontrolsinceenemieshavetodestroytheroadsfirst Voronoiclaimpartitiontoavoidmultiplebuilderscontesting
+       beforetheyplacetheirownbuildings.Wedonotspamroads thesametargettile.Wethencachetheresultforrun()to
+       infrontofourgunnerstokeeptheirfiringpathunblocked. useifthestateendsupbeingchosen.
+
+===== PAGE 11 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+       Attack(ceiling9)                     Gunner scoring follows the same idea along a directional
+                                                                                    
+       Attackisourhighestprioritystatewhereweplaceturretsto rayofuptothreesteps.Thescoreisdiscountedby0.9 𝑘 at
+       targetenemybuildings.Wepreferplacingturretsonempty                           
+                                            step𝑘,therayisblockedbywallsandourownnon-road
+       tilesorlessimportantinfrastructure(roads,guardconvey- buildings,andthecoreissingle-countedatitsclosesthit.This
+       ors,etc).Wewillfallbacktoplacingonnon-guardconvey- stepdiscountprioritizesplacinggunnersdirectlyadjacent
+       ors/bridgesorenemyinfrastructurewecoulddamage,but totargets,sincetheycan’tshootovertileslikesentinelscan.
+       atahigherthreshold.                  Wealsoaddarotationbonusequaltothesumoveralleight
+                                            facings shifted right by 3, to still favor targets we might
+                                            rotatetowardlater.                      
+                                            Weapplyapenaltytoplacementpositionsunderthreatby
+                                            enemyturrets.Wealsoapplyapenaltytoplacementsthat
+                                            woulddestroyanallynon-guardconveyororbridge.Allof
+                                            this is memoized per round keyed by the structural state,
+                                            enemypresence,andplacementmasks.        
+                                            FilteringTiles                          
+                                            The candidate pass returns the legal placement mask per
+                                            facingdirection.Weseedfromtilesfedbytitaniumoraxion-
+                   Figure13:Attack.                                                 
+                                            ite,plustheManhattandilationoftitaniumharvestersand
+                                            foundriesnotalreadyusedbyoneofoursentinels.Sentinels
+       Bit-SlicedScorePlanes                consumemoreammothanaharvestercanprovide,sowe
+                                            avoidbuildingmultiplearoundthesameharvester.
+       Foreachfacingandturrettype,wemaintainascoreplane                             
+       stack:alistof9bitmaskswherebit𝑖oftheintegerscoreattile                       
+                                            Wethenintersectwithseenandbuildabletiles,andremove:
+       𝑛is(planes[i] » n) & 1.Thisletsusdobulkscoreupdates                          
+       andqueriesoverthewholeboardwithbitwiseparallelism, • Tileswithinatwo-stepenemy-botBFSthroughtheirpass-
+       ratherthaniteratingoveranarray.       ablegraph.Wetreatourlauncher3x3zonesasimpassable
+                                             forenemies,sinceanenemyenteringoneisflungback.
+       Toaddaconstant𝑐 tothescoreofeverytileinamask𝑀,                               
+       foreachsetbitof𝑐 weXORthecorrespondingplanewith • Our own turret feed chains, so a new placement never
+       𝑀 (togglingthatdigitateverytilein𝑀 simultaneously)and cutsoffanexistingturret.
+       rippleanyAND-carriesupthroughhigherplanes:                                   
+                                            • Per-directionloaderblockers,sincefeederscannotloada
+       The key property is that the cost of calculating scores is turretpointingintothem.
+       independent of the number of tiles scored. The per-digit                     
+                                            Sentinelsadditionallyexcludetileswithinenemygunneror
+       loopisboundedbythefixedplanecount,andeachiteration                           
+                                            breachrange,sincetheyshootslowlyandareunlikelyto
+       isonebig-integerAND/XORoverthewholemap.Thisis                                
+                                            winthetrade.Gunnersarepermittedonthosetilestoenable
+       whatmakesexhaustiveplacementevaluationfitwithinour                           
+                                            harvestercombat.                        
+       per-turnbudget.                                                              
+                                            Weonlyconsiderplacementtileswhosescorespassathresh-
+       ScoringTiles                                                                 
+                                            old.Sentinelsandgunnershavedifferentthresholds,since
+       Wegroupenemybuildingtypesbyequalscoresoonemasked theyhaveslightlydifferentscoringsystems.Thethreshold
+       addhandlesawholescoreclass.Foreachoftheeightfacings, isalsohigherforenemyinfrastructurewewouldhaveto
+       thesentinelpassshiftseachenemy-typemaskbythereverse destroyfirstbeforeplacing,orallyinfrastructurewedon’t
+       ofeverysentinelattackoffsetunderthatfacingandANDs wanttodestroy(non-guardconveyorsandbridges).
+       withthevalid-placementmask.Whereverabitsurvivesisa                           
+       tilefromwhichasentinelfacing𝑑 wouldhitthatenemy,so PlacingTurrets            
+       weaddthetype’sscoreintotheplanesthere.                                       
+                                            Ifwecanplaceaturretonapreferredtilethisturn,either
+       Theadvantageofthisapproachisthatweneveriterateover fromourcurrenttileoranadjacenttile,wepickthehighest
+       individual placement tiles. The total time scales with the scoringsuchplacement.Thisistofavorturretswecanplace
+       numberofhitoffsets,facings,buildingtypes,andscorebits, thisroundoverpotentiallybetterplacementswewouldonly
+       ratherthanwiththeboardsize.          reachinalaterround.                     
+
+===== PAGE 12 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+        # Add the constant c (c = sum of 2^b for b in `bits`) to the stored score of EVERY tile in `mask`,
+        # in O(NUM_PLANES) whole-board big-integer ops -- cost independent of how many tiles are in `mask`.
+        def add_bits_to_planes(planes, bits, mask):                                 
+          for i in bits:        # for each set binary digit of the constant c       
+            carry = planes[i] & mask # tiles where digit i overflows                
+            planes[i] ^= mask   # add c's i-th digit to all those tiles at once     
+            j = i + 1                                                               
+            while carry and j < NUM_PLANES: # ripple the carry up through higher planes
+              new_carry = planes[j] & carry                                         
+              planes[j] ^= carry                                                    
+              carry = new_carry; j += 1                                             
+        # Bitmask of tiles in `cands` whose stored score ≥ thr, computed in one MSB-first pass.
+        def ge_threshold_mask(planes, thr, cands):                                  
+          eq, gt = cands, 0                                                         
+          for i in range(NUM_PLANES - 1, -1, -1):                                   
+            p = planes[i]                                                           
+            if (thr >> i) & 1: eq &= p # thr digit set: tile must match to stay "equal so far"
+            else: gt |= eq & p; eq &= ~p # thr digit clear: a set score digit => strictly greater
+          return gt | eq                                                            
+       Figure14:Thetwomainbit-slicedprimitives.add_bits_to_planesaddsascoreconstanttoanarbitrarysetoftiles
+       in𝑂(planes)big-integeroperationsregardlessofhowmanytilesareintheset.ge_threshold_maskthresholdsthe
+       wholeboardagainstascalarinonepassfromthemostsignificantbitdown.              
+                                            require a delta of at least 2; launchers require at least 5,
+                                            reflectingtheirrelativecost.            
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                            Figure16:Thislauncherpreventstheenemyfromad-
+                                            vancing,asthelauncher’s3x3andthebarrierforma
+       Figure 15: Valid turret locations. Gunner in red and wall                    
+       sentinelinblue.                                                              
+                                            Wenormallyavoiddamagingenemyconveyortargetsifa
+                                            nearby enemy could heal them. However, we have three
+       Otherwise, we pick the closest preferred or fallback tile.                   
+                                            exceptions:                             
+       AmongcandidateswithintwoBFSsteps,wemaximize                                  
+                                            • Welocallyoutnumberthethreat(atleast2allybuilder
+              enemyBFS adj (cand)−myBFS(cand), bots within squared distance 25 versus a single enemy
+                                             withintwoBFSsteps).                    
+       treating our launcher zones and barriers as enemy-                           
+       impassable.                          • An allied sentinel is in sight, so we damage more than
+                                             theycanhealanyway.                     
+       Ifthetargetisanenemyconveyorthatavisibleenemycould                           
+       heal,wescanadjacentbuildabletilesforalauncherorbarrier • The target’s 3x3 is fully sealed by walls, non-walkable
+       placementthatstrictlyincreasestheenemy’sBFSdistanceto buildings,orourlauncher3x3s,soenemiescannotreach
+       theconveyorwithoutworseningourownapproach.Barriers thetargettile.            
+                                                                                    
+                                                                                    
+
+===== PAGE 13 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+       Heal(ceiling8)                       This most commonly happens when an enemy places a
+                                                                                    
+       Thehealstatedefendsagainstopponentattacksintwoways. launcher to keep our bot away from its attack target. In
+       First,wehealdamagedallybuildingsadjacenttous.Second, thiscase,weplacealauncherinresponsetokeeptheirbot
+       wechaseenemybotsthatwanderintoourconveyorzone away.Wewillplaceagunnerinsteadifthetargettileisone
+       beforetheycanattackourinfrastructure. ofourguardconveyors.                   
+       Score returns 7 if any friendly building has more than 2 Route(ceiling7.75)  
+       damage, or if a friendly sentinel and enemy sentinel are                     
+                                            Theroutestatebuildsconveyorlinesfromharvestersbackto
+       withineachother’sattackranges.Wetreatthesesentinels                          
+                                            thecore.Ittriestoroutefromdead-endconveyors,orphan
+       asverydamagedsowestaynearitastheytradedamage                                 
+                                            harvesters,andorphanfoundries.Astructureisanorphan
+       withtheenemysentinel.Scorealsoreturns7ifachasetarget                         
+                                            ifithasn’tbeenroutedbackyetandhasatleastonecardinal
+       existswithintheconveyorzone,definedaswithin8pathing                          
+                                            neighborwecanbuildon.                   
+       stepsofaconveyor.Wescore2.5ifachasetargetexistsbut                           
+       isfarther.                           Scorereturns5normally,but7.75(aboveheal’s7)whenany
+                                            claimisimportant:                       
+                                            important = expand_chebyshev(enemy_bots, 5)
+                                                   & ~(my_harvesters | my_foundries)
+                                                   | feeding_enemy                  
+                                            return 7.75 if important & claims else (5 if claims else 0)
+                                            Wewillplacearmouredconveyorsinsteadofnormalcon-
+                                            veyorsifwehaveaxioniteavailableandatleast5×thecost
+                                            intitanium.                             
+                                            Ifwedon’thaveenoughtocontinuerouting,butthereisan
+                                            enemynearby,weplaceabarrieronthedead-end’soutput,
+                   Figure17:Heal.                                                   
+                                            orthedead-endconveyoritselfifneeded,topreventenemies
+                                            fromtakingadvantageofit.                
+       At the end of each turn, we scan adjacent tiles and heal                     
+       theonemaximizingdamagetimesafixedtypepriority.We Whenplacingconveyors,weupgradetoarmoredconveyors
+       consider all very damaged buildings before less damaged whenwehaveatleast5xtheircostintitaniumandwehave
+       ones,andconsidersixprioritytiers:    axioniteavailable.                      
+         (1) Core                                                                   
+                                            AttackRoute(override)                   
+         (2) Turrets                        WeaddedattackroutinginKhaosforthefinaltournament.
+                                            Instead of routing resources back to our core, the builder
+         (3) Armoredconveyors,harvesters,andfoundries                               
+                                            extendstheconveyornetworktowardtheopponenttodis-
+         (4) Regularconveyors               rupttheireconomyandinfrastructure.Theoverridetriggers
+                                            whenourBFSdistancetotheenemycoreisatmost1.5×our
+         (5) Barriers,bridges,andsplitters                                          
+                                            BFSdistancetoourowncore.                
+         (6) Roads                                                                  
+                                            Intesting,wefoundthataggressiveattackroutingwasusu-
+       Forchasetargetselection,weremoveenemiesunderattack                           
+                                            allyanetwin.Evenwhentherouteneverreachedtheenemy
+       byaturretandenemiesthatanotherfriendlybotisstrictly                          
+                                            core,thedamageitcausedtoenemyinfrastructureandarea
+       closerto.Wethenprefertheclosestsurvivingtarget.                              
+                                            controlwasusuallyenoughtojustifythelossofresources.
+       Whenchasefailsonpathing,thelauncherfallbackfiresasa                          
+                                            Ifwerealizewecanextendtherouteintoagunner,wedo
+       counter-launcherresponse:                                                    
+                                            thatinstead.Weonlyplaceasentinelwhenagunnerwould
+        for enemy on a damaged friendly conv (unclaimed): besignificantlyworse,suchaswhenweneedtoshootenemy
+         # T1: placeable cell adjacent to enemy buildingsfrombehindawall.           
+         T1 = adj(enemy) of those four types                                        
+         # T0: a stand-tile within 8 BFS steps of T1 InFigure19,ratherthansimplyplacingasentineltoshoot
+         T0 = adj(T1) reachable within 8    thecore,intwooutofthethreeroutes,thebotrealizedthat
+         pick (enemy, T1) minimizing my dist to T0                                  
+                                            the route could be extended slightly to support a gunner.
+
+===== PAGE 14 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+                                            Thesecurestatescores7.5ifaclaimsitsonanalready-built
+                                            harvester or foundry, since we don’t want to leave these
+                                            buildings exposed to enemy turret placements. The state
+                                            scores3ifthereisanore,butnoharvesteryet,sincewestill
+                                            wanttosecureitbeforeweharvest.          
+                                            Wegenerallysecureanoreusingguardconveyors.These
+                                            inward-facing conveyors are not valid outputs of the ore
+                                            tile,sotheyneveractuallycarryresources.However,they
+                                            preventtheenemyfromplacingaturretadjacenttotheore,
+                                            and they have significantly more health than a road. We
+                                            placetheseinsteadofbarrierstoimprovethetraversability
+                                            ofourinfrastructureforbuilderbots.      
+                Figure18:AttackRoute.       Whilesecuring,wealsocomputetheoptimalrouteandplace
+                                            the first conveyor facing outward, instead ofguardingby
+                                            facinginward,toslightlyspeedupoureconomy.
+                                                                                    
+                                            The route-target pass detects this pattern via a guard-
+                                            conveyormasksothatconveyorswhosetargetisopenore
+                                            areexcludedfromtheroutinggraph.         
+                                            Topreventoscillationsthatwouldotherwiseoccurasthe
+                                            builderbotmovestoplaceguardconveyors,whenitisclose
+                                            enoughtoseveralunsecuredores,itwillpickthemostse-
+                                            curedore(themostsidescovered)withinChebyshevdistance
+                                            2,ratherthanjusttheclosestone.          
+                                                                                    
+                                            Harvest(ceiling4)                       
+            Figure19:AttackRoutewithGunner.                                         
+                                            Harvestplacesaharvesteronanoretile.Wepickfrompos-
+                                            sible ore tiles that don’t already have a harvester and are
+       Inthethirdroute,enemyroadsblockedtheextension,soit secured.                  
+       optedforasentinelinstead.                                                    
+                                            Thepossible-oremaskincludestitaniumore,plusaxionite
+       Secure(ceiling7.5)                   oreafterround750ifwe’vealreadyharvestedtitanium.It
+                                            excludeslandlockedore(orewhosefourcardinalneighbors
+       Secureandharvestgenerallyexecuteinsequence.Secure                            
+                                            are all ore or unseen, since these are difficult to reach by
+       firstplacesguardconveyorsonthefourcardinalneighborsof                        
+                                            conveyor).Wealsoavoidexistingallyinfrastructure(con-
+       anoretile.Oncethetileissecured,harvestplacesaharvester                       
+                                            veyors, bridges, etc.), enemy blocking buildings, and tiles
+       onit.Thissequencepreventsenemiesfromplacingturrets                           
+                                            underenemyturretthreat.                 
+       totakeadvantageofharvesterswithexposedsides.                                 
+                                                                                    
+                                                                                    
+                                                                                    
+                   Figure20:Secure.                    Figure21:Harvest.            
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+
+===== PAGE 15 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+                                                                                    
+       We compute secured() for the entire map using bitmask                        
+       operations.Atileissecuredifeverycardinalsideisoffthe                         
+       map,awall,oroneofournon-roadnon-markerbuildings.                             
+       Ifbuildingtheconveyorlinetothetargetistooexpensive,                          
+       we add the tile to a temporary failure cache so we don’t                     
+       consideritfor100rounds.                                                      
+       Disrupt(ceiling2)                                                            
+                                                                                    
+       Disruptplacesbarriersonoretilesoutsideourharvestzone,                        
+       toblocktheenemyfromharvestingthem.Weskiporesunder                            
+       enemyturretorlaunchercoverage.Thisstateonlyrunswhen                          
+                                                 Figure23:InitialExplorationTargets.
+       wehavesignificantresources(atleastfiveharvestersworth                        
+       oftitanium),andactsasacheapwayofdenyingtheenemy’s                            
+       economy.                                                                     
+                                            FrontierSampling. Ifnotfollowingtheinitialexploreplan,
+       Ifthetargettilealreadyhasanenemyroad,wefireonitfirst.                        
+                                            theexplore-targetgeneratorfloodfillsfromthebot’scurrent
+       Ifit’safriendlyroadormarker,wedestroyitandthenplace                          
+                                            position and other known friendly bot locations. It then
+       abarrier.                                                                    
+                                            samplesarandomtilefromafrontierringneartheedgeof
+                                            theexploredareaoncethefloodterminates:  
+                                            seeds = me | friendly_bots              
+                                            frontier = seeds; ring_buffer = deque(maxlen=6)
+                                            while frontier and c < 100:             
+                                              frontier = expand_chebyshev(frontier) & passable
+                                                    & ~visited                      
+                                              visited |= frontier; ring_buffer.append(frontier); c+=1
+                                            target = random_bit(ring_buffer[0]) # the ring at c-5
+                  Figure22:Disrupt.         Seedingfromteammatesbiaseseachbot’sfrontierawayfrom
+                                            whereothersalreadyare,allowingforbetterareacoverage.
+       Explore(ceiling1)                                                            
+                                            Turrets                                 
+       If we have nothing better to do, our builder bots wander                     
+                                            Sentinels and gunners share the same priority system for
+       towardunexploredterritory.                                                   
+                                            scoringtiles.Thegoalistoprioritizedisruptingtheenemy
+       Ourfirstfewbotshavetheirowninitialexplorelogic.Oth- infrastructureasmuchaspossible,byconsideringinorder:
+       erwise,wewandertowardarandomtilenearthefrontierof                            
+                                              (1) Enemyfoundriesthatfeedatleastoneenemyturret
+       ourexploredregion.                                                           
+                                                andnoneofmine.                      
+       InitialExploration                                                           
+                                              (2) Enemy harvesters that feed more than one enemy
+       Forthefirstfourbuilders,thecoreusesthetileitspawns turretandnoneofmine.      
+       eachbuilderontocommunicatewhichdirectionthebuilder                           
+                                              (3) Enemyturretsthatcanhitoneofmyturrets,plusthe
+       shouldexplore.Thisletsthecoreorchestrateinitialexplo-                        
+                                                enemyconveyorsthatfeedthemandtheharvesters
+       rationforbettercoverage.                                                     
+                                                whosechainreachesthem.              
+       Onthenewbuilder’sfirstturn,itreadsitsownpositionrel-                         
+                                              (4) As(3)butforanyenemyturret,droppingthe“threat-
+       ativetothecore,recoverstheintendedfacingbycomparing                          
+                                                ensmine”guard.                      
+       itstilewiththecore,andreproducesthesameray-endpoint                          
+       computationthecoreruns,cappedat12Chebyshevstepsto                            
+                                              (5) Enemybuilderbots                  
+       preventthebotfromwanderingofftoofar.                                         
+                                              (6) Enemyroads,conveyors,splitters,bridges,orbarriers
+       Thebotfollowsthattargetuntilitiswithinsquareddistance                        
+                                                cardinallyadjacenttoanyharvesteroneitherteam.
+       18or30roundshaveelapsed,afterwhichtheslotiscleared                           
+       anddefaultexploretakesover.            (7) Anyenemyentity,otherthanroadsormarkers
+
+===== PAGE 16 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+       Ifanytargetisadjacenttotwoormoreenemybuilderbots,                            
+       weconsideritafteralloftheprioritiesabove,regardlessof                        
+       itsnormalpriority.                                                           
+       Withineachpriority,wetiebreakbyconsidering:                                  
+                                                                                    
+         (1) Thehighesthealthentitywecouldone-shot                                  
+                                                                                    
+         (2) The entity furthest from enemy builder bots (so it                     
+            takesthemlongertomovetowardandhealit)                                   
+                                                                                    
+         (3) The highest weight entity (varies between gunner                       
+            andsentinel,butgenerallyprefersshootingenemy                            
+                                            Figure24:Asentinelone-shotonanenemyharvester.
+            turrets,theninfrastructure)                                             
+         (4) Thelowesthealthentity                                                  
+                                            Gunner                                  
+       Weignoreconveyors,harvesters,orfoundriesthatfeedour                          
+                                            Gunnerscanonlyshootintheirfacingdirection,sowefire
+       ownturrets,sowedon’tshootenemybuildingsthatweare                             
+                                            if there is an enemy target in front of us. Otherwise, we
+       benefitingfrom.Wealsoignorebuildingsifanallybuilder                          
+                                            considerrotatingifweseeanenemybuilding,oranenemy
+       botisonthesametile,sincethebuilderbotwouldbehit                              
+                                            botstandingonadamagedallyconveyorthatdoesn’thavea
+       instead.                                                                     
+                                            nearbyallybuilderbottohealit.Thisistopreventenemies
+                                            fromcontinuingtofreelyattacktheconveyor.
+       Sentinel                                                                     
+                                            Rotation requires at least 60 global titanium, so a gunner
+       Oursentinelscoordinateshotsbywaitingtoshootifthey                            
+                                            doesn’tburnoureconomybyrotatingrepeatedly.
+       noticeanallysentinelrecentlyshotatargetinvision.This                         
+       appliesifweseeatarget’shealthdropandseeanotherally                           
+                                            Launcher                                
+       sentinelwiththattargetalsoinvision.Inthiscase,wewait                         
+       untilthehealthdropsagainsowecanshootonthesame Launchersthrowenemybots.Alauncherclassifiesitselfonce
+       turnanddestroyitbeforeenemybuilderbotscanheal. onplacement.Achokepointlauncher(onewithnoenemy
+                                            conveyorwithinits3×3)firsttriestoflingtheenemyback
+        if locked and can_one_shot(locked):                                         
+          fire(locked)                      toatiletheyrecentlyoccupied,usingthetrackedper-bot
+        elif locked:                        positionhistory.Thisforcesthemtoretracetheirpath.
+          wait # don't waste 18 dmg                                                 
+        elif select_best gives a one-shot:  Ifthatfails,orforoffensiveanddefensivelaunchers,weuse
+          fire it # one-shots ignore lock                                           
+                                            theregion-minimizingthrowheuristic.Foreverylegaldesti-
+        else:                                                                       
+                                            nation,weChebyshev-floodtheregionthebotcouldnavigate
+          fire select_best pick                                                     
+                                            fromthere,usingenemy-POVpassabilityandtreatingun-
+                                            seentilesasimpassable.Wethenchoosethedestinationthat
+       We only coordinate one-taps this way for sentinels with yieldsthesmallestreachableregion.Wetiebreakbygreatest
+       a higher id than the other ally sentinel in vision. This is wall-onlyBFSdistancefromtheseedsetconsistingofevery
+       becauseentitiesactinincreasingidorder,sothehigher-id conveyorplusthelauncheritself:
+       sentinelwillalwaysbeabletoreacttothelower-idsentinel’s                       
+                                            for dest in legal_launch_tiles:         
+       shotwithinthesameturn,butnotviceversa.                                       
+                                              region = flood_chebyshev(dest, enemy_passable
+                                                            & seen)                 
+       Oursentinelswillconsiderself-destructingiftheyarenot size[dest] = popcount(region)
+                                            throw to argmin (size[dest], -wall_bfs_dist(dest))
+       adjacenttoaharvesterandthereisnoenemybuilderbot                              
+       nearby. Theywill self-destructafter16 turnsifthey have                       
+       noammo,orafteronly4turnsiftheyalsohavenopossible Theeffectistoeitherkeeptheenemyoutofourterritory,or
+       upstreamfeeder.                      keepthemawayfromatilewearetryingtodisrupt.
+
+===== PAGE 17 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+       ChokepointDetection                  Theoldversionreliedonpolygonunion,difference,intersec-
+                                                                                    
+       Wealsohaveasignificantamountoflogicgearedaround tion,andboundaryextractionfromexternallibraries.The
+       chokepoint detection and subsequent launcher or barrier runtimeversioninsteaddoeseachstepdirectlyonthemask:
+       placement,andsowilldedicatethenextfewpagestothat. scanlinepolygonfillfortheanalysisregion,blockfillingfor
+       Chokepointdetectionstartsrunningoncewehavelearned walltiles,flood-fillcomponentfilteringforsmalldiscarded
+       enoughofthemap,andthencontinuesrunningintheback- obstacles,andbooleansubtractionforfreespace.Sincethe
+       groundthroughanincrementalsave-statefortherestofthe                          
+                                            mapsareatmost50×50,evenamoderatelyupsampledmask
+       game.                                issmallenoughforpurePython.             
+       Thegoalistoproduceasmallsetoftacticallyusefultiles                           
+                                            Once free space is known, the boundary is extracted by
+       whereasinglebarrierorlaunchercanchangetheconnec-                             
+                                            scanningforfree/non-freetransitions.Consecutivecollinear
+       tivity of the map. In practice, these are narrow corridors                   
+                                            boundary pixels are merged into longer axis-aligned seg-
+       between larger regions, especially corridors that separate                   
+                                            ments,whichkeepsthelatersamplingstepmuchsmaller
+       ourcontrolledterritoryfromtheopponent’sside.Duetofea-                        
+                                            thantreatingeveryrasteredgeindependently:
+       turessuchasbarrierwalkthroughandalaunchereffectively                         
+       blockinga3×3area,theseregionsbecomechokepointsthat segments = boundary_segments_from_mask(free_mask, scale)
+       onlyourbotscanpass.                                                          
+                                            # Internally:                           
+                                            # - scan top/bottom exposed edges row-wise
+                                            # - scan left/right exposed edges column-wise
+                                            # - merge adjacent horizontal and vertical runs
+                                            Thosemergedboundarysegmentsbecometheinputsites
+                                            forasweep-lineVoronoiimplementation.Infloatmode,the
+                                            runtimechokepointersetsthenumericbackendtoordinary
+          Figure25:Chokepointbarrierwalkthrough. PythonfloatsratherthanDecimal.Thislosesarbitrarypre-
+                                            cision,buttheinputsarealreadyquantizedtomap/sub-tile
+       SimplifiedGeometryCore               coordinates,andthespeedupislargeenoughtomatterfor
+                                            all-mapiteration.                       
+       ThestandalonechokepointlogicneededtorunwithoutSciPy,                         
+       Shapely,NumPy,orcompiledgeometrylibrariessincethey set_foronoi_numeric_mode("float")
+       werebannedforthiscompetition.Hence,acustomgeometry                           
+                                            points = collect_boundary_samples(sample_spacing)
+       engine was needed. The base library was vendored from                        
+                                            vor = Voronoi(Polygon(analysis_polygon))
+       theForonoiPythonlibrary,butcompletelyrestructuredand                         
+                                            vor.create_diagram(points=points)       
+       optimizedforthepurposesofthiscompetition.                                    
+                                            for edge in vor.edges:                  
+       Thecoreideawastoreplaceheavyweightpolygonopera-                              
+                                              p1 = edge.origin()                    
+       tionswithasmallraster-backedgeometrylayer.Themapis p2 = edge.twin.origin()   
+       firstliftedintoahigher-resolutionbooleanmask,whereeach if segment_is_inside_free_space(p1, p2):
+       gametilebecomesasmallscale×scaleblock.Thescaleis add_raw_edge(p1, p2)        
+       derivedfromtherequestedsamplespacing,givingenough                            
+       sub-tileprecisionforgeometrywhilekeepingthewholemap                          
+       tiny:                                Theruntimealsoreplacesgeometriccontainmentqueries
+                                            with mask containment. A candidate Voronoi edge is ac-
+        scale = raster_scale_from_spacing(sample_spacing)                           
+                                            cepted only if several sampled points along the segment
+                                            remaininsidethefree-spacemask:          
+        analysis_mask = build_analysis_mask(rows, cols, scale,                      
+                           analysis_polygon)                                        
+                                            def segment_is_inside_free_space(a, b): 
+        obstacle_mask = build_obstacle_mask(walls, rows, cols,                      
+                                              steps = max(5, ceil(length(a,b) * scale * 2))
+                           scale, analysis_mask)                                    
+                                              for k in range(1, steps):             
+                                                 p = lerp(a, b, k / steps)          
+        kept_obstacles, discarded = split_obstacle_mask_by_area(                    
+                                                 if not point_is_inside_free_space(p):
+          obstacle_mask, min_area * scale * scale)                                  
+                                                   return False                     
+                                              return True                           
+        free_mask = build_free_mask(analysis_mask, kept_obstacles)                  
+
+===== PAGE 18 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+       Finally,eachVoronoivertexneedsaclearanceradius,which changesenoughtoinvalidatethem.Thisiswhyourbuilder
+       isthedistancetothenearestwall/free-spaceboundary.In- botstimeouteveryturn.   
+       steadofaskingageometrylibraryfordistance-to-boundary,                        
+       theruntimestoresthemergedboundarysegmentsintwoflat MapReduction              
+       lists:verticalsegmentsandhorizontalsegments.Radiusthen                       
+                                            Thefirststepistodecidewhichpartofthemapweactu-
+       becomesadirectminimumoversquaredpoint-to-segment                             
+                                            allyneedtoanalyze.Becauseeverymapissymmetric,once
+       distances:                                                                   
+                                            symmetryissolvedweonlyanalyzeourhalfofthemapand
+        best = INF                          mirror the result. This cuts the work by roughly a factor
+                                            oftwoandalsopreventsduplicatechokepointsfrombeing
+        for x0, y1, y2 in vertical_boundaries: reportedonbothsidesofthesamesymmetriccorridor.
+          dx = x - x0                                                               
+          dy = clamp_distance_to_interval(y, y1, y2) if symmetry == VERTICAL:       
+          best = min(best, dx*dx + dy*dy)     analysis_poly = half_map_containing(my_core)
+                                            elif symmetry == HORIZONTAL:            
+        for y0, x1, x2 in horizontal_boundaries: analysis_poly = half_map_containing(my_core)
+          dy = y - y0                       elif symmetry == ROTATIONAL:            
+          dx = clamp_distance_to_interval(x, x1, x2) analysis_poly = clipped_by_perpendicular_bisector(
+          best = min(best, dx*dx + dy*dy)        my_core, enemy_core)               
+                                            else:                                   
+        radius = sqrt(best)                   analysis_poly = full_map              
+       Thisfloatruntimeisintentionallylessgeneralthanafullge-                       
+                                            Theinputtothegeometricpipelineisthesetofknownwalls
+       ometrykernel.Itonlyneedsaxis-alignedtilemaps,clipped                         
+                                            intersectedwiththisanalysispolygon.Unknowntilesare
+       analysispolygons,boundarysampling,free-spacecontain-                         
+                                            treatedconservatively:wedonotwanttoplanapermanent
+       ment,andclearanceradii.Byspecializingtoexactlythose                          
+                                            blockeraroundacorridorthatmaylaterturnoutnottoexist.
+       operations, the chokepointer stays fully pure Python and                     
+                                            Symmetry broadcasts help here because they let us infer
+       remainsfastenoughtorun.                                                      
+                                            far-awaywallsbeforephysicallyexploringthem.
+       OnlineSave-Stating                                                           
+                                            VoronoiSkeleton                         
+       Thisseparationwasimportant.Thegeometrycodeisrela-                            
+                                            ThemainversionofthedetectorusesaBroodwarTerrain
+       tivelycomplex,whereasthein-gameusagehastobesimple                            
+                                            Analyzer(BWTA)-adjacentmedial-axisapproximation.We
+       androbust.Thebuildershouldnotcarewhetherachoke-                              
+                                            samplepointsalongtheboundaryofthefreespace:outer
+       pointcamefromaVoronoiedge,aprunedgraphchain,or                               
+                                            mapboundary,wallperimeters,andanyobstacleholes.Then
+       amergedregionboundary.Itonlyneedstoknowwhether                               
+                                            werunaVoronoidiagramoverthosesamples.Voronoiedges
+       standingnearatileandspendinganactionthereislikelyto                          
+                                            thatlieinsidefreespaceapproximatethemedialaxisofthe
+       improveourposition.                                                          
+                                            traversablemap.                         
+       Atahighlevel,thepipelineis:                                                  
+                                            Theintuitionisthatapointonthisgraphisequallyfarfrom
+        known_walls = map_info.wall_mask_from_seen_and_symmetry() twoormoreobstacleboundaries.Wideopenroomsproduce
+                                            high-radiusgraphregions,whilenarrowcorridorsproduce
+        state = chokepoint_state.resume_or_init(known_walls)                        
+                                            low-radiusgraphchainsbetweenthoseregions.
+        state.step_until_budget()                                                   
+                                            samples = []                            
+        if state.finished:                  for segment in free_space_boundary:     
+          for choke in state.blocker_candidates: samples.extend(sample_segment(segment, spacing=1.0))
+            register_chokepoint_tile(choke.tile,                                    
+                          choke.kind,                                               
+                                            diagram = voronoi(samples)              
+                          choke.radius)                                             
+                                            for edge in diagram.edges:              
+       Theactualcomputationistooexpensivetorunfromscratch if edge.is_finite() and edge_inside_free_space(edge):
+                                                 graph.add(edge)                    
+       insideasinglebuilderturn,sotheanalyzerisincremental.                         
+       Eachcallperformsaboundedamountofworkandstores                                
+       theintermediatestateglobally.Onceitfinishes,theresult- Foreachgraphvertex,wecomputeaclearanceradius:the
+       ingchokepointtilesarecacheduntiltheknownwallmap distancefromthatvertextothenearestfree-spaceboundary.
+
+===== PAGE 19 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                Unpruned            Pruned          
+                                                     Figure27:GraphPruning          
+                                                                                    
+                                                                                    
+                                            RegionNodes                             
+                                            Afterpruning,weidentifyregionnodes.Aregionnodeis
+               Figure26:Voronoion"Cubes"                                            
+                                            eitheratopologicaljunctionorendpoint,oralocallymaxi-
+                                            malradiuspoint.Thelocallymaximalpointsareimportant
+       Thisradiusisthemainscalarusedbythelaterpruningand becausealongcorridorbetweentworoomsmayhaveno
+       chokepointextractionpasses.          graphjunctionattheroomcenter.Themaximum-clearance
+                                            pointmarkstheroom-likepartofthatchain.  
+        for v in graph.vertices:                                                    
+          radius[v] = distance(v, free_space.boundary)                              
+       Asmallradiusmeansthevertexliesinatightcorridor.A                             
+       largeradiusmeansthevertexliesinanopenarea.Choke-                             
+       pointsarenotsimplythesmallest-radiusvertices,because                         
+       wallcornersanddead-endbranchesalsohavetinyradius.                            
+       Theyarethesmallest-radiusverticesonmeaningfulpaths                           
+       betweenlargerregions.                                                        
+       GraphPruning                                                                 
+       TherawVoronoigraphcontainsmanybranchesthatpoint                              
+       into wall corners or small pockets. These are not useful                     
+       chokepoints,becauseblockingthemdoesnotseparatetwo                            
+       importantregions.Weprunethesebrancheswithasimple                             
+       radiusmonotonicityrule.                                                      
+       Leavesareremovediftheyarenarrowerthantheirparent.                            
+                                                     Figure28:RegionNodes           
+       Repeatingthispeelsoffbranchesthatrunfromopenspace                            
+       intoadeadendorwallcorner,whilepreservingchainsthat                           
+       connecttwolargerareas.               for v in graph.vertices:                
+                                              if degree(v) ≠ 2:                     
+        active = all_vertices                                                       
+                                                 regions.add(v)                     
+        queue = leaves(graph)                                                       
+                                              elif radius[v] ≥ REGION_MIN_RADIUS:   
+                                                 if no nearby vertex has radius ≥ radius[v]:
+        while queue:                                                                
+                                                   regions.add(v)                   
+          leaf = queue.pop()                                                        
+          parent = only_neighbor(leaf)                                              
+                                            The“nearby”testusesChebyshevdistanceboundedbythe
+          if radius[leaf] < radius[parent]: candidate’sownradius.Thismakestheregiontestscalewith
+            remove leaf from graph                                                  
+                                            localfeaturesize:inalargeroom,nearbymaximasuppress
+            if degree(parent) == 1:                                                 
+              queue.push(parent)            eachother,whileinanarrowcorridor,smalllocalbumpsdo
+                                            notbecomeseparateregions.               
+
+===== PAGE 20 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+       ChokeExtraction                      Themainrulecomparesthechokeradiusagainsttheradiiof
+                                                                                    
+       Onceregionnodesareknown,chokepointsareextractedby thetworegionsitconnects.Ifthebottleneckiscloseinsize
+       walkingeverychainbetweentwoadjacentregions.Along tothesurroundingregions,thenitisnotreallyabottleneck,
+       eachchain,thevertexwithminimumradiusisthebottleneck. sothetworegionsshouldbeconsideredonelargerregion:
+                                            for start, choke, end in chokes_by_decreasing_radius:
+                                              r_start = find(start)                 
+                                              r_end = find(end)                     
+                                              if r_start == r_end:                  
+                                                 remove(choke)                      
+                                                 continue                           
+                                              choke_r = radius[choke]               
+                                              small_r = min(radius[r_start], radius[r_end])
+                                              large_r = max(radius[r_start], radius[r_end])
+                                              if (choke_r > ratio_small * small_r   
+                                                   or choke_r > ratio_large * large_r):
+                                                 union(r_start, r_end)              
+                                                 remove(choke)                      
+                                                                                    
+                                            Thisremovesmanyduplicatechokepointsinopenareas.For
+                Figure29:Chokepoints...?    example, if two large chambers are connected by several
+                                            nearbyshallowdipsinradius,thewidestdipsaremerged
+                                            awayfirst,leavingonlythenarrowestmeaningfulseparator.
+       Uhoh.That’salotofchokepoints,includingsomewecannot                           
+       feasibly block. We can get around this issue by merging                      
+                                            We also added a second rule for the common case where
+       nearby regions together to remove some of the duplicate                      
+                                            asmallintermediateregioniscreatedbetweentwochoke-
+       chokepointswesee.                                                            
+                                            points.Ifaregionhasexactlytwoactivechokepointsandthe
+       The merge pass treats the region graph as a set of region largerofthemisstilltoowiderelativetotheregionitself,we
+       nodesconnectedbycandidatechokepoints.Achokepointis mergethroughit.Thispreventstinyartificialregionsfrom
+       onlyusefulifitissubstantiallynarrowerthantheregionsit producingpairsofredundantblockers:
+       separates;otherwiseitismorelikeaharmlesslocalwiggle                          
+                                            # after ignoring already-removed chokes 
+       in the medial graph than a place where placing a blocker                     
+                                            for region in (r_start, r_end):         
+       changesmovement.                                                             
+                                              active = active_chokes_touching(region)
+       Weprocesscandidatechokepointsfromwidesttonarrowest                           
+                                              if len(active) == 2:                  
+       andmaintainaunion-findoverregionnodes.Ifachokeis                             
+                                                 if max(radius[c] for c in active) >
+       toowiderelativetoeitherofthetwoadjacentregions,we ratio_two_choke * radius[region]:
+       mergethoseregionsanddeletethechoke:         union(r_start, r_end)            
+                                                   remove(choke)                    
+        parent = {region: region for region in region_nodes} break                  
+        def find(v):                                                                
+          while parent[v] ≠ v:              Aftermerging,anyremovedchokeverticesaredeletedfrom
+            parent[v] = parent[parent[v]]                                           
+                                            thechokeset,androundedblockerplacementsarerecom-
+            v = parent[v]                                                           
+                                            putedfromtheremainingchokes.            
+          return v                                                                  
+                                            for region in regions:                  
+        def union(a, b):                      for edge in outgoing_edges(region):   
+          ra, rb = find(a), find(b)                                                 
+                                                 path = walk_until_next_region(edge)
+          if ra == rb:                                                              
+            return                               if path reaches another region:    
+          if radius[ra] ≥ radius[rb]:              choke = argmin(path, key=radius) 
+            parent[rb] = ra                                                         
+                                                   if radius[choke] ≤ MAX_CHOKE_RADIUS:
+          else:                                                                     
+                                                     chokes.add((region, choke, other_region))
+            parent[ra] = rb                                                         
+
+===== PAGE 21 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+                                                                                    
+                                            Thegeometricpointisroundedbacktoabuildabletile.Can-
+                                            didateswhoseroundedfootprintsoverlapareclustered,and
+                                            wekeepthetightestchokeineachcluster.    
+                                            for choke in chokes:                    
+                                              tile = round_to_tile(position[choke]) 
+                                              kind = blocker_kind(radius[choke])    
+                                              if kind:                              
+                                                 candidates.append((tile, kind, radius[choke]))
+                                            clusters = overlap_clusters(candidates) 
+                                            for cluster in clusters:                
+                                              keep min cluster by radius            
+                                            UsingChokepointsIn-Game                 
+                                            Thechokepointoutputisconsumedpassivelybybuilders.We
+                                            donotcreateadedicated“chokepointstate”withahighscore
+                Figure30:AfterMerging                                               
+                                            ceiling,becauseblockingterrainisusefulopportunistically
+                                            butshouldnotoverrideobviousattacks,repairs,orrouting
+       Thisgivesusagraph-levelinterpretationofachokepoint:it work.Instead,afterthemainstateruns,thebuilderchecks
+       isthenarrowestpointonaroutebetweentwolargerspaces. whetheritcancheaplyplaceachokepointblockernearby.
+       Thatdistinctioniswhatpreventseverywall-adjacentpixel                         
+                                            def try_passive_chokepoint_action_only():
+       frombeingtreatedasimportant.           if action_on_cooldown:                
+                                                 return False                       
+       Wethenconvertthegeometricchokeintoanin-gameblocker.                          
+       Verynarrowchokescanbeblockedbyasinglebarrier.Wider for choke in nearby_chokepoints():
+       chokesusealauncher,becausealaunchercontrolsalarger if already_blocked(choke):
+       effectiveareabythrowingenemybuildersbackoutofthe continue                    
+                                                 if can_build(choke.kind, choke.tile):
+       corridor.                                                                    
+                                                   build(choke.kind, choke.tile)    
+        def blocker_kind(radius):                  return True                      
+          if radius ≤ WALL_CHOKE_RADIUS:                                            
+            return BARRIER                    return False                          
+          if radius ≤ LAUNCHER_CHOKE_RADIUS:                                        
+            return LAUNCHER                 Launchersbuiltatchokepointsuseaspecializedthrowpolicy.
+          return None                       Insteadofmaximizingrange,weattempttogettheopponent
+                                            builder stuck walking back into the chokepoint infinitely.
+                                            Wehencelaunchtothelastnthpositiontheywereseen.
+                                            if launcher_is_chokepoint_launcher:     
+                                              enemy = best_enemy_builder_in_range() 
+                                              dest = position_from_enemy_history(enemy)
+                                              if can_launch(enemy, dest):           
+                                                 launch(enemy, dest)                
+                                            Thisisespeciallyeffectivewhentheenemyneedsabuilderto
+                                            healanattackrouteorrepairabrokenconveyor.Throwing
+                                            thebuilderbackwardturnsonelauncheractionintoseveral
+                                            turnsoflostwalkingtime.                 
+                                            Forinstance,thefigureabovedepictsachokepointlauncher
+                                            blockingahordeofopponentbotsfromhealingorreplac-
+                                            ingadefensivebuildingthatwasjustbroken;withoutthe
+                                            chokepointlauncher,theycouldeasilyhavepreventedthis.
+                                            However,ourbuilderisabletomovethroughfreelyand,a
+               Figure31:ClassifyLaunchers                                           
+                                            fewturnslater,placeaturret.             
+
+===== PAGE 22 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+                                            byitsskeletonandlocalradius.Thesurroundingfree-space
+                                            medial axis changes only slightly in these cases, but the
+                                            numberofgeneratedsitesdropsbyaconstantfactor.
+                                            for wall_component in components:       
+                                              if is_large_compact_component(wall_component):
+                                               sites.extend(sample_wall_medial_axis(wall_component))
+                                              else:                                 
+                                                 sites.extend(sample_wall_perimeter(wall_component))
+                                                                                    
+                                            Weonlyapplythisreductionincaseswhereitisunlikelyto
+                                            removeameaningfulfeature.Theoptimizationistherefore
+                                            conservative:itismainlyawaytoavoidoversamplinglarge
+                                            blocksofimpassableterrain.              
+             InGame            Tooling                                              
+                                            PerformanceOptimization                 
+            Figure32:ChokepointBlocksOpponent                                       
+                                            Runtimeoptimizationofourbotwascrucialnotjusttofit
+                                            withinthe2000𝜇sturnbudget,butalsotofreeuptimefor
+       IncrementalExecution                 ourchokepointcalculationstoruninthebackground.
+       Thefulldetectoristooexpensivetorecomputeeveryturn. Table 2 shows that all of our top ten runtime callers deal
+       Thein-gameversionthereforerunsasaresumablejob.Each withmapinfoorpathfinding. 
+       phasestoresenoughstatetocontinuelater:obstaclecompo-                         
+       nents,boundarysamples,Voronoiedges,prunedgraphstate, Bitmasks                
+       andfinalblockercandidates.           Oneofourmainoptimizationswasusingbitmaskstostore
+                                            mapinfo,sinceusingbitoperationsonPythonbigintegers
+        while budget_left() and job.phase ≠ DONE:                                   
+          if job.phase == BUILD_GEOMETRY:   wassignificantlyfasterthaniteratingoverorindexinginto
+            job.build_some_components()     arrays.                                 
+          elif job.phase == SAMPLE_BOUNDARY:                                        
+            job.sample_some_edges()         Forexample,wecaniterateoverallsetbitsinamaskusing
+          elif job.phase == BUILD_GRAPH:    thecanonicaltwo’s-complementLSBidiom:   
+            job.process_some_voronoi_edges()                                        
+          elif job.phase == PRUNE:          while mask:                             
+            job.prune_some_leaves()           lsb = mask & -mask # isolate lowest set bit
+          elif job.phase == EXTRACT:          n = lsb.bit_length() - 1 # its position
+            job.extract_some_chokes()         # ... use Position(n % W, n // W) ... 
+                                              mask ^= lsb    # clear and continue   
+       Thismakesthecomputationcompatiblewiththe2000𝜇sunit                           
+                                            Thus,ifwebuildamaskcontainingpossibletargettiles(for
+       budget.Abuildercanspendasmallsliceoftimeadvancing                            
+                                            exploretargets,turretplacements,etc.),thetimecomplexity
+       theglobalchokepointjobwithoutriskingtimeout.Oncethe                          
+                                            is proportional to the number of set bits rather than the
+       jobfinishes,allbuilderssharethesameresult.                                   
+                                            numberoftiles.                          
+       Medial-AxisWallReduction                                                     
+                                            LocalVariableHoisting                   
+       Oneoptimizationweaddedlaterwasreducingcertainwall                            
+                                            Pythonattributeandgloballookupsarenotfree,andsomeof
+       polygonstotheirmedialaxisbeforefeedingthemintothe                            
+                                            ourinnerloopsrunhundredsofthousandsoftimesperturn.
+       BWTA-styleruntime.Theoriginalboundary-samplingap-                            
+                                            Hence,everyhotfunctionbindsthemoduleandcontroller
+       proachsampleseveryexposedwallperimeter.Thisisaccu-                           
+                                            membersitneedstolocalsoncebeforetheloop:
+       rate,butlargesolidwallblobscancontributemanyperimeter                        
+       segmentswhosefinedetailhaslittlestrategiceffect.                             
+       Forsufficientlythickorcompactwallcomponents,wecan                            
+       replacethecomponent’sfullperimeterwithamuchsmaller                           
+       medial-axisrepresentative.Conceptually,insteadofdescrib-                     
+       ingeverypixelofthewalloutline,wedescribethewallmass                          
+
+===== PAGE 23 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       CambridgeBattlecodePostmortem                                                
+       Table2:Thetenlargestruntimeconsumers(ignoringchokepointconsumers),rankedbytotalselftime.Selftimes
+       areadditiveandsumtototalCPU,so%iseachfunction’sshareofthetotalselftime(≈6,483msover6,070profiled
+       turnsofonemap);thelistedtenaccountfor≈35%.𝜇s/callismeanselftimeperinvocation.
+                                                                                    
+                        Function              Calls Self(ms) 𝜇s/call %              
+                        map_info:update_at  470,546 883.9 1.9 13.6                  
+                        map_info:update      6,070 336.7 55.5 5.2                   
+                        pathing:_claim_zone_on_passable 3,412 222.4 65.2 3.4        
+                        map_info:_compute_route_targets 6,716 218.0 32.5 3.4        
+                        pathing:bfs_move     3,655 123.1 33.7 1.9                   
+                        map_info:_carrying_expand 5,321 117.8 22.1 1.8              
+                        Controller.get_tile_building_id 414,358 113.2 0.27 1.7      
+                        map_info:expand_chebyshev 71,745 111.2 1.55 1.7             
+                        pathing:_closest_impl 15,170 84.3 5.56 1.3                  
+                        map_info:update_move 2,752 76.6 27.8 1.2                    
+                                            Furthermore,afteramove,update_movediffstheoldandnew
+        # bfs_move, before the frontier loop iterates:                              
+                                            visionmasksandcallsupdate_atonlyontilesthatbecame
+        bm_et = map_info._bm_et;                                                    
+        nlc = map_info._not_left_col;       visible:                                
+        board = map_info._board_mask;                                               
+                                            for tile in nearby:                     
+        bcost = barrier_cost;                                                       
+                                              bit = 1 << (tile.x + tile.y * W)      
+        # update_at, binding hot Controller methods to locals:                      
+                                              new_visible |= bit                    
+        get_tile_env = rc.get_tile_env                                              
+                                              if not (old_visible & bit): # only the delta
+        get_tile_building_id = rc.get_tile_building_id                              
+                                                 update_at(tile)                    
+        get_hp     = rc.get_hp                                                      
+                                            Thisreducesthenumberoftileswescanaftermovingfrom
+                                            alltileswithinvisiontoonlythenewlydiscoveredtiles.
+       Integer-IndexedTables                                                        
+       cambcenumsarenotinteger-valued,sousingthemasdictio- TTLCaches                
+       narykeysorinfrozensetmembershiptestscostsahashper                            
+                                            Statesthatdependonexpensivecalculationstofindtarget
+       access.map_infoconvertseveryenumtoasequentialindex                           
+                                            tiles remember the tiles that failed. We use Time to Live
+       onceatimportandthereafteruseslistindexingandboolean (TTL)cachesthatstoretargettileswewanttoskipfor100
+       lookuptablesinsteadofdictionarylookups. rounds,sowedon’twastecomputetryingtocalculateifa
+                                            recentlyfailedtargettileshouldbeactedonagain.
+       CachingandMemoization                Debugging                               
+       Manyofourderivedbitmasks,calculatedtargets,etc.,are log.pybindslogatmoduleloadtooneoftwodefinitions
+       memoizedonthemapinfostructurestheydependon.We dependingonasingleboolean:     
+       also memoize some calculations irrespective of local map                     
+                                            DEBUG_LOGGING = False                   
+       changes.Theharvestzone,whichisaVoronoifloodfillfrom                          
+                                            if DEBUG_LOGGING:                       
+       ourcoreagainstthepredictedenemycoreusedtoapproxi-                            
+                                              def log(*args, **kwargs): print(*args, **kwargs)
+       matesafeharvestlocations,onlyrunswhensymmetrypre- else:                      
+       dictionsupdate.Thecolumnandrowguardmasksandthe def log(*args, **kwargs): pass
+       eightper-facingdirectiontemplatesforsentinelsarelikewise                     
+       builtatinitandnotupdatedagain.       Everylog(...)callsitethusbecomesano-opfunctioncall
+                                            whenweturntheflagoffbeforesubmittingourbot.
+       IncrementalUpdates                   Results                                 
+       Weprioritizeupdatingourmapinfostructuresratherthan OurtournamentresultsaresummarizedinTable3.Sprints
+       fullyrebuildingthem.Forexample,update_atmaintainscon- weretheweeklytournamentsheldthroughoutthecompe-
+       veyoroutputandreverseconveyoroutputbitmasksasbuild- tition,whereteamscouldevaluatetheirperformanceand
+       ingsareupdated,ratherthanrescanningtheentiremap. gainabetterunderstandingofthemeta.TheInternational
+
+===== PAGE 24 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                        Wangetal.   
+                                                                                    
+       Qualifierswasatournamentforthetopeightteamsoutside                           
+       theUK,offeringachancetoadvancetotheGrandFinals.                              
+       TheGrandFinalswastheculminatingin-persontournament                           
+       for the top eight international and top eight UK teams to                    
+       watchthematchesplayout.                                                      
+       TheMemeandPongtournamentswerefor-funtournaments                              
+       heldaftertheGrandFinals.TheMemetournamentfeatured                            
+       severaledge-caseandtrollmaps.ThePongtournamentin-                            
+       volvedmin-maxingaxionitecollectionbyhardcodingstrate-                        
+       gies specifically for the Pong map. This map was unique                      
+       inthatthegamewouldendinaforceddrawifbothsides                                
+       avoidedplacingroadsnearthebarrierinthemiddle,since                           
+       thenneithersidecouldreachtheopponent’score.                                  
+               Table3:TournamentResults.                                            
+                                                                                    
+                                                                                    
+            Tournament     Date Result                                              
+            SprintOne      3/22 Top128                                              
+            SprintTwo      3/28 Top8                                                
+            SprintThree    4/5 Top4                                                 
+            SprintFour     4/11 Top8        Figure34:TopeightseededteamsfortheGrandFinals.
+            SprintFive     4/19 Top4                                                
+            InternationalQualifiers 4/20 3rd oneslistedatthebeginning(suchasHermesandHephaestus,
+            GrandFinals    5/4 1st          along with sub-versions of all of our bots) and were still
+            MemeTournament* 5/9 Top8        addinginnewstrategieslikeattackroutejusthoursbefore
+            PongTournament* 5/9 2nd         thefinalsubmissiondeadline.             
+            *For-funtournamentsplayedwithdifferentrule-sets. Overall,ourfinalsolutionisdifferentfrommostBattlecode
+                                            solutions,whichtendtohavepersistentstatesanddefined
+       Figure33showsourEloprogressionovertime.Wewentinto statetransitions.However,webelieveourmemorylessap-
+       theGrandFinalsasthefirstseed(Figure34showsthetop proachwasoneofthemainfactorsinourbotbeingvery
+       eightseededteamsbeforetheGrandFinals). dynamicandadaptable.Italsoallowedforalotofcomplex
+                                            behaviortoemergewithouthardcodingstrategies,which
+                                            madeourbotlesspronetooverfitting.       
+                                            Intheend,ourteamhadalotoffuncompeting,andwe’re
+                                            alreadylookingforwardtothenextcompetition.
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+       Figure33:Eloratingoverthecourseofthecompetition.                             
+                                                                                    
+       Conclusion                                                                   
+                                                                                    
+       Welearnedalotoverthecourseofthecompetitionthrough                            
+       trialanderror.Wehadmanymorebotversionsoutsideofthe                           
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
