@@ -1,3 +1,24 @@
+# 📊 RIGOR PASS + PIVOT v104 PROFILE (2026-08-10 afternoon)
+ic3d called out the small samples ("51% could be rng, same for the 3-2").
+Correct per the null-band law. Extended measurements:
+**v82 gate, n=300 (two independent 5-seed batches):** 155/300 = 51.7% +-5.7,
+kills 128-129. Verdict: free-insurance class, NOT mirror-positive — expected,
+since the mirror never hyper-rushes; the early horn is dormant there.
+**SmartFridge field, before/after v82:** pre = 3-7 games (30%, two series
+losses incl. t42/t46 core kills). post = 13-7 games (65%): 3-2, 4-1, 3-2, 3-2
+— FOUR straight series wins. Mechanism receipts: their rush class survived to
+a t1000 tiebreak win; sporkmic dies t265 (was t1000-tiebreak).
+**PIVOT v104 (profiled from their 5-0 over v76 + rematch):** a fusion bot —
+SmartFridge-style gunner pairs at d2-3 by t12-30 sustained ALL game, backed by
+h10-21 harvesters (we field h1-4), plus cut-and-cap vs us 2-5/game. Their g3
+eider: dealt 6783, we healed 6776 — perfectly matched siege that they STILL
+won on tiebreak because h21 out-collects h4 by default. **The rush is now
+beatable (HEIMDALL v3 rematch: 3-2 W incl. jackpot t421); the 5:1 HARVESTER
+DEFICIT is the structural gap and it decides every tiebreak and grind.**
+=> Oogway: this is the eco lane's evidence pack. Our defense stack is now
+holding the whole meta's rush shapes; games we still lose are decided by
+harvester count and bounced sieges, not by defense.
+
 # 📯 HEIMDALL v3 "EARLY HORN" (platform v78, active 2026-08-10 midday)
 New threat class appeared and was answered same-day. **Powered by SmartFridge
 (1712!) shipped a barrier-armored point-blank gunner-pair hyper-rush**: conveyor
