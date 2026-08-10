@@ -1,3 +1,37 @@
+# ⛏️ THE HARVEST-LAST THROTTLE (chassis bug, affects BOTH bots) + prospector (2026-08-11)
+Anti-sporks investigation. Field autopsy (96ba6136) killed the barrier
+theories and found the real gap: **we don't lose the eco war, we don't FIGHT
+it.** Measured vs sporks: our h1-h4 / cv3-31 vs their h7-h13 / cv33-93.
+**ROOT CAUSE: `harvestTask` is DEAD LAST in the eco chain** — any unfinished
+conveyor line starves new harvester construction, and there is always one.
+**Oogway's arbiter has the identical flaw** (harvest band 1.2-2.2, below
+routeConv 3.2-4.0). This has throttled both lines all season.
+**Fix attempts (each measured):**
+1. harvest-first for all eco builders -> 6 harvesters, **0 titanium mined**
+   (everyone digs, nobody connects — pitfall #10 live).
+2. connect-then-dig for all -> still 0 mined (routeConveyorTask is what
+   EXTENDS chains to the core; starving it leaves every harvester on a stub).
+3. **THE PROSPECTOR** (v88, role split): exactly one eco builder
+   (myNum % 4 == 2) prospects, the rest plumb. **3x income** (4040 vs 1280
+   mined). But map-polarized: wins eco-race maps (hive d36 9/10, jackpot
+   d28 9/10, saga d28 8/10), loses tempo maps (drumlin d26 0/10, moonrise
+   d9 0/10) — a diverted builder is a body missing from a close-core fight.
+4. **v88c = prospector + core-distance gate (>=27 manhattan).** Catastrophes
+   fixed (drumlin 0->5, moonrise 0->4), eco-race wins kept (jackpot 10/10).
+   Gate 50% mirror (expected: v83 doesn't fight the eco war either).
+**Field vs sporks: 1-4.** Correlation in that series: h13-vs-6 -> WIN
+1260-0; h7-vs-7 -> competitive (1015 dealt); h2-3-vs-6-7 -> ZERO dealt. BUT
+g4 (h6 vs h3, still 0 dealt) proves **eco parity is necessary, not
+sufficient**.
+**=> THE #1 GAP IS THE ATTACK LANE.** 13 of the last 15 field games vs top
+teams: ZERO core damage. Every defensive and economic lever now measured;
+none of them can win a game we cannot damage the enemy core in. This is
+oni's lane and it should be the sprint's whole focus.
+Also killed today, with receipts: harvester armor (35% vs bench — geometric
+denial that denies yourself), corridor armor (35% — solves conveyor deaths
+we no longer have: 2-3/game now, not the v70-era 11-33).
+Ladder untouched: Oogway's v82 active throughout.
+
 # 🧪 ANTI-SPORKS LEVERS: TWO TESTED, ONE KILLED (2026-08-11)
 The sporkstrue bench (61% vs our organ line = field-accurate on the rush
 axis) is now paying off — it kills bad ideas before the ladder does.
