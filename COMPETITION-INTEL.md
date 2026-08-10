@@ -1,3 +1,24 @@
+# 🗺️ MAPFORGE + STRESS SUITE — ic3d's idea: make our own maps (2026-08-10)
+**mapforge.py** (in ic3d-battlecode, copy in tools/ here) compiles .map26 files
+— encoder roundtrip-verified BYTE-IDENTICAL against the league pool. Format:
+W/H varints, one byte per tile (0 empty / 1 wall / 2 ore), 2 core records;
+league maps are 180°-rotation symmetric and forge() enforces it.
+**maps_stress/ suite** (NEVER mixed into maps/ — ship gates stay league-pure):
+knife (10x10 cores-d8 = fjordgate-extreme) · fortress (walled pockets, 2 gates)
+· goldrush (far ore fields = the h21 harvester war) · corner (cores at map
+corners) · maze (corridors) · barren (8 ore total).
+**First sweep findings (n=4/map screens):** HEIMDALL v3 generalizes — 54% vs
+mirror, 58% vs sporkmic across all six alien geometries, no zeros. ONE
+confirmed weakness: **knife 1/4 vs sporkmic** — the closest-cores rush now
+reproduces on demand (was: wait for a prod fjordgate draw). corner 1/4 vs
+mirror = watch item.
+**Use for the SATURDAY SPRINT (Aug 15):** every fix gets benched here before
+burning a league gate — fortress = bounced-siege detector bench, knife =
+close-cores race bench, goldrush = eco lane bench (Oogway: bench harvester
+experiments here without touching the ladder). Sprint prep: bounced-siege
+detector -> knife decision (race-commit vs pre-seal on cores<=10 maps) ->
+n=300 league gate Thursday -> top-5 scrim tour Friday -> freeze the bot.
+
 # 📊 RIGOR PASS + PIVOT v104 PROFILE (2026-08-10 afternoon)
 ic3d called out the small samples ("51% could be rng, same for the 3-2").
 Correct per the null-band law. Extended measurements:
