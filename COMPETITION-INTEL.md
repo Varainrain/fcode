@@ -1,3 +1,25 @@
+# 🧪 ANTI-SPORKS LEVERS: TWO TESTED, ONE KILLED (2026-08-11)
+The sporkstrue bench (61% vs our organ line = field-accurate on the rush
+axis) is now paying off — it kills bad ideas before the ladder does.
+**sporkstrue field exam first:** 0-5 vs real sporks, 3-2 vs Pantheon. So its
+61% lab number means "sporks' STRATEGY beats our line", NOT "this is a
+better bot" — monoculture law confirmed a fourth time. Ladder untouched (v82).
+**v86 HARVESTER ARMOR — REJECTED (kill it, don't retry).** Idea: siphon
+needs an empty cardinal slot beside our harvester, so once connected, wall
+the remaining slots (3 Ti each) → siphon geometrically impossible. Measured:
+**35% vs sporkstrue (WORSE than the 39% baseline)**, 48% mirror. Why it
+fails: those tiles are also OUR router's future hookup points, and 6-9 Ti
+per harvester exceeds what the siphon actually steals. The cure costs more
+than the disease. (Engine-correct idea, economically wrong — worth
+remembering as a class: geometric denial that also denies yourself.)
+**v87 CORRIDOR ARMOR — gating.** The Jython method (37 barriers walling
+their own conveyor lines is how they beat #1 sporks): a gunner shot stops at
+the first non-empty tile, so a 3-Ti barrier between an enemy turret and our
+conveyor eats every shot down that line — and 30 hp vs the conveyor's 20 for
+the same price. We lose 11-33 conveyors per sporks game; they lose 1.
+Smoke: beat sporkstrue t111, 10 armor barriers, 1 conveyor lost.
+Shares the 20-barrier defensive budget; opportunistic-only.
+
 # 🎭 FAITHFUL REPLICAS, ROUND ONE (2026-08-11, engine 2.3.7)
 Per the monoculture finding, built real-DNA sparring partners from replay
 measurements:
