@@ -1,3 +1,34 @@
+# 🪞 THE MIRROR MONOCULTURE — the week's biggest finding (2026-08-10 night, engine 2.3.7)
+Full merge built as ic3d proposed: **v85 = Oogway's v82 arbiter + all eight
+HEIMDALL organs + hp-armed defense bidding** (defense states bid in the
+arbiter only when core hp < 85% — the middle path between the -20% fixed
+chain and the 0-5 no-defense sweep). On 2.3.7:
+**Mirror: 78% vs v83 (kills 110-29, biggest PROMOTE ever) and 53% vs his
+line. Field: sporks 0-5, adgato 0-5.** We dealt ZERO core damage in every
+autopsied game; sporks out-eco'd the "eco brain" 110-23 conveyors on jackpot
+and won the tiebreak through 4792 of our healing; on meander our eco read
+h1/cv3 under harass. THIRD straight arbiter-line field collapse (v75-radar,
+v84c, v85) after mirror dominance.
+**The conclusion that matters: our lab is a MONOCULTURE.** Every bot in it
+shares one chassis DNA; the arbiter is hyper-tuned to beat exactly that DNA
+and loses to every genuinely different opponent. The mirror can no longer
+referee cross-team strength AT ALL — mirror numbers are now "does it beat
+our own family," nothing more. sporkmic also flunked (65% lab / 0-5 field).
+**What actually holds the field:** v79's organ line = game-fives vs sporks +
+2-3 adgato (career best). Oogway's v82 = 3-0 vs midfield, 1-4/1-4 vs top.
+Neither wins above; v79 defends the top matchups better, v82 farms below
+better. ACTIVE = Oogway's v82 (his toggle, restored after tests).
+**Sprint direction (needs the team call):**
+1. Build FAITHFUL enemy replicas from replays (sporks: escorted sentinel
+   rush + corridor steal + h14 eco; adgato: wall+heal+gunner attrition) —
+   without real-DNA sparring partners every lab number is family gossip.
+2. The attack problem is now the #1 gap: 0 damage in 10 straight field
+   games vs top-team defenses (walls/escorts/heals). oni's lane, with the
+   siege-sentinel + gravedigger receipts as starting points.
+3. Toggle discipline until Saturday: one owner, announce in Discord.
+All replays secured in prod/ (ee2eb46c sporks, bdbfedf2 adgato); v85 in
+bots/, shelved as platform v83 with receipts.
+
 # 🧠 OOGWAY'S ARBITER EVALUATED + THE MERGE STORY — sprint integration map (2026-08-10 night)
 **Oogway's "states copy" bot is the biggest architecture win since the siege
 sentinel.** Memoryless scored arbiter (every eco state scored fresh each turn,
