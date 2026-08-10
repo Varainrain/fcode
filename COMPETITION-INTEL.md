@@ -1,3 +1,39 @@
+# 🧠 OOGWAY'S ARBITER EVALUATED + THE MERGE STORY — sprint integration map (2026-08-10 night)
+**Oogway's "states copy" bot is the biggest architecture win since the siege
+sentinel.** Memoryless scored arbiter (every eco state scored fresh each turn,
+argmax executes, env-var-tunable weights): **61% vs its own base (kills 87-56)
+and 55% vs HEIMDALL v4** — while missing eight v77-v83 mechanics AND with
+sealTask accidentally dead code (defined, threats collected, never called).
+His mapPathfinding also deleted the churn death-pricing (memoryless purity).
+**Merge experiments (all n=150):**
+- v84 naive splice: 17%/2% — MY splice-order bug (range replace ate the
+  spliced methods; crash armor silently killed every eco turn). Fixed.
+- v84 fixed: 41% vs v83 — real composition drag.
+- v84b (churn pricing removed, matching his router): 49% — churn pricing
+  confirmed as -8% tempo drag, RETIRED (lighthouse-era receipt, meta-stale).
+- v84c (defense band silenced, matching his dead seal): **69% vs v83
+  (kills 94-42) and 65% vs sporkmic** — looked like the sprint bot...
+- **...and went 0-5 vs REAL sporks in the field.** Rolled back to v79
+  within minutes. THE LAW AGAIN: field > mirror > bench.
+**The synthesis for the sprint (this is the integration conversation):**
+1. The arbiter is the right chassis brain — adopt it.
+2. The defense stack (CB/jam/seal) is MATCHUP-DEPENDENT: a ~20% tempo tax
+   against siege-style mirrors, and simultaneously the entire sporks
+   matchup (with it: permanent game-fives; without it: 0-5 sweep).
+   Deleting it wins mirrors and loses to the #1. It must BID, not be
+   chained or deleted: defense states scoring LOW while the heal ledger
+   holds and HIGH when it's losing (the gravedigger stall-detector logic,
+   pointed at our own core). His knob system is exactly the tool for this.
+3. sealTask reconnect + the 8-mechanic carry-forward list (radar, CB, jam,
+   siege sentinel, pack seal, early horn, spawn limit, gravedigger) — all
+   have field receipts, all missing from his fork.
+4. sporkmic flunked as a sporks proxy (65% lab, 0-5 field) — needs gunner
+   escort + eco conquest to be faithful. Bench upgrades before trusting it.
+**⚠️ ENGINE 2.3.7 IS OUT** — maps sync + full re-gate before trusting ANY
+number above for the sprint. Ladder is on v79 (HEIMDALL v4, field-proven).
+Local: bots/oogstates (his bot), bots/v84b/v84c (merge isolates, receipts in
+lab_results.csv).
+
 # ⚰️ HEIMDALL v4 "GRAVEDIGGER" (platform v79, active) — the adgato ledger broken (2026-08-10 pm)
 ic3d flagged the elo bleed; the ledger analysis found it was ONE matchup:
 not adgato took -27 elo in 4 matches in 4 hours. Ten-game autopsy found their
