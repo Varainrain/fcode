@@ -1,3 +1,49 @@
+# 🐞 THREE REAL DEFECTS IN v86 -- AND WHY FIXING THEM DIDN'T MOVE THE NUMBER (2026-08-11)
+Chased ic3d's "something is missing" all the way down. All three are genuine
+code-level defects in the live bot. None of them, fixed, is a measured win --
+that combination is the finding, so here it is with every number.
+
+**DEFECT 1 (provable):** `def protectTask(self, ct, tatrget)` -- the body uses
+`target`, which is undefined -> **NameError on every single call**. AST-verified:
+params ['self','ct','tatrget'], loads {'target'}, assigned {} => undefined at
+runtime. run()'s crash armor swallows it, so the unit does NOTHING that turn
+instead of dying. Present in v86 AND the live v89. Absent from his earlier
+states bot -- introduced in "defend bot added".
+  ⚠️ **BUT: instrumented, `protect` wins the arbiter only ~2% of builder-turns**
+  (eider: harvest 53%, healBuild 22%, healCore 10%, routeConv 9%, protect 2%).
+  So the state rarely runs at all. **Typo fix alone, isolated, n=300: 52%**
+  (CI +-5.7) = free, not better. Fixing it trades "waste one turn" for "march
+  at a turret", roughly a wash. An earlier claim of mine in chat that builders
+  "freeze whenever a turret is visible" was WRONG -- 2%, not always.
+  It is still worth fixing: it is a defect, and it makes the state's real
+  policy testable for the first time.
+
+**DEFECT 2:** `coreId` is only set when a builder can SEE the core, so any
+"is our core hurt" test is permanently false for the roaming builders that
+would act on it. (This silently disabled my whole ported defense band.)
+
+**DEFECT 3 (the big one, measured):** every eco builder on our half answers
+recall and RETURNS, so the economy stops entirely while the core is hurt.
+Instrumented on eider: **runBestState reached 172 times in 246 rounds** with 5
+builders; 100 Ti mined vs the opponent's 600. This is our own documented
+all-heal-lock pitfall (gated 42% when we hit it; split-duty gated 4-1).
+Split-duty recall (alternate by round) fixes the halt -- but then cores die
+more (kills against 58 vs 46 for us). Heal triage (core publishes severity:
+2 = all hands, 1 = split duty) did not resolve the tension either.
+
+**ALL FIXES STACKED (bots/oogfix): 54% vs v86, violently polarized** --
+atoll/heart/lighthouse 10/10, fjordgate/nordkap 9/10, moonrise 8/10 against
+antler/eider 0/10, jackpot 1/10, meander/archipelago 2/10. Seven maps strongly
+won, six strongly lost. That polarization is the signature of a genuine
+STRATEGIC tradeoff on his chassis, not a bug -- which is why the right move is
+to hand Oogway the diagnoses rather than a bot that wins 7 maps and loses 6.
+**For Oogway:** defect 1 is a one-character fix, take it regardless. Defect 3
+is the valuable one -- the all-heal halt is real and costly, but the fix is a
+policy call about how much healing capacity to trade for economy, and it is
+your chassis and your call.
+Ladder context: v89 (the inert port, ~= your v86) climbed to 2031 with a 5-0
+over Clankers -- so all of this was achieved WITH these defects present.
+
 # 🔬 THE v86 DEFENSE PORT: 3 BUGS FOUND, AND AN HONEST NEGATIVE (2026-08-11)
 Full empirical run of ic3d's protocol (ship it, tour the top 5, keep if same
 or better). Result: **do NOT ship the port as built** -- but three real bugs
