@@ -1,3 +1,37 @@
+# 📡 RADAR + COUNTER-BATTERY PORTED INTO OOGWAY'S v86 (2026-08-11)
+**bots/oogv86plus = Oogway's v86 + 3 additions, 142 lines, nothing else
+touched.** Built from ic3d's catch in rated loss 2d0e6c04 g3 (moonrise):
+  t32  Lorem builds ONE sentinel at (11,3). Our core (5,3) -- 5 tiles, same
+       row, inside sentinel range^2 32.
+  t32-179  never answered. We built 0 sentinels, 0 barriers near the core,
+       and 2 gunners at d7-8 (gunner range^2 13 = 3.6 tiles: they physically
+       could not reach it). 1618 damage taken, 1118 healed back -- we nursed
+       the wound for 150 turns instead of removing the cause.
+**What the port adds:**
+1. RADAR (slot 12): builders see 4.5 tiles, so a sentinel parked at 5-6 is
+   invisible to them; the CORE sees 6 tiles, covering every tile a sentinel
+   can legally fire from. It publishes what it sees.
+2. COUNTER-BATTERY (slot 11): one builder answers with OUR sentinel by our
+   core. Range parity + adjacent healers (12 hp/turn vs its 9) = our
+   defender out-heals the duel, theirs dies in 3 shots.
+3. v86's OWN sealTask/coreThreats were dead code (defined, never called) --
+   now wired at the bottom of the band, budget-capped at 20 barriers.
+**Trigger design took 3 measured iterations -- the middle one is the lesson:**
+ - fire at ANY sentinel: 69% -> 53% vs the rush bench. During an opening
+   assault, tempo + protect beat diverting a builder to a 30-Ti sentinel.
+ - fire only when UNESCORTED: recovered the bench (60%) but **would have
+   stayed silent for all 150 turns of the very game it was built for** --
+   Lorem kept a gunner at d3 the whole time. Tuned to the replica, broke the
+   real case. REJECTED (monoculture trap in miniature).
+ - fire when: sentinel in firing range + core already bleeding + round >= 40.
+   A rush resolves inside ~40 rounds; a sniping sentinel is a 150-turn timer.
+**Receipts:** 51% vs his own v86 (free, no self-harm), 70% vs the rush bench
+(his baseline 69% -- costs nothing there), and it answers the parked-sentinel
+case his line currently cannot.
+**Context for the room:** v86's last 14 ladder series = 5W-9L, net -23.3 elo,
+and SEVEN of the nine losses were 2-3. The bot is competitive everywhere and
+loses the decider -- this is one concrete, measured cause of that.
+
 # ⛏️ THE HARVEST-LAST THROTTLE (chassis bug, affects BOTH bots) + prospector (2026-08-11)
 Anti-sporks investigation. Field autopsy (96ba6136) killed the barrier
 theories and found the real gap: **we don't lose the eco war, we don't FIGHT
