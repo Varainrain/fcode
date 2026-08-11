@@ -1,3 +1,34 @@
+# ✅ THE ECONOMY FLOOR -- the all-heal halt fixed, field-confirmed (2026-08-11)
+ic3d flagged rated loss 0241a12b (adgato 1-4). Autopsy = textbook defect 3:
+  g1 (377 rounds): **we built ONE harvester and 3 conveyors** while healing
+      822 hp. adgato ran h7/cv44 and dealt 1327.
+  g2: healed 1679 (420 Ti of pure nursing) and still lost 2180-420.
+  The only two games our economy kept running (g4 h9/cv42, g5) are the two
+  we won or nearly won.
+Cause: EVERY eco builder on our half answers recall and RETURNS, so while the
+core is hurt the economy stops completely. Nursing a core against a bigger
+economy is a losing race by construction.
+**bots/oogfixB = v86 + two changes:**
+ 1. the protectTask `tatrget`/`target` NameError (defect 1, one character)
+ 2. **ECONOMY FLOOR ON RECALL**: core publishes severity (2 = below 200 hp,
+    all hands come home; 1 = hurt, split duty). At severity 1 half the crew
+    heals and half keeps building, alternating by round -- healing continues,
+    the economy never halts.
+**FIELD (2 unrated series vs adgato, the matchup it targets):**
+| | harvesters | conveyors | healing | score |
+|---|---|---|---|---|
+| before (v89) | 17 | 80 | **3327** | **1-4** |
+| after, series 1 | 12 | 78 | **992** | **2-3** |
+| after, series 2 | 16 | **128** | **434** | **2-3** |
+Healing down ~8x (the nursing loop is broken), economy up, and our worst
+matchup moved 1-4 -> two 2-3s. **Lab gate 55% vs v86 -- the best of any
+variant built on his chassis** (still map-polarized: atoll/drumlin/lighthouse
+10/10, fjordgate/heart/nordkap 9/10 vs eider/snowflake 0/10, antler 1/10).
+Active on the ladder for rated evaluation.
+NOTE for Oogway: change 1 is a pure defect fix, take it either way. Change 2
+is a policy call, but the field numbers above are the argument -- and the
+severity split means a genuinely dying core (<200) still pulls everyone home.
+
 # 🐞 THREE REAL DEFECTS IN v86 -- AND WHY FIXING THEM DIDN'T MOVE THE NUMBER (2026-08-11)
 Chased ic3d's "something is missing" all the way down. All three are genuine
 code-level defects in the live bot. None of them, fixed, is a measured win --
