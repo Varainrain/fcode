@@ -1231,8 +1231,16 @@ class Player:
                 _bleeding = True
         except Exception:
             pass
+        # PREEMPTS PROTECT (the bug that made this whole port inert):
+        # scoreProtect returns S_PROTECT for ANY uncovered turret -- the
+        # parked sentinel itself -- so `bestScore < S_PROTECT` was never
+        # true and the band never ran. Worse, protect's answer is
+        # buildGunnerFor(sentinel): gunners aimed at a target they cannot
+        # reach (range 3.6 vs 5.6). That IS the two-gunners-at-d7-8
+        # behaviour in 2d0e6c04 g3. Measured: 11 parked enemy sentinels
+        # across the tour, 1 counter-battery built. Heals (12) still win.
         if (_sentThreats and _bleeding and ct.get_current_round() >= 40
-                and bestScore < S_PROTECT):
+                and bestScore <= S_PROTECT):
             if self.counterBatteryTask(ct, myLoc, _sentThreats):
                 return
             if self.sealTask(ct, myLoc, _sentThreats):

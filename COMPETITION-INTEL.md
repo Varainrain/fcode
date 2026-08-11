@@ -25,7 +25,24 @@ touched.** Built from ic3d's catch in rated loss 2d0e6c04 g3 (moonrise):
    real case. REJECTED (monoculture trap in miniature).
  - fire when: sentinel in firing range + core already bleeding + round >= 40.
    A rush resolves inside ~40 rounds; a sniping sentinel is a 150-turn timer.
-**Receipts:** 51% vs his own v86 (free, no self-harm), 70% vs the rush bench
+**⚠️ UPDATE after the field tour — the port was INERT until p5.** Unrated
+tour vs top-5 on the ported bot: 2W-3L (W Clankers 3-2, W Jython 3-2; L
+sporks 1-4, L adgato 2-3, L Pantheon 2-3) = statistically identical to v86's
+own ~5W-6L baseline. Then the mechanistic check: **11 enemy sentinels parked
+near a core across those 25 replays, 1 counter-battery built.** Cause found
+in the code: `scoreProtect` returns S_PROTECT for ANY uncovered turret --
+including the parked sentinel -- so the gate `bestScore < S_PROTECT` was
+never true and the whole band never ran. And the state that wins instead
+calls buildGunnerFor(sentinel): **gunners aimed at a target at range 5.6
+that they can only hit at 3.6.** That is EXACTLY the two-gunners-at-d7-8
+behaviour in 2d0e6c04 g3 -- his bot does react to the sniping sentinel, with
+the one response that physically cannot work. Fixed in p5 (`<=` so the band
+preempts protect; heals at 12 still outrank).
+**Final receipts (p5, in bots/oogv86plus):** 50% vs his own v86 (free), 69%
+vs the rush bench (= his 69% baseline, no tempo cost), and the counter-battery
+now actually fires. Lab says FREE, not better -- by the monoculture law only
+the field can price it, and the field case it targets is documented above.
+**Superseded:** 51% vs his own v86 (free, no self-harm), 70% vs the rush bench
 (his baseline 69% -- costs nothing there), and it answers the parked-sentinel
 case his line currently cannot.
 **Context for the room:** v86's last 14 ladder series = 5W-9L, net -23.3 elo,
