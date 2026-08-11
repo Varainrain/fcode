@@ -1,3 +1,37 @@
+# 🧪 40-VARIANT SWEEP ON v86: 66% IN THE LAB, AND WHY IT DIDN'T SHIP (2026-08-12)
+ic3d asked for wild ideas gated hard against Oogway's v86 until something hit
+60%+. 40 variants, ~7,000 lab games. Target cleared four times over; the field
+then vetoed the winners. Both halves matter.
+
+**FOUR EFFECTS THAT COMPOUND (each isolated, each verified n=300):**
+| change | why | gate |
+|---|---|---|
+| **building cap** (stop conveyor sprawl ~22 buildings) | every building is +1% on EVERY future turret | 56% |
+| **quarter-attackers** (myNum%4==1, was %2) | half the crew attacking is a lane that deals 0 core dmg vs top defences | 63% |
+| **heal band 12.0 -> 6.0** | healCore outranking eco IS the nursing spiral | 63% |
+| **ammo-aware turret builds** (no gunner under 8 ammo) | a gunner with no ammo is 20+ Ti of scenery | 59% |
+Stacked (h2/h6): **62-66% vs v86, kills 79-35.**
+
+**WHAT FAILED (equally useful):**
+- our own line's best ideas actively HARM his chassis: prospector 31%,
+  siege sentinel 39%, harvest-band raise 13%, opening harvest-first 20%,
+  more builders 16%, 3/4 attackers 39%. His arbiter is tuned tightly enough
+  that most transplants are poison -- the 27-transplant law, again.
+- barrier-first protect 51%, no-marching 48%, eco-targeting gunners 43%,
+  builder-targeting 49%, self-destruct surplus 56%, destroy-own-conveyors 54%.
+
+**THE FIELD VETO (the important part):** h6 (66% lab) went sporks 0-5, adgato
+2-3, Clankers 1-4. h2 (62% lab) went sporks 0-5, adgato 0-5. The lab loves
+these because v86 is a monoculture sibling; real opponents punish the exact
+thing the cuts remove -- a bot that heals less and attacks less folds to teams
+that actually pressure. **Lab 66% -> field worse than the 55% build.**
+=> **Ladder stays on v90** (typo fix + economy floor), the only variant with
+FIELD receipts: adgato 1-4 -> 2-3/2-3, healing 3327 -> 434, sporks 3-2 W,
+rating 2050 peak.
+Code: bots/h6-lab, bots/h2-lab (lab champions, field-rejected -- kept for the
+knob values). Sixth confirmation of the monoculture law; the sweep is only
+trustworthy as a source of HYPOTHESES, never of ship decisions.
+
 # ✅ THE ECONOMY FLOOR -- the all-heal halt fixed, field-confirmed (2026-08-11)
 ic3d flagged rated loss 0241a12b (adgato 1-4). Autopsy = textbook defect 3:
   g1 (377 rounds): **we built ONE harvester and 3 conveyors** while healing
