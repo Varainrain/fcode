@@ -23,8 +23,11 @@ routeConv 3.2-4.0). This has throttled both lines all season.
 1260-0; h7-vs-7 -> competitive (1015 dealt); h2-3-vs-6-7 -> ZERO dealt. BUT
 g4 (h6 vs h3, still 0 dealt) proves **eco parity is necessary, not
 sufficient**.
-**=> THE #1 GAP IS THE ATTACK LANE.** 13 of the last 15 field games vs top
-teams: ZERO core damage. Every defensive and economic lever now measured;
+**=> THE #1 GAP IS THE ATTACK LANE.** Exact count (autopsied, not
+estimated): of the 11 games from today's top-team scrims I ran damage
+ledgers on, **8 had us dealing ZERO core damage** (v85 vs sporks g4/g5, v85
+vs adgato g1, v87 vs sporks g2/g3, v88c vs sporks g1/g2/g4). The 3
+exceptions all correlate with eco parity or better. Every defensive and economic lever now measured;
 none of them can win a game we cannot damage the enemy core in. This is
 oni's lane and it should be the sprint's whole focus.
 Also killed today, with receipts: harvester armor (35% vs bench — geometric
