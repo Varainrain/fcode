@@ -1,3 +1,47 @@
+# 🔬 THE v86 DEFENSE PORT: 3 BUGS FOUND, AND AN HONEST NEGATIVE (2026-08-11)
+Full empirical run of ic3d's protocol (ship it, tour the top 5, keep if same
+or better). Result: **do NOT ship the port as built** -- but three real bugs
+came out of it, and one of them explains the loss ic3d flagged.
+
+**THE BUGS (all in how defense meets Oogway's arbiter -- worth fixing however
+he prefers, independent of my port):**
+1. `scoreProtect` returns S_PROTECT for ANY uncovered turret, including a
+   sniping sentinel. It wins the arbiter, and protectTask's fallback is
+   moveTo(target) -- so builders MARCH at a sentinel they cannot fight
+   (buildGunnerFor does range-check, so no useless gunner is built; the cost
+   is the diversion + walking into the kill zone).
+2. `coreId` is only set when a builder can SEE the core, so any "is our core
+   hurt" test is permanently false for the roaming builders that would act.
+3. **The deep one:** `answerRecall` returns early, so every code path below
+   it is unreachable EXACTLY when the core is under fire. That is the
+   2d0e6c04 g3 behaviour in one line: 1118 hp of healing, zero response to
+   the sentinel doing 1618. The bot recalls everyone to nurse the core and
+   structurally cannot remove the cause.
+
+**THE MEASUREMENTS (this is the part to trust):**
+| build | defense state | vs v86 | vs rush bench |
+|---|---|---|---|
+| v86 (his) | sealTask = dead code | -- | 69% |
+| p4/p5 | wired but INERT | 50-51% | 69-70% |
+| p7 | fires (on the recall path) | 47% | 62% |
+The "free" readings were free because nothing ran. **When the band actually
+fires it costs ~7 pts on the bench and ~3 in the mirror** -- consistent with
+the v84 merge result (fixed-chain defense taxed the mirror ~20).
+
+**FIELD-TOUR CALIBRATION (important for everyone):** p4 toured the top-5 at
+2W-3L; p5 -- an equally inert build -- toured 4W-1L (beat Clankers, adgato,
+Pantheon, Jython). Same dormant mechanism, opposite-looking results. **A
+5-series tour has a noise band wide enough to invent a large improvement.**
+Rule going forward: verify the MECHANISM fired in the replays before reading
+the scoreline. 24 parked enemy sentinels across p5's tour, 0 counter-batteries
+built -- the tour was measuring nothing.
+
+**Where this leaves the sentinel problem:** real, unsolved on his chassis, and
+NOT worth paying 7 points of tempo for as ported. The cheap direction next is
+subtractive rather than additive -- stop diverting builders toward sentinels
+they cannot fight (bug 1) instead of adding a counter-battery that competes
+with eco every turn. Code in bots/oogv86plus (p7) for reference.
+
 # 📡 RADAR + COUNTER-BATTERY PORTED INTO OOGWAY'S v86 (2026-08-11)
 **bots/oogv86plus = Oogway's v86 + 3 additions, 142 lines, nothing else
 touched.** Built from ic3d's catch in rated loss 2d0e6c04 g3 (moonrise):

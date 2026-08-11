@@ -340,6 +340,20 @@ class Player:
             pass
         if RECALL:
             try:
+                # ANSWER THE ARTILLERY BEFORE NURSING THE WOUND.
+                # answerRecall returns early, so anything below it is
+                # unreachable exactly when the core is under fire -- which is
+                # why 2d0e6c04 g3 shows 1118 hp of healing and zero response
+                # to the sentinel that was killing us. One builder per round
+                # (CB_SLOT claim) builds the counter-battery first; everyone
+                # else still recalls and heals as before.
+                if (ct.read_store(RECALL_SLOT) == 1
+                        and ct.get_current_round() >= 40):
+                    _thr = self._parkedSentinels(ct)
+                    if _thr and self.counterBatteryTask(ct, myLoc, _thr):
+                        return
+                    if _thr and self.sealTask(ct, myLoc, _thr):
+                        return
                 if ct.read_store(RECALL_SLOT) == 1 and self.answerRecall(ct, myLoc):
                     return
             except Exception:
@@ -434,6 +448,38 @@ class Player:
                 continue
             return sp
         return None
+
+    def _parkedSentinels(self, ct: Controller):
+        """Enemy sentinels inside firing range of our core: what this unit
+        can see, merged with what the CORE broadcast on slot 12 (builders
+        see 4.5 tiles, the core sees 6 -- the parks live in that gap)."""
+        myTeam = ct.get_team()
+        seen = []
+        try:
+            for b in ct.get_nearby_buildings():
+                if (ct.get_team(b) != myTeam
+                        and ct.get_entity_type(b) == EntityType.SENTINEL):
+                    seen.append(ct.get_position(b))
+            home = self.mapPf.teamCore
+            s12 = ct.read_store(SENT_BCAST_SLOT)
+            if s12 and home is not None:
+                known = set((s.x, s.y) for s in seen)
+                for i in (0, 1):
+                    byte = (s12 >> (8 * i)) & 0xFF
+                    if byte == 0:
+                        continue
+                    dx = (byte >> 4) & 0xF
+                    dy = byte & 0xF
+                    if dx >= 8:
+                        dx -= 16
+                    if dy >= 8:
+                        dy -= 16
+                    sp = Position(home.x + dx, home.y + dy)
+                    if (sp.x, sp.y) not in known:
+                        seen.append(sp)
+        except Exception:
+            return []
+        return self.coreThreats(seen)
 
     def coreThreats(self, enemyTurrets):
         """Enemy turrets within the stack's measured core-threat radius
@@ -1225,10 +1271,16 @@ class Player:
         # What actually separates the two: TIME. A rush resolves inside ~40
         # rounds; a sniping sentinel is a 150-turn timer on the core. So:
         # threat in firing range + core already bleeding + past the opening.
+        # CORE HEALTH MUST COME FROM THE STORE, NOT LINE OF SIGHT.
+        # coreId is only set when this builder can SEE the core -- and the
+        # roaming eco builders that would answer are exactly the ones that
+        # cannot. Measured: p5 tour, 24 parked enemy sentinels, ZERO
+        # counter-batteries built, because `coreId is not None` was false
+        # for every unit that could have acted. The core already publishes
+        # its own health to RECALL_SLOT every turn; read that instead.
         _bleeding = False
         try:
-            if coreId is not None and ct.get_hp(coreId) < ct.get_max_hp(coreId):
-                _bleeding = True
+            _bleeding = ct.read_store(RECALL_SLOT) == 1
         except Exception:
             pass
         # PREEMPTS PROTECT (the bug that made this whole port inert):
@@ -1239,7 +1291,7 @@ class Player:
         # reach (range 3.6 vs 5.6). That IS the two-gunners-at-d7-8
         # behaviour in 2d0e6c04 g3. Measured: 11 parked enemy sentinels
         # across the tour, 1 counter-battery built. Heals (12) still win.
-        if (_sentThreats and _bleeding and ct.get_current_round() >= 40
+        if (_sentThreats and ct.get_current_round() >= 40
                 and bestScore <= S_PROTECT):
             if self.counterBatteryTask(ct, myLoc, _sentThreats):
                 return
