@@ -54,11 +54,19 @@ def my_team_id():
     out = run(["fcode", "status", "--json"]) or ""
     try:
         d = json.loads(out)
-        for key in ("teamId", "id"):
-            if isinstance(d, dict) and d.get(key):
-                return d[key]
-            if isinstance(d, dict) and isinstance(d.get("team"), dict):
-                return d["team"].get(key)
+        if isinstance(d, dict):
+            team = d.get("team")
+            if isinstance(team, dict):
+                # `fcode status --json` nests it: {"user":..., "team":{"id":...}}
+                # (the earlier version returned None here on the first key it
+                # tried, so our OWN team was never filtered out of the target
+                # list and every cycle wasted a slot self-challenging).
+                for key in ("id", "teamId"):
+                    if team.get(key):
+                        return team[key]
+            for key in ("teamId", "id"):
+                if d.get(key):
+                    return d[key]
     except Exception:
         pass
     return None
