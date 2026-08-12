@@ -13,13 +13,12 @@ Usage (from the repo root, so replays land in prod/):
 Notes
   - Unrated matches use whatever submission is currently ACTIVE, so make sure
     the bot you want tested is the active one before starting.
-  - THE PLATFORM CAPS UNRATED MATCHES AT 5 PER 20 MINUTES. That is exactly one
-    cycle of --top 5 --every 20, which is why those are the defaults. The cap
-    appears to be per TEAM, so two teammates running this at once do NOT get
-    10 matches per window — they compete for the same 5 slots and half the
-    launches come back rate-limited. If you want more coverage, one person
-    should run it; the other can raise --top and --every together (e.g.
-    --top 5 --every 20 is the ceiling).
+  - THE PLATFORM CAPS UNRATED MATCHES AT 5 PER 20 MINUTES, PER PERSON. That is
+    exactly one cycle of --top 5 --every 20, which is why those are the
+    defaults. The cap is per account, so teammates running this simultaneously
+    DO stack: two people = 10 matches per window against the same active bot.
+    Rate-limit refusals therefore mean your own account already spent slots in
+    this window (e.g. from manual scrims) — not that a teammate took them.
   - Results append to scrim_log.csv and are printed as a running tally.
   - Replays expire within hours; they are downloaded into prod/ by default,
     which is what makes an overnight run worth analysing in the morning.
@@ -152,13 +151,13 @@ def main():
             elif note == "rate":
                 rate_limited += 1
                 print(f"   ~ rate limited vs {name} "
-                      f"(platform cap: 5 unrated / 20 min, TEAM-WIDE)", flush=True)
+                      f"(cap: 5 unrated / 20 min per ACCOUNT)", flush=True)
             else:
                 print(f"   ! could not start vs {name}", flush=True)
             time.sleep(2)                         # be gentle with the API
         if rate_limited:
-            print(f"   note: {rate_limited} slot(s) already spent this window — "
-                  f"if a teammate is also running scrims, the cap is shared.",
+            print(f"   note: {rate_limited} slot(s) of YOUR 5 were already spent "
+                  f"this window (manual scrims count). Teammates have their own.",
                   flush=True)
 
         deadline = time.time() + MATCH_TIMEOUT
