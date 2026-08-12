@@ -1,3 +1,38 @@
+# 🎯 THE ATTACK LANE: WHY WE DEAL ZERO DAMAGE (2026-08-12)
+ic3d picked the attack lane over more defence/eco tuning. Autopsy of the
+rated 0-5 vs Lorem (4d3d2db0) + the wider replay set. The answer was NOT what
+anyone assumed.
+**We reach their core fine.** Our builders get to distance 1 by t26-t43 in
+EVERY game, and we place 3-8 gunners within 8 tiles of it. Approach is not
+the problem.
+**We fire constantly. We shoot the wrong things:**
+| game | total dmg we dealt | into CORE | into BARRIERS | into eco/units |
+|---|---|---|---|---|
+| g2 | 420 | **0** | 112 | 308 |
+| g3 | 498 | **0** | 253 | 245 |
+| g5 | 4088 | 861 | **2772** | 455 |
+Their 3-Ti barriers absorb our 4-Ti-per-shot ammo at ~5:1. That is the wall
+meta and it is how the top teams blank us.
+**ROOT CAUSE (engine-truth bug in rayValue, present in every version of this
+chassis):** the scoring loop walks the firing ray and keeps accumulating
+value THROUGH enemy buildings. The engine stops a gunner's shot at the FIRST
+non-empty tile ("only empty tiles fail to block the firing line; builder bots
+and buildings are both targetable and blocking"). So a spot whose line to the
+core is interrupted by a barrier still scored the full GUN_W_CORE=1000, and
+we happily built there and plinked the barrier forever. It breaks on our OWN
+buildings but never on theirs.
+**Fix (bots/a1-rayfix, 6 lines): break the ray at the first enemy building or
+bot.** Gate: **73.7% vs Oogway's v86 at n=300** -- the largest margin measured
+on this chassis all week (best previous: 66%).
+**FIELD (the veto again):** sporks 2-3 and 0-5, adgato 1-4, Clankers 2-3,
+Pantheon 4-1 W. Better than the 66% lab champion managed (it went 0-5/0-5),
+and the Pantheon 4-1 is real -- but not a clean improvement over v90, and one
+rated game went 0-5 to sporks. Ladder returned to v90.
+**Status: the diagnosis is solid and reusable; the fix is real but its field
+value is unproven.** Anyone building attack code on this chassis should take
+the rayValue break regardless -- scoring targets you cannot actually hit is
+wrong on its own terms.
+
 # 🧪 40-VARIANT SWEEP ON v86: 66% IN THE LAB, AND WHY IT DIDN'T SHIP (2026-08-12)
 ic3d asked for wild ideas gated hard against Oogway's v86 until something hit
 60%+. 40 variants, ~7,000 lab games. Target cleared four times over; the field
