@@ -1,3 +1,42 @@
+# 🔬 515 GAMES ANALYSED: WHAT ACTUALLY DECIDES sporks & adgato (2026-08-13)
+Overnight scrimbot captured 286 matches vs the top 5 with replays. Comparing
+OUR WINS to OUR LOSSES against the same opponent (235 games vs sporks, 280 vs
+adgato) is the biggest natural experiment we have ever run. Three results.
+
+**1. IT IS NOT ECONOMY.** Wins and losses have essentially IDENTICAL eco:
+sporks games -- harvesters 7.2 (win) vs 6.7 (loss), conveyors 57.9 vs 57.6,
+builders alive at t100 4.6 vs 4.6. adgato the same. Every eco lever we spent
+two days on was aimed at a non-difference.
+
+**2. IT IS THE TURRET RACE, AND IT DIVERGES BY t100.**
+| vs sporks | t100 | t200 | t300 |
+|---|---|---|---|
+| our turrets, WINS | 5.8 | 9.5 | 10.8 |
+| our turrets, LOSSES | 3.4 | 4.6 | 5.3 |
+| their turrets, WINS | 2.6 | 3.7 | 3.1 |
+| their turrets, LOSSES | 4.8 | 8.0 | 10.6 |
+A 2.4-turret gap at t100 compounds to 2:1 by t300. Turrets compound (more
+guns -> less incoming damage -> less healing -> more guns), so the early race
+is close to decisive.
+
+**3. HEALING PAYS FOR THE MISSING ARMY.** Core healing in losses vs wins:
+882 vs 24 hp (sporks), 521 vs 195 (adgato). 882 hp = ~220 Ti = ~5 scaled
+gunners = exactly the turret gap at t300 (10.8 vs 5.3). The nursing spiral
+does not merely stall eco -- IT BUYS DOWN OUR ARMY.
+
+**Timing signature, both matchups:** turn of our first core damage --
+sporks t130 (win) vs t666 (loss); adgato t94 (win) vs t524 (loss).
+Confound checked and rejected: core distance is the same in wins and losses
+(sporks 24.2 vs 19.1 -- our wins are on FARTHER maps, not closer).
+
+**What this says to do:** stop optimising eco; protect the EARLY TURRET
+BUDGET. Concretely -- cap titanium spent on healing (it is buying nothing at
+882 hp when the core still dies), and treat turret count at t100 as the
+metric that matters. Convergent evidence from the 40-variant sweep: ammo
+depth +55%, ammo-aware turret builds +59%, heal band 12->6 +63%, all point
+the same way; harvest-band raise 13% and opening-harvest-first 20% point away.
+Data: scrim_log.csv (286 matches), prod/ (2149 replays), _winloss.py.
+
 # 🎯 THE ATTACK LANE: WHY WE DEAL ZERO DAMAGE (2026-08-12)
 ic3d picked the attack lane over more defence/eco tuning. Autopsy of the
 rated 0-5 vs Lorem (4d3d2db0) + the wider replay set. The answer was NOT what
