@@ -1,3 +1,23 @@
+# ❌ HEAL-BUDGET CAP: CORRELATION WAS NOT CAUSATION (2026-08-13)
+Direct test of the 515-game finding. v96 = v95 + core-healing capped at ~45 Ti
+per game (emergency override under 150 hp), so the titanium goes to turrets.
+Mechanism verified in-game: 0 hp healed / 19 turrets vs v95's 28 hp / 15.
+**Scrim result: 25% over 40 matches vs v95's 44% over 66. REVERTED.**
+  v95: Clankers 12-3, Lorem 3-10, Pivot 7-8, adgato 6-7, sporks 1-9
+  v96: Clankers 2-7 (!), Lorem 2-7, Pivot 4-4, adgato 0-4, sporks 0-7
+It collapsed hardest against Clankers -- our BEST matchup, 80% -> 22%.
+**The lesson, and it is a real one:** the 515-game analysis showed that in
+losses we heal 882 hp and field half the turrets. That correlation is solid.
+But healing is a SYMPTOM of losing, not a cause -- cutting it does not buy an
+army, it just kills the core faster. The turret gap and the healing bill are
+both downstream of losing the early exchange; neither is the lever.
+What survives from the analysis: economy is NOT the differentiator (identical
+in wins and losses), the turret race diverges by t100, and first core damage
+lands t130 vs t666. Those facts stand. The intervention derived from them
+does not. Next candidate levers (untested): ammo depth and ammo-aware turret
+construction, which raise turret UPTIME without cutting anything.
+Ladder restored to Oogway's v95 within minutes of the read.
+
 # 🔬 515 GAMES ANALYSED: WHAT ACTUALLY DECIDES sporks & adgato (2026-08-13)
 Overnight scrimbot captured 286 matches vs the top 5 with replays. Comparing
 OUR WINS to OUR LOSSES against the same opponent (235 games vs sporks, 280 vs
