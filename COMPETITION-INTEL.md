@@ -1,3 +1,36 @@
+# 🌍 META RESET: ENGINE 2.3.8 REPLACED THE MAP POOL (found 2026-08-15)
+ic3d asked why the ladder moved. It is not (only) bots adapting -- **the game
+changed under us.** Engine 2.3.8 shipped and 10 of the 15 maps are NEW.
+**Surviving maps (5):** antler, archipelago, drumlin, fjordgate, nordkap.
+**New (10):** auroraveil, drakkarfjord, frostgate, glacierkeep, icefloe,
+midgard, ragnarok, royale, valkyrie, yulerune.
+**What actually changed:**
+ - **SCALE.** Five 30x30 maps (drakkarfjord, glacierkeep, midgard, ragnarok,
+   valkyrie). The old pool topped out at 28x20 and had NO 30x30. Core
+   distance now reaches 48 manhattan (midgard, ragnarok) vs an old max of 36;
+   pool mean core distance ~24 vs ~18. Longer maps = longer games = economy
+   and sustained production matter more, tempo rushes matter less.
+ - **NEW SYMMETRY TYPES.** auroraveil/glacierkeep are vertical, frostgate/
+   valkyrie horizontal. Every old map was rotational.
+   ✅ CHECKED, NOT A BUG: our 180-rotation enemy-core prediction still holds
+   on all 15 new maps (verified tile-by-tile). The only map it ever failed on
+   was meander, which has been removed. mapPathfinding's comment was right.
+ - Balance constants: NO changes (damage/cost/hp/vision/ammo all identical).
+**Ladder consequence (2 days):** Jython 1869->2020 (+151), O(1) 1884->2034
+(+150), Lorem 2047->2158, Pivot 2010->2121 -- while sporks 2156->2008 (-148),
+adgato 2013->1898, Clankers 2013->1910, Pantheon 1980->1896. Teams built for
+the old small-map tempo meta collapsed; teams that scale to big maps climbed.
+**Us: 1826, rank #15/126** (peak was 2050 on the old pool).
+⚠️ **ACTION FOR EVERYONE: `fcode maps sync` and re-gate.** Local pools still
+holding atoll/eider/heart/hive/jackpot/lighthouse/meander/moonrise/saga/
+snowflake are testing on maps that no longer exist -- every gate number from
+before 08-15 is void (pitfall #18: engine patches void all numbers).
+ic3d-battlecode has parked the stale ten in maps_stale_238/.
+**Read on the new pool:** with core distances up to 48 and five 30x30s, the
+old "rush/tempo" levers are worth less and the eco/production levers are
+worth more -- the opposite of what the old-pool data said. Everything in the
+515-game analysis above was measured on the OLD pool and should be re-tested.
+
 # ❌ HEAL-BUDGET CAP: CORRELATION WAS NOT CAUSATION (2026-08-13)
 Direct test of the 515-game finding. v96 = v95 + core-healing capped at ~45 Ti
 per game (emergency override under 150 hp), so the titanium goes to turrets.
