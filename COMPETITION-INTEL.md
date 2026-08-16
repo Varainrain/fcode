@@ -1,3 +1,28 @@
+# 🐺 FENRIR (v122, field trial running) — from-scratch military brain (2026-08-16)
+ic3d asked for a bot that beats the new meta. FENRIR = v108's untouched eco
++ a NEW defense/military layer built from today's measurements:
+ - COUNTER-BATTERY (defense.py): core radar (slot 11) publishes parked
+   enemy sentinels; the defender seats OUR sentinel on a ray to the threat
+   and heals it. Indirect fire cuts both ways - their entomb walls cannot
+   protect their own artillery. This is the counter the whole field lacks.
+ - Corrected transport: long trips only (manh>16), round>=60, forward rides
+   only, walled-terrain guard. Matches Jython's real profile (first launcher
+   ~t300), not the showcase game.
+ - Entomb-lite at the gates; ring VACCINE tried and CUT (our eco already
+   occupies the ring with conveyors for free - barriers there stole our own
+   delivery hub).
+Gates: jav1 25% -> fen1 41% -> 41% (n=150 each) vs v108base. Still mirror-
+REJECT, but the mirror CANNOT price counter-battery (v108base never parks
+artillery on us; the ladder does constantly). Per the standing protocol the
+referee is the field: v122 active since 13:36 platform time, scrimbot
+collecting ~40 unranked vs the top 5, keep-or-revert against v108's 20%
+baseline. Verdict lands in the log tonight.
+Six dead-ends today, all measured (details in bots/jav1+fen1 comments):
+t1 javelin rush, war-chest freezes, lock-first sieges, ring vaccine,
+radar ammo throttle (backwards - starved defense gunners, 1/10 nordkap),
+short-trip transport (bus overhead > walking under coreDist ~16).
+Oogway - your abl__x ablation sweep + this counter-battery module might be
+the merge: it is self-contained (defense.py + 3 hook lines in main.py).
 # 🚀 THE LAUNCHER: THE UNIT THE WHOLE FIELD MISSED (2026-08-16)
 Jython is #1 because of a unit our bot does not know exists. `EntityType.
 LAUNCHER` (20 Ti base, 30 hp, cooldown 1, vision^2 26). It appears in NO
