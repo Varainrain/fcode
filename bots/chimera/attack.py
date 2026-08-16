@@ -408,11 +408,12 @@ def run_gunner(ct: Controller, player):
                         return
                 break
     threatSpots = core_threat_spots(ct, player)
+    teamCore = player.mapPf.teamCore
     directionScores = []
     bestDir = myDir
     bestIsCoreDefense = False
     for directionIndex, d in enumerate(DIRECTIONS):
-        coreHits = coreThreatHits = gunnerHits = otherHits = 0
+        coreHits = coreThreatHits = gunnerHits = builderThreatHits = otherHits = 0
         for tile in ct.get_attackable_tiles_from(myPos, d, EntityType.GUNNER):
             if not ct.can_fire_from(myPos, d, EntityType.GUNNER, tile):
                 continue
@@ -427,16 +428,26 @@ def run_gunner(ct: Controller, player):
                         coreThreatHits += 1
                 else:
                     otherHits += 1
-        score = (coreHits, coreThreatHits, gunnerHits, otherHits)
+            elif tileId is None:
+                # WAVE PLANTERS: an enemy builder in our home zone is walking
+                # in to plant core-facing sentinels (Bisons: replant at t90
+                # after we cleared the first four). Ranks below live turrets
+                # (the active bleeders) but above eco targets.
+                bbId = ct.get_tile_builder_bot_id(tile)
+                if (bbId is not None and ct.get_team(bbId) != myTeam
+                        and teamCore is not None
+                        and tile.distance_squared(teamCore) <= 50):
+                    builderThreatHits += 1
+        score = (coreHits, coreThreatHits, gunnerHits, builderThreatHits, otherHits)
         directionScores.append((score, 1 if d == myDir else 0, -directionIndex, d, coreThreatHits > 0))
     if directionScores:
         bestEntry = max(directionScores)
         bestScore, _, _, bestDir, bestIsCoreDefense = bestEntry
     if bestDir != myDir:
-        _, _, gunnerHits, _ = bestScore
+        _, _, gunnerHits, builderThreatHits, _ = bestScore
         if bestIsCoreDefense:
             floor = 35
-        elif gunnerHits > 0:
+        elif gunnerHits > 0 or builderThreatHits > 0:
             floor = 50
         else:
             floor = 85

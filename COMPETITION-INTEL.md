@@ -1,3 +1,40 @@
+# 🛡️ WAVE DEFENSE (v125): THE 42-TURN SENTINEL + AMMO_CEILING=24 (2026-08-16 night)
+The Bisons (#17, 3 pts under our #16 - a STOCKHOLM CUTOFF fight) took
+chimera 4-1 rated (e9d90ccc, replays saved): glass-cannon sentinel wave -
+3-4 builders, ZERO home defense, walk into our half, plant core-facing
+sentinels from t23, first core hit t24-51. Killed our auroraveil rush t64
+(they out-race us by a phase on short maps) and our eco on royale t99 /
+valkyrie t82. Our one win (icefloe t180): core TANKED 1008 dmg (heals!)
+while walkers killed their empty home. **Their weakness: wave sentinels
+never rotate - any off-axis gunner kills them in 6 shots with ZERO
+retaliation** (sentinel = line fire along facing only).
+FORENSICS (royale): our defense RESPONDED in 2 turns and killed all 4 wave
+sentinels - but one lived 42 turns (~378 core dmg) and our walkers were 2
+TILES from their core when we died. A 10-turn loss. Three causes, all in
+code:
+1. **AMMO_CEILING=24 = six gunner shots TEAM-WIDE.** Wave clearance needs
+   ~23 shots; home gunners fired 1-2 rounds between refills while walkers
+   drained the same pool.
+2. **One-and-done coverage**: one gunner "covering" a threat empties
+   uncoveredTurrets; every other builder farms while it grinds.
+3. **Planters invisible**: threat machinery tracks only turrets - their
+   builders replanted freely (5th sentinel t90 after we cleared 4).
+FIXES (v125, eco side only, rush untouched): (1) WAR AMMO - enemy turret
+in core vision or enemy builder within footprint-20 floods AMMO_CEILING
+24->96, reserve untouched; (2) TWO-GUNNER RULE - a turret within range-32
+of our core footprint stays on the threat list until 2 gunners have it in
+range (protectCore seats the 2nd instead of walking in to melee); (3)
+PLANTER PRIORITY - run_gunner facing now counts enemy builders within
+dist2-50 of our core above eco targets (below live turrets).
+GATE: 91/150 = 60.7% PROMOTE vs v119base (was 54.7% pre-patch). Rush maps
+18/20 unchanged; **the 13 eco maps jumped 49.2% -> 56.2%** - the defense
+also repels v119's OWN walker sieges, i.e. this is a general siege-defense
+upgrade, not a Bisons-only counter. Fixture: kills wavebot on royale
+t214/valkyrie t291, 35 turns faster than v119base control on same seed.
+OPEN HOLE: rush mode still loses the auroraveil RACE to a wave team
+(their t24 vs our t41 first hit; wave spreads 3 flanks, one garrison
+gunner can't cover). Options: wave-mode for short maps, or defensive
+posture flip when core sees inbound builders <t20.
 # 🐐 CHIMERA (v124): MAP-CONDITIONAL STRATEGY SPLIT (2026-08-16 evening)
 Gungnir's 150-gate came back 21% REJECT overall but BIMODAL: auroraveil
 9/10, glacierkeep 8/10, icefloe 5/10, zeros on eight maps. The rush is a

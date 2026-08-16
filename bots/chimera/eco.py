@@ -1250,7 +1250,21 @@ def protectCore(ct: Controller, player, target: Position):
         import attack
         myTeam = ct.get_team()
         covered = attack.covered_tiles_by_turrets(ct, myTeam)
-        if (target.x, target.y) not in covered:
+        # Coverage alone no longer closes the case for a core-sheller: the
+        # arbiter re-bids these until 2 gunners are in range (wave overkill),
+        # so seat a second gunner instead of walking in to melee for 2.
+        _thin = False
+        _tc = player.mapPf.teamCore
+        if (target.x, target.y) in covered and _tc is not None:
+            _coreTiles = [_tc, _tc.add(Direction.EAST), _tc.add(Direction.SOUTH),
+                          _tc.add(Direction.SOUTH).add(Direction.EAST)]
+            if any(t.distance_squared(target) <= 32 for t in _coreTiles):
+                _nCover = sum(1 for b in ct.get_nearby_buildings()
+                              if ct.get_team(b) == myTeam
+                              and ct.get_entity_type(b) == EntityType.GUNNER
+                              and ct.get_position(b).distance_squared(target) <= 13)
+                _thin = _nCover < 2
+        if (target.x, target.y) not in covered or _thin:
             enemyCoverage = attack.enemy_turret_coverage(ct, player)
             teamCore = player.mapPf.teamCore
             best, bestScore = None, None
@@ -1333,6 +1347,23 @@ def run(ct: Controller, player):
                 enemyTurrets.append(g)
 
     uncoveredTurrets = [g for g in enemyTurrets if (g.x, g.y) not in covered]
+
+    # WAVE OVERKILL: a turret that can shell our CORE (sentinel range-sq 32
+    # of the 2x2 footprint) stays a live threat until TWO of our gunners have
+    # it in range. One covering gunner grinds 6 shots through ammo gaps while
+    # the sentinel does 9 hp/turn - the Bisons autopsy had one "covered" wave
+    # sentinel survive 42 turns for 378 core damage. Range check ignores
+    # facing: a seated gunner can rotate.
+    _tc = player.mapPf.teamCore
+    if _tc is not None:
+        _coreTiles = [_tc, _tc.add(Direction.EAST), _tc.add(Direction.SOUTH),
+                      _tc.add(Direction.SOUTH).add(Direction.EAST)]
+        _myGuns = [ct.get_position(b) for b in ct.get_nearby_buildings()
+                   if ct.get_team(b) == myTeam and ct.get_entity_type(b) == EntityType.GUNNER]
+        for _g in enemyTurrets:
+            if (_g.x, _g.y) in covered and any(t.distance_squared(_g) <= 32 for t in _coreTiles):
+                if sum(1 for p in _myGuns if p.distance_squared(_g) <= 13) < 2:
+                    uncoveredTurrets.append(_g)
 
     # ECONOMY BOOTSTRAP (suppress-passives form).
     # Measured on royale: the opening burns all 500 Ti by r60 and harvester

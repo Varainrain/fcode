@@ -128,15 +128,21 @@ class Player:
         compressedLoc = (myLoc.x << 5) | myLoc.y
 
         teamBuilders = []
+        enemyBuilderClose = False
         for u in ct.get_nearby_units():
             if ct.get_team(u) == myTeam and ct.get_entity_type(u) == EntityType.BUILDER_BOT:
                 teamBuilders.append(ct.get_position(u))
+            elif ct.get_team(u) != myTeam and ct.get_entity_type(u) == EntityType.BUILDER_BOT:
+                if self.dist_to_core(ct, ct.get_position(u)) <= 20:
+                    enemyBuilderClose = True
+        enemyTurretSeen = False
         enemyTurrets = []
         for b in ct.get_nearby_buildings():
             if ct.get_team(b) == myTeam:
                 continue
             if ct.get_entity_type(b) not in (EntityType.GUNNER, EntityType.SENTINEL):
                 continue
+            enemyTurretSeen = True
             gPos = ct.get_position(b)
             if any(tb.distance_squared(gPos) < 16 for tb in teamBuilders):
                 continue # a team builder is already close, they can handle it
@@ -170,6 +176,15 @@ class Player:
         # trend with bounded downside. A sentinel shot costs 10, so 16 allowed
         # only one queued shot plus change.
         AMMO_CEILING = 24
+        # WAR AMMO: with the pool capped at 24 (six gunner shots TEAM-WIDE),
+        # a home gunner clearing a sentinel wave (23+ shots) fires 1-2 rounds
+        # between refills while the wave pumps 9 hp/turn into the core - the
+        # Bisons loss had one covered sentinel live 42 turns. Any enemy turret
+        # in core vision, or an enemy builder within footprint-20 (a planter
+        # walking in), floods the pool so defense fire is continuous. Reserve
+        # is untouched, so building economy keeps its floor.
+        if enemyTurretSeen or enemyBuilderClose:
+            AMMO_CEILING = 96
         convertAmount = min(AMMO_CEILING - globalAmmo, globalTitanium - reserve)
         if convertAmount > 0 and ct.can_convert_ammo(convertAmount):
             ct.convert_ammo(convertAmount)
