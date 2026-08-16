@@ -1,3 +1,30 @@
+# 🌊 WAVEBOT: THE MISSING TEST FIXTURE + WHY fen2 FIELD-FAILED (2026-08-16 late)
+Built bots/wavebot: a kladde-style sentinel-wave dummy (v108 chassis, eco
+frozen under 100 Ti so the opening bank funds the wave, attackers plant
+core-facing sentinels on any adjacent tile once close). It deals ~936
+sentinel dmg into stock v108 (which survives only on tiebreak) - the first
+LOCAL test that discriminates wave defense at all.
+It immediately paid for itself twice:
+1. **fen2's scaling counter-battery is actively harmful**: fen2 dies to the
+   wave t119-153 where STOCK v108 survives t628+. That is why fen2 read 6%
+   in the field while gating 49% mirror / 61% panel - neither referee fires
+   artillery. Mirror AND panel are blind to defense quality; the fixture
+   sees it in 2 games.
+2. **The blocked=True seat-finder bug class**: gunnerSpots(blocked=True)
+   discards seats whose RAY is obstructed - correct for gunners, WRONG for
+   sentinels (indirect fire). Inside any conveyor field it returns ZERO
+   seats. This bit the wavebot, bits fen2's CB, and - most importantly -
+   **bits v108's own find_sentinel_spot on offense** (v108 builds only ~1.2
+   sentinels/game in a meta where 67% of damage is sentinel). Candidate
+   cheap win for the main line: blocked=False for sentinel seat searches.
+   ⚠️ CB with the seat fix STILL loses the fixture 1/4 - something further
+   is wrong (funding? defender pathing? claim livelock?) - instrumented
+   session queued for tomorrow. Do not merge fen2's defense.py as-is.
+Panel matrix result for the record (30 games/cell): v108base beats jav1 73%
+and dummy_siege 80% - stronger than fen2 (60/73) and fen3 (33/53). fen3's
+early transport is dead on every referee. v108 remains the best bot we own;
+same-day field baseline ~8-12% vs the top 5 (they improved today; the old
+20% number is stale - always baseline CONTEMPORANEOUSLY).
 # ⏱️ THE ARRIVAL RACE: 250-GAME v108 AUTOPSY NAMES THE LEVER (2026-08-16 night)
 Win/loss profile over every v108 scrim on the new pool (45W-205L, replays):
 **wins and losses are mirror images of ONE race - who establishes siege
