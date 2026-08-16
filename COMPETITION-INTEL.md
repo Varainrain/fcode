@@ -28,7 +28,17 @@ FROM one. (Our own enemy_turret_coverage already modeled this - gunner rays
 break on blockers, sentinel rays do not - we just never drew the conclusion.)
 Defensive corollary: the counter to a parked sentinel is counter-battery or
 killing it, never walls.
-**What I built on this (bots/jav1, gating now):** v108 + (1) a LAUNCHER
+**GATE RESULT (jav1, 150 games vs v108): REJECT at ~25%.** The transport
+shape reached mirror parity in smokes but the full gate killed it - v108's
+own push punishes the diverted titanium before the logistics pay off.
+frostgate 9/10 vs royale/yulerune 0/10 (near-identical geometry) says the
+remaining edge is map-interaction, not principle. NOT submitted; v108 stays
+active. jav1 is in bots/ with every mechanic working and documented
+(throws, highway, entomb verified in replays) - the launcher HANDLING is
+correct and portable even though this strategy packaging lost. Oogway: the
+fastest win is probably launcher logistics grafted into YOUR attack cadence
+with your tuning, not my packaging of it.
+**What I built on this (bots/jav1, gate above):** v108 + (1) a LAUNCHER
 entity handler, (2) attacker SELF-RELAY - far attackers lay chain launchers
 with attack money (+60 Ti floor so it never outbids turrets) and every
 later attacker rides free via a store-slot claim protocol (slot 12), (3)
