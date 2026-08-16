@@ -1,3 +1,33 @@
+# 🐐 CHIMERA (v124): MAP-CONDITIONAL STRATEGY SPLIT (2026-08-16 evening)
+Gungnir's 150-gate came back 21% REJECT overall but BIMODAL: auroraveil
+9/10, glacierkeep 8/10, icefloe 5/10, zeros on eight maps. The rush is a
+MAP SPECIALIST - its winning maps have cores pressed against the map edge
+(truncated spawn ring = fewer doorways to seal = the entomb closes in
+time). So: **bots/chimera = v119 verbatim + gungnir renamed to g_* modules
++ a 15-line dispatcher**. The CORE (unit 1, runs before any builder
+exists) matches its EXACT position against a rush table and broadcasts
+the verdict in store slot 15 (free in both families); every entity reads
+it once. Unknown maps (future rotations) fall through to eco.
+RUSH TABLE: (20,20) cores (9,1)/(9,17) = auroraveil; (30,30) (14,2)/(14,26)
+= glacierkeep. **TRAP THAT COST NOTHING BECAUSE WE CAUGHT IT**: royale's
+cores (9,2)/(9,16) sit ONE TILE from auroraveil's - any tolerance match
+rushes royale (2/10). Exact match only. Also: frostgate and yulerune have
+IDENTICAL core positions (2,9)/(16,9) - indistinguishable by fingerprint
+(harmless today, needs a terrain probe if we ever want to split them).
+Full pool fingerprints in ic3d repo scratch (map_fingerprints.py output).
+GATE: 82/150 = 54.7% vs v119base. Decomposed: rush maps 18/20 (auroraveil
+10/10, glacierkeep 8/10), the 13 eco maps 64/130 = 49.2% = mirror parity,
+as designed. Structurally >= v119: identical everywhere except two maps
+where it's 90%. Smokes verified both trap sides (royale played full eco
+5970 mined; auroraveil rush held v119 to ZERO ore mined, kill t113).
+SUBMITTED as v124 (auto-active). v119 field baseline for comparison,
+Aug 15 22:00 -> Aug 16 20:25, 240 unrankeds: **20/240 = 8.3%** vs top 5.
+Per opponent: Jython 7/43 (our BEST matchup now), O(1) 5/47, ph 4/47,
+Bean counters 2/33, Lorem 0/50, Pivot 0/20 - Lorem and Pivot are the
+walls. Scrimbot is accumulating chimera's trial vs that 8.3% bar.
+Candidate next: icefloe (5/10 as pure rush) is a one-line table addition;
+same for any map Oogway's line finds rush-favored. The dispatcher is
+generic - ANY strategy module can claim a fingerprint.
 # 🗡️ THE JYTHON RUSH DECODED FRAME-BY-FRAME + GUNGNIR (2026-08-16 night)
 e3eb4324 = Jython 4-1 over #2 LOREM, kills at t79/t91/t125. The complete
 recipe, exact: **THREE builders total** (the two unspawned builders ARE the
