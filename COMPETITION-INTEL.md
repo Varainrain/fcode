@@ -1,3 +1,24 @@
+# ⏱️ THE ARRIVAL RACE: 250-GAME v108 AUTOPSY NAMES THE LEVER (2026-08-16 night)
+Win/loss profile over every v108 scrim on the new pool (45W-205L, replays):
+**wins and losses are mirror images of ONE race - who establishes siege
+first at ~t100.** WIN: our first hit t98, we deal 933 take 184. LOSS: their
+first hit t100, they deal 882 (67% BY SENTINEL) we deal 189. Turret COUNTS
+at t100 are nearly equal (5.3 vs 6.5) - it is not production, it is
+POSITION: their builders arrive at our core BY AIR t60-90 (4.3 throws/game
+in our losses vs 0.5 in our wins), ours walk and first-hit at t464.
+Losses skew hardest on 30x30 (70L/17W). Damage to us: 588 sentinel + 285
+gunner; our melee-chip and their melee are identical noise (8.4 vs 8.3).
+**Interpretation:** v108 loses the establishment race 82% of the time vs
+the top 5, and transport is the single visible discriminator. The field's
+recipe is MODEST: ~4 throws starting t50-70, siege up by t90 - not
+Jython's 14-throw logistics net, and not my over-gated t60+/manh16 version
+that arrived exactly one race too late (fen2's radar-freeze conceded the
+race outright: 6% field, reverted 16:48 - trial autopsy: we built 1.1
+sentinels/game, dealt 174 vs took 849).
+**fen3 (gating now):** exactly two knobs on the fen2 base - transport at
+round>=30/manh>8 (arrive t60-80), sentinelAttackThreshold 120->30 (first
+siege turret = the one that outranges gunners). Nothing else touched.
+Data: _v108_autopsy.py, 250 replays in prod/, scrim_log.csv.
 # 🐺 FENRIR TRIAL VERDICT: REVERTED — AND A SECOND SIEGE DIALECT FOUND (2026-08-16 evening)
 Field trial of v122: **1W-7L (12%) vs the top 5** (v108 baseline 20%) plus
 two RATED series lost to sub-1900 teams (kladde 1794, farming_200s 1874,
