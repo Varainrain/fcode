@@ -1,3 +1,49 @@
+# 🚀 THE LAUNCHER: THE UNIT THE WHOLE FIELD MISSED (2026-08-16)
+Jython is #1 because of a unit our bot does not know exists. `EntityType.
+LAUNCHER` (20 Ti base, 30 hp, cooldown 1, vision^2 26). It appears in NO
+changelog - it either predates Aug 10 or shipped silently. It does not
+shoot: **`launch(bot_pos, target)` picks up an adjacent BUILDER and throws
+it.** Probed mechanics (local engine, ground truth):
+ - throw range: **dist^2 <= 26 from the launcher** (5 straight, (5,1) diag)
+ - **throws cost NOTHING** (measured ti 456->456, ammo 0->0) - the launcher
+   building is the only cost, and it PERSISTS: infinite free rides
+ - cannot land on occupied tiles/ore; landing beside the enemy core is legal
+ - launchers are script-driven entities: our run() must handle
+   EntityType.LAUNCHER or every launcher we build is scenery
+**Jython's system, from 190 of their wins over us (aggregate averages):**
+3.9 launchers / **14.1 throws** per game (each launcher reused ~3.5x),
+8.2 gunners + 4.0 sentinels at the front, 16.8 barriers, full eco behind
+(6.6 harv, 32.6 conv), first hit on us t78, damage 721 vs 113. First
+launcher averages t~300: they do NOT rush it - it is mid-game army
+LOGISTICS. Same army, delivered in a third of the walking time. On the new
+30x30 maps (walks of 40+ turns) that tempo is the whole ladder reshuffle.
+**Their showcase kill** (a2d0b3d2 g3 vs ph, midgard, core dead t141): relay
+t2->t12 across coreDist 48 (land -> build launcher -> rethrown, 2 turns/hop),
+barriers ring the victim's core ring (blocks SPAWNS - radius^2 2 is exactly
+that 12-tile ring - plus gunner shots + builder pathing, owner-passable for
+them), sentinel t35, first core hit t42, 882 dmg through a fully-blocked ray.
+⚠️ **SENTINEL FIRE IS INDIRECT** - that 882 dmg landed with barriers on the
+ray the entire game. Barriers protect a sentinel; they do NOT protect you
+FROM one. (Our own enemy_turret_coverage already modeled this - gunner rays
+break on blockers, sentinel rays do not - we just never drew the conclusion.)
+Defensive corollary: the counter to a parked sentinel is counter-battery or
+killing it, never walls.
+**What I built on this (bots/jav1, gating now):** v108 + (1) a LAUNCHER
+entity handler, (2) attacker SELF-RELAY - far attackers lay chain launchers
+with attack money (+60 Ti floor so it never outbids turrets) and every
+later attacker rides free via a store-slot claim protocol (slot 12), (3)
+entomb-lite - attackers already at the enemy core brick its spawn-ring
+tiles when adjacent. Eco untouched. Dead ends so far, all measured: t1
+javelin rush (steals the compounding first eco builders), war-chest
+spending freezes (starved us 640 vs 2630 mined), full-ring-lock-first
+(mortar arrived t83 vs their push t60). Attacker-transport shape: first
+mirror parity (5/10), mechanisms verified in replay (26 throws, 7
+launchers, 61 barriers in one midgard win).
+Correction to the 08-15 note below: the map rotation came from the Aug-10
+"rotation collections" platform feature, not engine 2.3.8 (2.3.8 was just
+the --mark flag). Also: --tle is only enforced on LINUX - local Windows
+runs never catch a TLE; use `fcode match test` before trusting heavy code.
+
 # 🌍 META RESET: ENGINE 2.3.8 REPLACED THE MAP POOL (found 2026-08-15)
 ic3d asked why the ladder moved. It is not (only) bots adapting -- **the game
 changed under us.** Engine 2.3.8 shipped and 10 of the 15 maps are NEW.
