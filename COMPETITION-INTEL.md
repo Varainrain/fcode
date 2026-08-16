@@ -1,3 +1,31 @@
+# 🐺 FENRIR TRIAL VERDICT: REVERTED — AND A SECOND SIEGE DIALECT FOUND (2026-08-16 evening)
+Field trial of v122: **1W-7L (12%) vs the top 5** (v108 baseline 20%) plus
+two RATED series lost to sub-1900 teams (kladde 1794, farming_200s 1874,
+-14.6 elo) -> restored v108 at 15:16 per protocol. The good news was real
+too: FENRIR took 3-2 off O(1) (2069) and went 2-3 with Jython (2139) -
+closer than v108 usually gets against exactly the teams it was built for.
+**Why it bled below its own baseline - the autopsies (both rated losses):**
+the mid-table runs a SECOND dialect of the siege meta we had not modeled.
+kladde g5 (midgard, our core dead t124): a **7-SENTINEL WAVE** leapfrogging
+across the map as mobile artillery - (13,4)->(22,2)->(21,27) - first hit
+t85. farming g2 (ragnarok, dead t136): same shape, 3 sentinels, first hit
+t48, our eco strangled at 2 harvesters. No launchers needed, no entomb -
+just sentinel creep exploiting indirect fire + big maps.
+**So the meta has (at least) two branches:**
+ 1. Jython-style: launcher logistics + entomb + 1-2 mortars (top teams)
+ 2. Wave-style: 3-7 leapfrogging sentinels (kladde, farming_200s, likely
+    the old arsonist-duck lineage supercharged by the 30x30 pool)
+FENRIR's counter-battery was built for branch 1: ONE defender, ONE claim,
+answers ONE parked piece. Against a wave it built 1 sentinel vs 7 and died.
+Design consequence for whoever picks this up (module is self-contained in
+bots/fen1/defense.py): CB must SCALE - radar already sees up to 2 threats;
+count them, seat one defender sentinel PER threat (or a sentinel line),
+and open the ammo pipe behind it. Barriers do NOT answer sentinels any
+more (indirect fire) - the old seal-vs-artillery economics are DEAD except
+as ammo sponges when their AI deigns to shoot them.
+Where things stand tonight: v108 active, scrimbot running, rating ~1843.
+FENRIR organs (transport, CB, radar) all verified-working and documented;
+the packaging needs Oogway's ablation discipline more than more solo swings.
 # 🐺 FENRIR (v122, field trial running) — from-scratch military brain (2026-08-16)
 ic3d asked for a bot that beats the new meta. FENRIR = v108's untouched eco
 + a NEW defense/military layer built from today's measurements:
