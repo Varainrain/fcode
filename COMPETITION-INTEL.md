@@ -1,3 +1,29 @@
+# 🗡️ THE JYTHON RUSH DECODED FRAME-BY-FRAME + GUNGNIR (2026-08-16 night)
+e3eb4324 = Jython 4-1 over #2 LOREM, kills at t79/t91/t125. The complete
+recipe, exact: **THREE builders total** (the two unspawned builders ARE the
+war budget), launcher t1, relay t2, at the enemy core t6-t12 (even coreDist
+44), **entomb FIRST** (12-14 barriers from t9 - every open ring tile is a
+doorway for a defender to walk out and kill the guns), **TWO sentinels**
+t36-47 behind the wall (rays fully blocked - indirect), first hit t41-48,
+core dead t79-91. Minimal eco (3 harv). Lorem played pure eco and died with
+zero military; their one win was nordkap, coreDist 12 - the rush's known
+boundary (same as ph beating them on antler).
+**bots/gungnir replicates it** (jav1 relay + blueprint economics): arrival
+t12 confirmed, entomb, twin mortars, + one home-garrison gunner (necessary
+deviation: v119's walkers first-hit an empty house ~t55). Status: kills
+v119base at blueprint-ish speed on auroraveil (t96-137) and frostgate, but
+LOSES the race on midgard/nordkap/ragnarok/fjordgate - Jython's execution
+is ~15 turns tighter per phase and that margin is the entire strategy. A
+3-builder bot that fails to close NEVER recovers (v119's eco: 215 conveyors
+by late game - long games are auto-loss). 150-gate vs v119base running
+overnight; treat gungnir as a WORKING REFERENCE IMPLEMENTATION of the #1
+strategy, not a ship candidate yet.
+Note for Oogway: v119 activated as champion per your call - all my gating
+now baselines v119base. Its walker-attack clock (first hit ~t55 vs an
+undefended home) is what punished every rush variant tonight; that same
+clock is v119's own weakness vs Jython's t41 - they out-race us by one
+phase. The blueprint's tightness targets, if you want to close the gap in
+YOUR line: arrival<=t12, ring sealed<=t30, guns firing<=t40.
 # 🌊 WAVEBOT: THE MISSING TEST FIXTURE + WHY fen2 FIELD-FAILED (2026-08-16 late)
 Built bots/wavebot: a kladde-style sentinel-wave dummy (v108 chassis, eco
 frozen under 100 Ti so the opening bank funds the wave, attackers plant
