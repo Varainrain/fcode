@@ -1,3 +1,24 @@
+# 🎯 LINGLING DECODED + THE TABLE WARS (2026-08-17/18 night)
+**For Oogway - lkick tuning targets from lingling's 5-0 over solo v143
+(332b3f7f, replays in ic3d prod/):** lingling is a MAP-ADAPTIVE
+launcher-kick rusher - full eco + midfield sentinel on big maps (17
+conveyors on valkyrie), 1-builder gunner rush on small ones. Their small-
+map clock: **first gunner t5-t9, first core hit t10** (nordkap 903 dmg,
+5 gunners). They also DEFEND first on contested maps (fjordgate: gunner
+at their own core t5 while our kick landed t3, then counter-massed).
+lkick's kick arrives t3 but loses the gunner-mass exchange after arrival
+- the delta is home-defense-then-counter, not arrival speed.
+TABLE WARS RESULTS (hybrid2 line, platform v144→v146):
+- v144 hybrid2 = lkick on its 8 swept maps: panel 57% over v143, 72% over
+  hybrid1, wavebot 65, jav1 47. Beat BOTH parents.
+- FULL trio carve (valkyrie+nordkap+fjordgate→eco) REJECTED by data: our
+  eco is 0/6 vs the launcher-rush class on ALL THREE - the carve would
+  trade lkick's rusher-coinflip for an auto-loss. MIRROR-TRAP note: on
+  contested maps, panel siblings cannot referee table choices (lkick
+  beats our eco in mirrors while losing the same map to the field).
+  Class-specific fixtures or real scrims only.
+- v146 "hybrid2.1" SHIPPED: valkyrie-only carve (unanimous: lkick 0/4 vs
+  waves there, our eco 78%, band is wave-heavy). Panel neutral elsewhere.
 # ⏱️ CRITICAL: THE LADDER ENFORCES 10ms/TURN AND OUR LAB NEVER DID (2026-08-17 pm)
 **Every gate we have ever run was blind to the server's turn limit.** The
 CLI source says it outright: `--tle ... (0 to disable, server uses 10)` -
