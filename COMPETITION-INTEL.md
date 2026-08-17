@@ -1,3 +1,35 @@
+# ⏱️ CRITICAL: THE LADDER ENFORCES 10ms/TURN AND OUR LAB NEVER DID (2026-08-17 pm)
+**Every gate we have ever run was blind to the server's turn limit.** The
+CLI source says it outright: `--tle ... (0 to disable, server uses 10)` -
+and enforcement is LINUX-ONLY, so Windows lab runs never see it. Verified
+with WSL1 + fcode 2.3.8 (venv /root/fc313 on ic3d's machine, referee
+command in tools/ notes): the ENGINE IS SEED-DETERMINISTIC (same seed
++ tle 0 reproduces Windows exactly), and flipping TLE on flips OUTCOMES:
+same-seed nordkap defense dies t46 vs t64; valkyrie vs a wave FLIPS
+WIN->LOSS under enforcement (repeatedly, multiple seeds). Drops are WALL-
+CLOCK sensitive - under parallel load (like ladder servers) they multiply:
+a 30-game WSL gate under 6-way load read chimera4 at 33% vs the SAME
+matchup's 61% on Windows.
+WHY WE'RE OVER BUDGET: the v119-line eco arbiter re-sweeps
+get_nearby_buildings in nearly EVERY score function, every builder, every
+turn (~4 sweeps x 3 FFI calls x building count), plus covered_tiles_by_
+turrets is ~450 engine calls per builder-turn during sieges, plus
+run_gunner's 8-direction rescan is ~400 calls per idle gunner. Any busy
+mid-game turn busts 10ms in Python. **The visualiser "freezing" (885fac42)
+is partly this (dropped turns) and partly heal-bunker posture (builders
+parked adjacent to the core healing look frozen but are working).**
+IMPLICATIONS FOR ALL GATING: Windows gate numbers are OPTIMISTIC for
+compute-heavy bots and the bias GROWS with feature count. A feature that
+costs turn-time can gate positive locally and lose rated. Ladder-faithful
+gates: run lab.py inside WSL (PATH=/root/fc313/bin). Slow but honest.
+CHIMERA5 (in gate): one-sweep arbiter (blds tuples passed to scorers),
+per-round cache for core_threat_spots (geometry-only - SAFE), idle-gunner
+alternate-turn rescan, war-ammo reserve fix + core-shelling-scoped
+trigger. LESSON PAID FOR (41% REJECT, antler 0/10): do NOT per-round-cache
+covered_tiles across entities - coverage is VISION-SCOPED and the first
+computer poisons every teammate. Cache only vision-independent geometry.
+ALSO: platform match runner DOWN since ~10:00 UTC (queue accepts, nothing
+resolves; pending matches eat rate-cap slots). v133 has zero field data.
 # ⚔️ v133: THE LOREM COPY - PICKET + ANTI-ARMOR + RUSH EXPANSION (2026-08-17)
 CONTEXT: 43 straight rated losses Aug16 19:12 -> Aug17 09:12 UTC across
 FIVE submissions (v124-v131) - not one bad upload, the FIELD moved. The
