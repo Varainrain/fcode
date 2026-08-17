@@ -1,3 +1,50 @@
+# ⚔️ v133: THE LOREM COPY - PICKET + ANTI-ARMOR + RUSH EXPANSION (2026-08-17)
+CONTEXT: 43 straight rated losses Aug16 19:12 -> Aug17 09:12 UTC across
+FIVE submissions (v124-v131) - not one bad upload, the FIELD moved. The
+mid-table (Bisons #17, OpenSverige, kladde chatte tville, HTTP 418) now
+plays waves; OpenSverige plays ARMORED waves (sentinel t10, barrier shell
+t22, full eco - fb981e12 frostgate killed us t84; gunners cannot shoot
+through the shell). Rated losses are 3-2s (~-3.5 elo each), not sweeps.
+We fell #16 -> #18 (1799), Bisons above us. v131 (unnamed, 04:49, drops
+s_main) was the worst of it - reverted to v127, then merged v127+v131
+into v132 (52% NEUTRAL, ships the defensive combo + s_main crashfix:
+can_fire(None) TypeError forfeited every targetless gunner turn).
+THE LOREM BLUEPRINT (3dda7812: Lorem #4 beats Jython #1 4-1, our 0/50
+nightmare showing how): (1) PICKET - midfield lane sentinel + home gunner
+by t11-14 from the OPENING BANK, before any threat exists; (2) fast home
+response - Jython's siege sentinel planted t47, gunner seated t49, dead
+t55; (3) COUNTER-GRIND - 5 builders to the rusher's empty home, gunners
+at the core from t36, REBUILT THROUGH 5 DEATHS (17 total, 25-conveyor
+eco funding) until 937 core dmg; (4) 4-sentinel cluster closer ~t140.
+A 3-builder rush cannot win attrition vs a full economy.
+v133 = v132 + the two pieces we lacked:
+- PICKET, FINGERPRINT-GATED: unrestricted it gated BIMODAL (antler 10/10,
+  ragnarok 9/10, frostgate 8/10 vs royale 0/10, drakkar/midgard 1/10 -
+  tempo cost kills fragile maps). Gated to antler/frostgate+yulerune/
+  archipelago. NOTE: ragnarok and midgard have IDENTICAL fingerprints
+  (30x30, (2,2)/(26,26)) but gated 9/10 vs 1/10 - terrain-only difference,
+  runtime-indistinguishable without a terrain probe -> both excluded.
+- ANTI-ARMOR TIER in protectCore: core-sheller with adjacent enemy
+  barrier = armored -> seat a SENTINEL (indirect kills through the shell,
+  3 hits, zero return fire off-axis) via sentinelLines/blocked=False
+  seats instead of a gunner.
+- RUSH TABLE +drumlin +drakkarfjord: 50% vs own eco, PERFECTLY side-
+  deterministic (drumlin wins going FIRST t47, drakkarfjord going SECOND
+  t61, 3 seeds each). Field logic: those maps were near-auto-loss to
+  waves (Bisons t57/t73) and a closing rush OUTRACES waves (we beat
+  Bisons nordkap t29/glacierkeep t44 in the same match). Coinflip floor,
+  race ceiling.
+GATE: 92/150 = 61.3% PROMOTE vs chimera3(v132), kills 77-46.
+MEASUREMENT CHANGE: scrimbot has a --band flag now (scrimbot.py --band
+12-22) and runs against the RATED-PAIRING NEIGHBORHOOD, not the top 5 -
+the top-5 numbers were measuring yesterday's meta while the mid-table
+farmed us. First banded cycle vs v132: ALL FOUR series went 2-3/3-2
+(beat farming_200s 3-2; Bisons X-ray: WON both s_main maps by racing
+t29/t44, lost the 3 eco maps to the wave by ~10 turns of defense lag).
+OPEN: royale n=14 contradiction (Oogway's note in v127) still unresolved;
+ragnarok/midgard need a terrain-probe fingerprint if we want the picket
+there; ATTACK_MOD 3->2 (Lorem commits ~3 walkers vs our 1-2) is the next
+untested Lorem piece.
 # 🛡️ WAVE DEFENSE (v125): THE 42-TURN SENTINEL + AMMO_CEILING=24 (2026-08-16 night)
 The Bisons (#17, 3 pts under our #16 - a STOCKHOLM CUTOFF fight) took
 chimera 4-1 rated (e9d90ccc, replays saved): glass-cannon sentinel wave -

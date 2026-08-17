@@ -38,11 +38,11 @@ POLL_SECONDS = 20
 MATCH_TIMEOUT = 15 * 60          # give up on a match after 15 minutes
 
 
-def run(args, timeout=180):
+def run(args, timeout=180, cwd=None):
     env = dict(os.environ, FCODE_API_URL=API)
     try:
         p = subprocess.run(args, capture_output=True, encoding="utf-8",
-                           errors="replace", timeout=timeout, env=env)
+                           errors="replace", timeout=timeout, env=env, cwd=cwd)
         return (p.stdout or "") + (p.stderr or "")
     except subprocess.TimeoutExpired:
         return ""
@@ -72,23 +72,31 @@ def my_team_id():
     return None
 
 
-def top_teams(n, skip_id):
-    """Live top-N from the ladder, so the target list follows the meta."""
-    out = run(["fcode", "ladder", "--limit", str(n + 3), "--json"])
+def top_teams(n, skip_id, band=None):
+    """Live top-N from the ladder, so the target list follows the meta.
+    band=(lo, hi) picks teams ranked lo..hi instead (rotating window of n) -
+    for testing against the rated-pairing neighborhood rather than the top.
+    """
+    limit = (band[1] + 3) if band else (n + 3)
+    out = run(["fcode", "ladder", "--limit", str(limit), "--json"])
     try:
         data = json.loads(out)
         rows = data if isinstance(data, list) else list(data.values())[0]
     except Exception:
         return []
+    if band:
+        rows = [r for r in rows if band[0] <= r.get("_rank", 0) <= band[1]]
     teams = []
     for r in rows:
         tid, name = r.get("teamId"), r.get("teamName")
         if not tid or tid == skip_id:
             continue
         teams.append((tid, name, round(r.get("rating", 0))))
-        if len(teams) >= n:
-            break
-    return teams
+    if band and len(teams) > n:
+        # rotate through the band across cycles so all of it gets sampled
+        off = int(time.time() // 1200) % len(teams)
+        teams = (teams[off:] + teams[:off])[:n]
+    return teams[:n]
 
 
 def match_id_from(out):
@@ -127,10 +135,16 @@ def result_of(mid):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=5)
+    ap.add_argument("--band", type=str, default=None,
+                    help="'LO-HI' rank band to sample instead of the top, e.g. 12-22")
     ap.add_argument("--every", type=int, default=20, help="minutes per cycle")
     ap.add_argument("--cycles", type=int, default=0, help="0 = run forever")
     ap.add_argument("--no-replays", action="store_true")
     a = ap.parse_args()
+    band = None
+    if a.band:
+        lo, hi = a.band.split("-")
+        band = (int(lo), int(hi))
 
     me = my_team_id()
     new_log = not os.path.exists(LOG)
@@ -143,7 +157,7 @@ def main():
         cycle += 1
         started = time.time()
         stamp = dt.datetime.now().strftime("%H:%M")
-        targets = top_teams(a.top, me)
+        targets = top_teams(a.top, me, band)
         if not targets:
             print(f"[{stamp}] could not read the ladder; retrying next cycle", flush=True)
         else:
@@ -186,7 +200,10 @@ def main():
                 rows.append([dt.datetime.now().isoformat(timespec="seconds"),
                              cycle, name, ours, theirs, "W" if won else "L", mid])
                 if not a.no_replays:
-                    run(["fcode", "match", "replay", mid], timeout=300)
+                    # `fcode match replay` writes to the WORKING directory, so
+                    # run it from prod/ to keep replays with the rest of them
+                    os.makedirs("prod", exist_ok=True)
+                    run(["fcode", "match", "replay", mid], timeout=300, cwd="prod")
         for mid, name in live:
             if mid in pending:
                 print(f"   ? timed out vs {name} ({mid[:8]})", flush=True)
