@@ -39,61 +39,74 @@ def wave_run(ct: Controller, player):
     for b in ct.get_nearby_buildings():
         try:
             if (ct.get_team(b) == myTeam
-                    and ct.get_entity_type(b) == EntityType.SENTINEL
-                    and ct.get_hp(b) < ct.get_max_hp(b)):
+                    and ct.get_entity_type(b) == EntityType.SENTINEL):
                 bPos = ct.get_position(b)
-                if myLoc.distance_squared(bPos) == 1 and ct.can_heal(bPos):
+                # WALL BEFORE HEAL (fixture v2): the heal early-return starved
+                # the walling to ~2 barriers/game. Armor first - an unhealed
+                # sentinel behind a wall outlives a healed one in the open.
+                if myLoc.distance_squared(bPos) <= 2 and ct.get_global_resources() >= 12:
+                    tgt = min(corners, key=lambda c: bPos.distance_squared(c))
+                    wdx = (tgt.x > bPos.x) - (tgt.x < bPos.x)
+                    wdy = (tgt.y > bPos.y) - (tgt.y < bPos.y)
+                    w = Position(bPos.x + wdx, bPos.y + wdy)
+                    if (myLoc.distance_squared(w) <= 2
+                            and ct.get_tile_building_id(w) is None
+                            and ct.can_build_barrier(w)):
+                        ct.build_barrier(w)
+                        return
+                if (ct.get_hp(b) < ct.get_max_hp(b)
+                        and myLoc.distance_squared(bPos) == 1 and ct.can_heal(bPos)):
                     ct.heal(bPos)
                     return
         except Exception:
             pass
 
-    # ARMORED WAVE (wavebot2, the kladde fixture): before planting the next
-    # sentinel, wall the nearest existing one - a barrier between it and the
-    # enemy core blocks the defender's gunner rays while our indirect fire
-    # ignores the wall entirely. This is the meta that beat 25 gunners with
-    # 9 sentinels + 20 barriers (13c445d3).
-    if ct.get_global_resources() >= 12:
-        for b in ct.get_nearby_buildings():
-            try:
-                if (ct.get_team(b) == myTeam
-                        and ct.get_entity_type(b) == EntityType.SENTINEL):
-                    sPos = ct.get_position(b)
-                    if myLoc.distance_squared(sPos) <= 2:
-                        target = min(corners, key=lambda c: sPos.distance_squared(c))
-                        dx = (target.x > sPos.x) - (target.x < sPos.x)
-                        dy = (target.y > sPos.y) - (target.y < sPos.y)
-                        w = Position(sPos.x + dx, sPos.y + dy)
-                        if (myLoc.distance_squared(w) <= 2
-                                and ct.get_tile_building_id(w) is None
-                                and ct.can_build_barrier(w)):
-                            ct.build_barrier(w)
-                            return
-            except Exception:
-                pass
-
-    # close enough: plant the next wave piece on ANY adjacent buildable tile,
-    # facing the core (fire is indirect - the seat does not need a clear ray,
-    # and walking to a "best" seat dies in the victim's building field)
-    if dCore <= 45 and ct.get_global_resources() >= ct.get_sentinel_cost():
+    # ARMORED PLANT (fixture v3): wall FIRST on the core-ward tile, step back,
+    # then plant the sentinel where we stood - it ends up behind its own wall,
+    # facing the core. Builds need ORTHOGONAL adjacency, which is why walling
+    # an already-planted sentinel's far side never fired (1-2 walls/game).
+    if dCore <= 45 and ct.get_global_resources() >= ct.get_sentinel_cost() + 3:
         target = min(corners, key=lambda c: myLoc.distance_squared(c))
-        for d in CARDINALS:
-            n = myLoc.add(d)
-            if not (0 <= n.x < player.mapW and 0 <= n.y < player.mapH):
-                continue
-            dx = (target.x > n.x) - (target.x < n.x)
-            dy = (target.y > n.y) - (target.y < n.y)
-            for fd in DIRECTIONS:
-                fdx, fdy = fd.delta()
-                if (fdx, fdy) == (dx, dy):
-                    try:
-                        if ct.can_build_sentinel(n, fd):
-                            ct.build_sentinel(n, fd)
-                            player.draw_state(ct, C_WAVE, n)
-                            return
-                    except Exception:
-                        pass
-                    break
+        st = getattr(player, "_wv_state", "wall")
+        if st == "plant":
+            spot = getattr(player, "_wv_spot", None)
+            if spot is not None and myLoc.x == spot.x and myLoc.y == spot.y:
+                # still standing where the sentinel goes - step back first
+                back = Position(myLoc.x - (target.x > myLoc.x) + (target.x < myLoc.x),
+                                myLoc.y - (target.y > myLoc.y) + (target.y < myLoc.y))
+                player.mapPf.moveTo(ct, back)
+                return
+            # stepped back: plant on the old spot (its core-ward side is walled)
+            player._wv_state = "wall"
+            if spot is not None and myLoc.distance_squared(spot) == 1:
+                dx = (target.x > spot.x) - (target.x < spot.x)
+                dy = (target.y > spot.y) - (target.y < spot.y)
+                for fd in DIRECTIONS:
+                    if fd.delta() == (dx, dy):
+                        try:
+                            if ct.can_build_sentinel(spot, fd):
+                                ct.build_sentinel(spot, fd)
+                                player.draw_state(ct, C_WAVE, spot)
+                                return
+                        except Exception:
+                            pass
+                        break
+        else:
+            wdx = (target.x > myLoc.x) - (target.x < myLoc.x)
+            wdy = (target.y > myLoc.y) - (target.y < myLoc.y)
+            for w in (Position(myLoc.x + wdx, myLoc.y), Position(myLoc.x, myLoc.y + wdy)):
+                if w == myLoc:
+                    continue
+                try:
+                    if ct.get_tile_building_id(w) is None and ct.can_build_barrier(w):
+                        ct.build_barrier(w)
+                        player._wv_state = "plant"
+                        player._wv_spot = Position(myLoc.x, myLoc.y)
+                        # step back happens next turn via the act-xor-move rule:
+                        # we act now, move away next turn, plant the turn after
+                        return
+                except Exception:
+                    pass
 
     player.mapPf.moveTo(ct, enemyCore)
     player.draw_state(ct, C_WAVE, enemyCore)
