@@ -1675,3 +1675,21 @@ now run harder by better teams.
    Inside oni's or Oogway's engine, this is the meta-correct design.
 4. Erebus is #12 at 1177 on the deliberate sandbag (v1). Fine per plan — but
    every day the top teams also see only our sandbag, which is the point.
+
+
+# ?? FLOTTE DECODED: THE COMPLETE BOT + THE t130 METRONOME (2026-08-18)
+The Flotte Experience (#11-12) 0-5 + 3-2 us (51b60877/ddccec4f): kills
+land t126-143 on EVERY map vs EVERY mode - a fixed-clock system.
+VS RUSHES: defend first (home gunners t26 kill our skeleton crews), then
+counter-siege on schedule (sentinels t114-118). VS ECO/PICKET: a
+22-GUNNER ROLLING LINE from t33 (Lorem grind at 3x scale) - no keystone
+medic to kill, no uncovered flank seat; camp counters do not scale to
+lines. Launchers t8-10 for logistics. We won ONLY royale t72 + fjordgate
+t31 = when OUR clock beat theirs.
+COUNTERS (no patch reaches this): (1) ENGINE CLOCK - anything that kills
+by t100 beats the metronome; lingling-grade kick openings (t46-85 small
+maps) go UNDER their home defense; every 10 turns off our openings
+converts Flotte games directly. (2) LINE WARFARE - the rally evolved
+into an advancing front is the structural answer to grind lines
+(half-day build, sketched in chimera11 notes). Flotte is ABOVE our
+cutoff seat - the seat race weights teams below us more.
