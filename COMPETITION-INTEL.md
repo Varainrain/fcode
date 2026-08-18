@@ -1693,3 +1693,16 @@ converts Flotte games directly. (2) LINE WARFARE - the rally evolved
 into an advancing front is the structural answer to grind lines
 (half-day build, sketched in chimera11 notes). Flotte is ABOVE our
 cutoff seat - the seat race weights teams below us more.
+
+# ?? FOR OOGWAY: lk_main SEAT-DITHER REPRODUCER (2026-08-18)
+51ec6e92 game 4 (yulerune, lkick mode, vs OpenSverige, replay in ic3d
+prod/): our kick lands t7, FIRST GUNNER PLACES, then the builder dithers
+(user-observed in visualiser) while their 2 armored sentinels finish us
+t109 - we dealt 994 into their healed core and lost on the stall. This
+is the stuck2/bestSpot family your v139-145 fixes target; this case
+slips through v145. A real-opponent reproducer: fcode watch the game 4
+replay, watch our builder after gunner 1. Whole match was 0-5
+OpenSverige - they leveled up (kick t2 + armor + heal tenders + a
+1-builder gunner rush variant); worth a fresh look at their recent
+games. lk carries frostgate/yulerune/royale/drumlin/glacierkeep in the
+live table - every dither there is a rated game.
