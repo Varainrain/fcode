@@ -45,6 +45,34 @@ select:focus,input:focus{border-color:#555;outline:0}
 input:checked+.slider{background:#0d2818}
 input:checked+.slider:before{transform:translateX(16px);background:#4ade80}
 .switch.sm input:checked+.slider:before{transform:translateX(14px)}
+/* --- tuff --- */
+@property --beam{syntax:'<angle>';inherits:false;initial-value:0deg}
+.logo{background:linear-gradient(90deg,#fff 0%,#666 25%,#fff 50%,#fff 100%);
+ background-size:220% auto;-webkit-background-clip:text;background-clip:text;
+ -webkit-text-fill-color:transparent;animation:shimmer 6s linear infinite}
+@keyframes shimmer{to{background-position:-220% center}}
+body{background:radial-gradient(1200px 600px at 50% -10%,#0b0f12 0%,#000 60%) fixed}
+.ctl{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.ctl button{letter-spacing:.12em}
+.ghost{background:#0a0a0a;border:1px solid #262626;color:#aaa;font-weight:600}
+.ghost:hover{background:#141414;color:#fff}
+.stop:hover{border-color:#fbbf24;color:#fbbf24;background:#141414}
+.danger:hover{border-color:#f87171;color:#f87171;background:#141414}
+.beam{position:relative;border:0;background:#0b0b0b;color:#fff;border-radius:7px;
+ padding:12px 22px;font-weight:700;box-shadow:0 0 22px -6px rgba(74,222,128,.5)}
+.beam span{position:relative;z-index:1}
+.beam::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.6px;
+ background:conic-gradient(from var(--beam),transparent 55%,#4ade80,#22d3ee,#4ade80,transparent 95%);
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+ -webkit-mask-composite:xor;mask-composite:exclude;animation:beamspin 3.2s linear infinite}
+.beam:hover{box-shadow:0 0 30px -4px rgba(74,222,128,.8);transform:translateY(-1px)}
+@keyframes beamspin{to{--beam:360deg}}
+.champ{background:linear-gradient(90deg,rgba(251,191,36,.09),transparent 70%)!important}
+.champ td:first-child{box-shadow:inset 2px 0 0 #fbbf24}
+#ladder tbody tr,#hist tbody tr,#live tbody tr{animation:rowin .35s ease both}
+@keyframes rowin{from{opacity:0;transform:translateY(4px)}}
+td.elo{font-variant-numeric:tabular-nums}
+button{transition:all .18s}
 </style></head><body>
 
 <div id="gate">
@@ -72,13 +100,28 @@ input:checked+.slider:before{transform:translateX(16px);background:#4ade80}
  <div class="bar" style="margin-top:10px">
   <span class="lbl">Auto League</span>
   <label class="switch"><input type="checkbox" id="autosw" onchange="setAuto()"><span class="slider"></span></label>
-  <span class="muted" id="auto-note">workers continuously play the least-tested matchup among active bots</span>
+  <span class="lbl">every</span>
+  <select id="cadence" onchange="setCadence()">
+   <option value="0">continuous</option>
+   <option value="60">1 min</option>
+   <option value="300">5 min</option>
+   <option value="900">15 min</option>
+   <option value="3600">1 hour</option>
+  </select>
+  <span class="muted">one auto game per interval — least-tested matchup, so everyone plays everyone over time</span>
+ </div>
+ <div class="ctl">
+  <button class="beam primary" onclick="roundRobin()"><span>⚔ EVERYONE vs EVERYONE</span></button>
+  <button class="ghost stop" onclick="stopAll()">■ STOP ALL</button>
+  <button class="ghost danger" onclick="wipeAll()">⟳ RESET LADDER</button>
+  <span id="ctl-msg" class="muted"></span>
  </div>
  <div class="muted" style="margin-top:8px">bots auto-discovered from <b>main</b> by whatever worker is online — no folder typing</div>
 </section>
 
 <section><h2>Players · Ladder</h2><table id="ladder"><tbody></tbody></table>
- <div class="muted" style="margin-top:8px">bench a bot to keep it out of the Auto League · reset wipes its ELO + record</div>
+ <div class="muted" style="margin-top:8px">bench a bot to keep it out of the Auto League · reset wipes its ELO + record
+  · <a href="#" onclick="wipeAll();return false" style="color:#f87171">wipe entire ladder</a></div>
 </section>
 <section><h2>In progress / queued</h2><table id="live"><tbody></tbody></table></section>
 <section><h2>Recent battles</h2><table id="hist"><tbody></tbody></table></section>
@@ -103,8 +146,26 @@ async function manage(body){
   load();
 }
 function setAuto(){ manage({op:'setAuto', auto:document.getElementById('autosw').checked}); }
+function setCadence(){ manage({op:'setInterval', seconds:+document.getElementById('cadence').value}); }
 function setActive(bot,active){ manage({op:'setActive', bot, active}); }
 function resetBot(bot){ if(confirm('Reset '+bot+"'s ELO and record?")) manage({op:'resetBot', bot}); }
+function wipeAll(){ if(confirm('Wipe the ENTIRE ladder to 0 — every bot back to 1500, all history cleared. Bots stay registered. Sure?')){ manage({op:'wipe'}); flash('ladder reset to 0'); } }
+function stopAll(){ if(confirm('Stop all matches? Auto League off, queue + running cleared. Current games finish but nothing new starts.')){ manage({op:'stopAll'}); flash('stopped — nothing new will start'); } }
+function roundRobin(){ manage({op:'roundRobin'}).then(()=>flash('queued a full round — everyone vs everyone')); }
+function flash(t){ const e=document.getElementById('ctl-msg'); e.textContent=t; e.style.color='#4ade80'; setTimeout(()=>e.textContent='',5000); }
+const prevElo={};
+function tickElo(){
+  document.querySelectorAll('#ladder td.elo').forEach(td=>{
+    const bot=td.dataset.bot, target=+td.dataset.target;
+    let cur=prevElo[bot]!==undefined?prevElo[bot]:target;
+    if(Math.round(cur)===target){td.textContent=target;prevElo[bot]=target;return;}
+    const step=()=>{cur+=(target-cur)*0.18;
+      if(Math.abs(target-cur)<0.7)cur=target;
+      td.textContent=Math.round(cur); prevElo[bot]=cur;
+      if(cur!==target)requestAnimationFrame(step);};
+    step();
+  });
+}
 async function queueMatch(){
   const body = {a:botA.value, b:botB.value, maps:maps.value, seeds:seeds.value, by:who.value};
   const r = await fetch('/api/queue',{method:'POST',headers:H(),body:JSON.stringify(body)});
@@ -121,16 +182,19 @@ async function load(){
   document.getElementById('botlist').innerHTML =
     bots.map(b=>`<option>${b.bot}</option>`).join('');
   if(document.activeElement.id!=='autosw') document.getElementById('autosw').checked = !!d.auto;
+  if(document.activeElement.id!=='cadence') document.getElementById('cadence').value = String(d.interval);
   const rank = bots.filter(b=>b.active);
   document.getElementById('ladder').innerHTML = '<tbody><tr><th>#</th><th>bot</th><th>elo</th><th>w-l</th><th>win%</th><th>active</th><th></th></tr>'+
     bots.map((b)=>{const t=b.w+b.l; const pct=t?Math.round(100*b.w/t):0;
       const r=b.active?rank.indexOf(b)+1:0;
-      return `<tr style="opacity:${b.active?1:.4}"><td style="color:#555">${b.active?String(r).padStart(2,'0'):'—'}</td>`+
-      `<td>${b.active&&r===1?'<span class="gold">👑</span> ':''}${b.bot}</td>`+
-      `<td style="font-weight:600">${b.elo}</td><td class="muted">${b.w}–${b.l}</td>`+
+      const champ=b.active&&r===1;
+      return `<tr class="${champ?'champ':''}" style="opacity:${b.active?1:.4}"><td style="color:#555">${b.active?String(r).padStart(2,'0'):'—'}</td>`+
+      `<td>${champ?'<span class="gold">👑</span> ':''}${b.bot}</td>`+
+      `<td class="elo" data-bot="${b.bot}" data-target="${b.elo}" style="font-weight:600">${b.elo}</td><td class="muted">${b.w}–${b.l}</td>`+
       `<td style="color:${pct>=50?'#4ade80':'#f87171'}">${t?pct+'%':'—'}</td>`+
       `<td><label class="switch sm"><input type="checkbox" ${b.active?'checked':''} onchange="setActive('${b.bot}',this.checked)"><span class="slider"></span></label></td>`+
       `<td><button class="mini" onclick="resetBot('${b.bot}')">reset</button></td></tr>`}).join('')+'</tbody>';
+  tickElo();
   const live = (d.running||[]).map(x=>
     `<tr><td>${x.job.a} <span style="color:#555">vs</span> ${x.job.b}</td>`+
     `<td><span class="pill plive">RUNNING</span></td><td class="muted">${x.worker}'s machine</td></tr>`)
