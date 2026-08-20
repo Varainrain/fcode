@@ -84,6 +84,7 @@ class Player:
         self.seat_built = False
         self.seat_tries = 0      # failed builds at this seat
         self.piece_seen = 0      # rounds a siege piece has sat near home
+        self.war_home = 0        # rounds left of stay-home war footing
 
     # ------------------------------------------------------------------
     def run(self, ct: Controller) -> None:
@@ -355,7 +356,31 @@ class Player:
                         and ct.get_hp(b) < (ct.get_max_hp(b) * 13) // 20):
                     hurt = True
                     break
-            if piece is not None and not hurt and self.piece_seen >= 15:
+            if hurt:
+                # hurt = stay home... except against a LONE unescorted
+                # grinder (the t995 death march: one gunner, -3/turn,
+                # sally locked out by its own safety gate). Mass tells
+                # rushes (many pieces/units) from grinders (one piece).
+                pieces = 0
+                reach = {EntityType.GUNNER: 13, EntityType.SENTINEL: 32,
+                         EntityType.LAUNCHER: 26}
+                for b in ct.get_nearby_buildings():
+                    bt = ct.get_entity_type(b)
+                    if (ct.get_team(b) != ct.get_team()
+                            and bt in reach
+                            and ct.get_position(b).distance_squared(
+                                self.core) <= reach[bt]):
+                        pieces += 1
+                units = 0
+                for u in ct.get_nearby_units():
+                    if (ct.get_team(u) != ct.get_team()
+                            and ct.get_position(u).distance_squared(
+                                self.core) <= 18):
+                        units += 1
+                if pieces <= 1 and units == 0:
+                    hurt = False
+            if (piece is not None and not hurt
+                    and self.piece_seen >= 15):
                 if pos.distance_squared(piece) == 1:
                     if can_act and ct.can_fire(piece):
                         ct.fire(piece)
@@ -413,9 +438,26 @@ class Player:
         if can_act and self._heal_something(ct, pos):
             return
 
-        # 3) hold position at ring distance
-        if self.core is not None and pos.distance_squared(self.core) > 8:
-            self._move_to(ct, self.core)
+        # 3) hold position - adjacent to the core when it needs healing
+        # (a warden idling at its seat 3 tiles out heals nothing)
+        if self.core is not None:
+            need_touch = False
+            for b in ct.get_nearby_buildings():
+                if (ct.get_team(b) == ct.get_team()
+                        and ct.get_entity_type(b) == EntityType.CORE
+                        and ct.get_hp(b) < ct.get_max_hp(b)):
+                    need_touch = True
+                    break
+            if (need_touch
+                    and (self.num == WARDEN_NUMS[0]
+                         or ct.get_current_round() > 60)
+                    and not self._touches_core(pos)):
+                # only the home warden crowds in - everyone hugging the
+                # footprint blocks spawn tiles, chains and emergency build
+                # space (the nordkap t34 self-choke)
+                self._move_to(ct, self.core)
+            elif pos.distance_squared(self.core) > 8:
+                self._move_to(ct, self.core)
 
     def _my_seat(self):
         try:
