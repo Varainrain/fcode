@@ -48,6 +48,17 @@ def cardinal_toward(a: Position, b: Position) -> Direction:
     return Direction.CENTRE
 
 
+def dir8_toward(a: Position, b: Position) -> Direction:
+    dx = (b.x > a.x) - (b.x < a.x)
+    dy = (b.y > a.y) - (b.y < a.y)
+    grid = {(0, -1): Direction.NORTH, (1, -1): Direction.NORTHEAST,
+            (1, 0): Direction.EAST, (1, 1): Direction.SOUTHEAST,
+            (0, 1): Direction.SOUTH, (-1, 1): Direction.SOUTHWEST,
+            (-1, 0): Direction.WEST, (-1, -1): Direction.NORTHWEST,
+            (0, 0): Direction.CENTRE}
+    return grid[(dx, dy)]
+
+
 def step_pos(a: Position, d: Direction) -> Position:
     dd = d.delta()
     return Position(a.x + dd[0], a.y + dd[1])
@@ -68,8 +79,10 @@ class Player:
         self.stuck = 0
         self.last_pos = None
         # warden state
-        self.seat = None         # my sentinel seat (position, facing)
+        self.seat = None         # my turret seat (position, facing)
+        self.seat_kind = 'sentinel'
         self.seat_built = False
+        self.seat_tries = 0      # failed builds at this seat
 
     # ------------------------------------------------------------------
     def run(self, ct: Controller) -> None:
@@ -93,21 +106,25 @@ class Player:
         ct.write_store(SLOT_CORE_Y, pos.y)
 
         my_team = ct.get_team()
+        # 0 quiet / 1 enemies close / 2 the core is actually being hurt or
+        # shelled. Only level 2 militarises spawning - level-1 pestering
+        # must not stop the farm (the nordkap 0-mined regression).
         siege = 0
         for u in ct.get_nearby_units():
             if (ct.get_team(u) != my_team
                     and ct.get_position(u).distance_squared(pos) <= 18):
                 siege = 1
                 break
-        if not siege:
-            for b in ct.get_nearby_buildings():
-                if (ct.get_team(b) != my_team
-                        and ct.get_entity_type(b) in (
-                            EntityType.GUNNER, EntityType.SENTINEL,
-                            EntityType.LAUNCHER)
-                        and ct.get_position(b).distance_squared(pos) <= 64):
-                    siege = 1
-                    break
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) != my_team
+                    and ct.get_entity_type(b) in (
+                        EntityType.GUNNER, EntityType.SENTINEL,
+                        EntityType.LAUNCHER)
+                    and ct.get_position(b).distance_squared(pos) <= 64):
+                siege = 2
+                break
+        if siege < 2 and ct.get_hp() < ct.get_max_hp():
+            siege = 2
         ct.write_store(SLOT_SIEGE, siege)
 
         spawned = self.num  # the core reuses .num as its spawn counter
@@ -117,9 +134,9 @@ class Player:
         # affording builder AND sentinel so the newborn arrives armed.
         want_spawn = (spawned < MAX_BUILDERS
                       or (ti > RESPAWN_TI and spawned < 12)
-                      or (siege
-                          and ti >= ct.get_builder_bot_cost()
-                             + ct.get_sentinel_cost() + 10
+                      or (siege == 2
+                          and ct.get_current_round() % 3 == 0
+                          and ti >= ct.get_builder_bot_cost() + 10
                           and spawned < 30))
         if want_spawn and ti >= ct.get_builder_bot_cost():
             # write the number FIRST (visible next round, when the new
@@ -137,7 +154,8 @@ class Player:
         # price of a sentinel, or dead seats stay dead (the one-sentinel
         # wavebot loss - ammo siphon strangled every rebuild)
         reserve = ct.get_sentinel_cost() + AMMO_RESERVE
-        want = min(AMMO_CEILING - ammo, ct.get_global_resources() - reserve)
+        ceiling = 120 if siege else AMMO_CEILING
+        want = min(ceiling - ammo, ct.get_global_resources() - reserve)
         if want > 0 and ct.can_convert_ammo(want):
             ct.convert_ammo(want)
 
@@ -151,7 +169,7 @@ class Player:
             self.role = ('ward' if (self.num in WARDEN_NUMS
                                     or (self.num > MAX_BUILDERS
                                         and self.num % 2 == 1)
-                                    or ct.read_store(SLOT_SIEGE) == 1)
+                                    or ct.read_store(SLOT_SIEGE) == 2)
                          else 'farm')
         if self.core is None or (self.core.x == 0 and self.core.y == 0):
             self.core = Position(ct.read_store(SLOT_CORE_X),
@@ -328,12 +346,37 @@ class Player:
             if ct.is_in_vision(spot) and ct.get_tile_building_id(spot) is not None:
                 self.seat_built = True      # something stands there — fine
             elif pos.distance_squared(spot) == 1:
-                if (can_act
-                        and ct.get_global_resources() >= ct.get_sentinel_cost()
-                        and ct.can_build_sentinel(spot, face)):
-                    ct.build_sentinel(spot, face)
-                    self.seat_built = True
-                return
+                if self.seat_kind == 'sentinel':
+                    cost_ok = (ct.get_global_resources()
+                               >= ct.get_sentinel_cost())
+                    buildable = ct.can_build_sentinel(spot, face)
+                else:
+                    cost_ok = (ct.get_global_resources()
+                               >= ct.get_gunner_cost())
+                    buildable = ct.can_build_gunner(spot, face)
+                if can_act and cost_ok:
+                    if buildable:
+                        if self.seat_kind == 'sentinel':
+                            ct.build_sentinel(spot, face)
+                        else:
+                            ct.build_gunner(spot, face)
+                        self.seat_built = True
+                    else:
+                        # unbuildable seat (terrain) - standing here retrying
+                        # forever made wardens 5/7 statues on royale
+                        self.seat_tries += 1
+                        if self.seat_tries >= 3:
+                            self.seat_tries = 0
+                            for d in CARDINALS:
+                                alt = step_pos(spot, d)
+                                if (alt != pos
+                                        and 0 <= alt.x < self.map_w
+                                        and 0 <= alt.y < self.map_h
+                                        and ct.is_tile_passable(alt)):
+                                    self.seat = (alt, face)
+                                    break
+                    return
+                # can't afford the seat yet: heal something meanwhile
             else:
                 self._move_to(ct, spot)
                 return
@@ -351,6 +394,10 @@ class Player:
             idx = WARDEN_NUMS.index(self.num)
         except ValueError:
             idx = self.num % 3
+        # one far-reaching sentinel; the rest gunners - a gunner turn of fire
+        # costs 4 ammo to a sentinel's 10-per-2, and base cost is 20 vs 30,
+        # which matters twice over once scaled costs kick in
+        self.seat_kind = 'sentinel' if idx <= 1 else 'gunner'
         centre = Position(self.map_w // 2, self.map_h // 2)
         d1 = cardinal_toward(self.core, centre)
         if d1 == Direction.CENTRE:
@@ -450,6 +497,29 @@ class Player:
                 score, best = s, tile
         if best is not None and ct.can_fire(best):
             ct.fire(best)
+            return
+        if (best is None
+                and ct.get_entity_type() == EntityType.GUNNER):
+            my_pos = ct.get_position()
+            tgt = None
+            td = 14
+            for u in ct.get_nearby_units():
+                if ct.get_team(u) != my_team:
+                    p = ct.get_position(u)
+                    d = p.distance_squared(my_pos)
+                    if d < td:
+                        td, tgt = d, p
+            if tgt is None:
+                for b in ct.get_nearby_buildings():
+                    if ct.get_team(b) != my_team:
+                        p = ct.get_position(b)
+                        d = p.distance_squared(my_pos)
+                        if d < td:
+                            td, tgt = d, p
+            if tgt is not None:
+                want = dir8_toward(my_pos, tgt)
+                if want != Direction.CENTRE and ct.can_rotate(want):
+                    ct.rotate(want)
 
     # ------------------------------------------------------------------
     def _move_to(self, ct: Controller, target: Position) -> None:
