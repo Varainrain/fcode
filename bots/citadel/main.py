@@ -123,21 +123,22 @@ class Player:
                     and ct.get_position(b).distance_squared(pos) <= 64):
                 siege = 2
                 break
-        if siege < 2 and ct.get_hp() < ct.get_max_hp():
+        if siege == 2 and ct.get_hp() >= (ct.get_max_hp() * 7) // 10:
+            siege = 1      # shelled but holding: keep farming
+        if siege < 2 and ct.get_hp() < (ct.get_max_hp() * 7) // 10:
             siege = 2
         ct.write_store(SLOT_SIEGE, siege)
 
         spawned = self.num  # the core reuses .num as its spawn counter
         ti = ct.get_global_resources()
-        # under siege, dead wardens MUST be replaced - a lifetime spawn
-        # counter never refills the wall (the royale bleed-out). Gate on
-        # affording builder AND sentinel so the newborn arrives armed.
+        alive = ct.get_unit_count() - 1     # builders alive (minus the core)
+        # the lifetime counter never notices deaths - on nordkap the first
+        # seven builders went extinct and the citadel froze at bank 24
+        # forever. Live-count replacement keeps a minimum crew on any map.
         want_spawn = (spawned < MAX_BUILDERS
                       or (ti > RESPAWN_TI and spawned < 12)
-                      or (siege == 2
-                          and ct.get_current_round() % 3 == 0
-                          and ti >= ct.get_builder_bot_cost() + 10
-                          and spawned < 30))
+                      or (alive < 4
+                          and ti >= ct.get_builder_bot_cost() + 10))
         if want_spawn and ti >= ct.get_builder_bot_cost():
             # write the number FIRST (visible next round, when the new
             # builder takes its first turn), then spawn
@@ -168,8 +169,7 @@ class Player:
             self.num = ct.read_store(SLOT_SPAWNED)
             self.role = ('ward' if (self.num in WARDEN_NUMS
                                     or (self.num > MAX_BUILDERS
-                                        and self.num % 2 == 1)
-                                    or ct.read_store(SLOT_SIEGE) == 2)
+                                        and self.num % 2 == 1))
                          else 'farm')
         if self.core is None or (self.core.x == 0 and self.core.y == 0):
             self.core = Position(ct.read_store(SLOT_CORE_X),
