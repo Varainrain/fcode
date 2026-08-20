@@ -29,6 +29,7 @@ SLOT_SPAWNED = 2
 SLOT_SIEGE = 3           # core sees an enemy -> 1, else 0
 SLOT_FOCUS_X = 4         # turret focus-fire tile (last round's pick)
 SLOT_FOCUS_Y = 5
+SLOT_AXIS = 6            # first observed threat axis: 0 none, 1-4 = NESW
 
 MAX_BUILDERS = 7
 # spawn order -> role. Farmers get the economy up; wardens 3/5/7 arrive at
@@ -83,6 +84,7 @@ class Player:
         self.stuck = 0
         self.last_pos = None
         # warden state
+        self.threat_axis = 0     # core-only: latched first threat axis
         self.seat = None         # my turret seat (position, facing)
         self.seat_kind = 'sentinel'
         self.seat_built = False
@@ -134,6 +136,28 @@ class Player:
         if siege < 2 and ct.get_hp() < (ct.get_max_hp() * 7) // 10:
             siege = 2
         ct.write_store(SLOT_SIEGE, siege)
+
+        if self.threat_axis == 0:
+            first = None
+            for u in ct.get_nearby_units():
+                if ct.get_team(u) != my_team:
+                    p = ct.get_position(u)
+                    if p.distance_squared(pos) <= 64:
+                        first = p
+                        break
+            if first is None:
+                for b in ct.get_nearby_buildings():
+                    if (ct.get_team(b) != my_team
+                            and ct.get_entity_type(b) in (
+                                EntityType.GUNNER, EntityType.SENTINEL,
+                                EntityType.LAUNCHER)):
+                        first = ct.get_position(b)
+                        break
+            if first is not None:
+                d = cardinal_toward(pos, first)
+                if d in CARDINALS:
+                    self.threat_axis = 1 + CARDINALS.index(d)
+                    ct.write_store(SLOT_AXIS, self.threat_axis)
 
         spawned = self.num  # the core reuses .num as its spawn counter
         ti = ct.get_global_resources()
@@ -352,8 +376,10 @@ class Player:
     def _warden(self, ct: Controller, pos: Position) -> None:
         can_act = ct.get_action_cooldown() == 0
 
-        if self.seat is None and self.core is not None:
-            self.seat = self._my_seat()
+        if not self.seat_built and self.core is not None:
+            self.seat = self._my_seat(ct)   # re-aim until built - the
+                                            # threat axis may only be
+                                            # known after we spawned
 
         # 0) emergency: enemy near home -> answering turret NOW, wherever
         # we stand. Sentinel if we can pay (indirect, outranges the siege
@@ -498,7 +524,7 @@ class Player:
             elif pos.distance_squared(self.core) > 8:
                 self._move_to(ct, self.core)
 
-    def _my_seat(self):
+    def _my_seat(self, ct: Controller):
         try:
             idx = WARDEN_NUMS.index(self.num)
         except ValueError:
@@ -507,25 +533,60 @@ class Player:
         # costs 4 ammo to a sentinel's 10-per-2, and base cost is 20 vs 30,
         # which matters twice over once scaled costs kick in
         self.seat_kind = 'sentinel' if idx <= 1 else 'gunner'
-        centre = Position(self.map_w // 2, self.map_h // 2)
-        d1 = cardinal_toward(self.core, centre)
-        if d1 == Direction.CENTRE:
-            d1 = Direction.NORTH
+        # COVERAGE PICKET (from jav1's own source): its creep refuses gunner
+        # seats our rays cover >1x and sentinel seats we cover AT ALL, its
+        # harvester-hunt skips harvesters inside our covered tiles, and its
+        # farmers refuse turret-threatened ore. Seats therefore sit ON the
+        # enemy-approach rays of our core, FACING the enemy core - occupancy
+        # denies the tile, the facing line denies the lane behind it.
+        foe = Position(self.map_w - 2 - self.core.x,
+                       self.map_h - 2 - self.core.y)
+        axis = ct.read_store(SLOT_AXIS)
+        if 1 <= axis <= 4:
+            d1 = CARDINALS[axis - 1]     # observed threat, not guessed
+        else:
+            d1 = cardinal_toward(self.core, foe)
+            if d1 == Direction.CENTRE:
+                d1 = Direction.NORTH
         perp = ([Direction.NORTH, Direction.SOUTH]
                 if d1 in (Direction.EAST, Direction.WEST)
                 else [Direction.EAST, Direction.WEST])
-        lane = [d1, perp[0], perp[1]][idx]
-        side = perp[idx % 2] if lane == d1 else d1
-        ring = 2 if self.num in WARDEN_NUMS else 3
-        spot = self.core
-        for _ in range(ring):
-            spot = step_pos(spot, lane)
-        # one lateral step so the seat sits OFF the cardinal approach lane -
-        # chains and seats were fighting for the same tiles
-        spot = step_pos(spot, side)
+        if (step_pos(self.core, perp[1]).distance_squared(foe)
+                < step_pos(self.core, perp[0]).distance_squared(foe)):
+            perp = [perp[1], perp[0]]
+        # SHIELD-WALL PICKET. Sentinels fire only along their facing line
+        # and never rotate; enemy creep gunners must sit on our core's own
+        # rays (reach 3) to hurt it. Two sentinels stand DIRECTLY on the
+        # threat-side edge of the footprint - their bodies block the two
+        # cardinal fire lanes outright, their lines sweep every farther
+        # seat on those columns, and the rotating gunner takes the knee.
+        dd = d1.delta()
+        pd = perp[0].delta()
+        cx, cy = self.core.x, self.core.y
+        if dd[0] != 0:
+            fx = cx + 2 if dd[0] > 0 else cx - 1
+            s0 = Position(fx, cy)
+            s1 = Position(fx, cy + 1)
+            g0 = Position(fx, cy - 1 if pd[1] < 0 else cy + 2)
+        else:
+            fy = cy + 2 if dd[1] > 0 else cy - 1
+            s0 = Position(cx, fy)
+            s1 = Position(cx + 1, fy)
+            g0 = Position(cx - 1 if pd[0] < 0 else cx + 2, fy)
+        if self.num in WARDEN_NUMS:
+            spot = [s0, s1, g0][idx]
+            face = d1
+        else:
+            lane = [d1, perp[0], perp[1]][idx]
+            side = perp[idx % 2] if lane == d1 else d1
+            spot = self.core
+            for _ in range(3):
+                spot = step_pos(spot, lane)
+            spot = step_pos(spot, side)
+            face = lane
         spot = Position(max(0, min(self.map_w - 1, spot.x)),
                         max(0, min(self.map_h - 1, spot.y)))
-        return (spot, lane)
+        return (spot, face)
 
     def _siege_piece(self, ct: Controller):
         """Nearest enemy turret building emplaced near our core."""
