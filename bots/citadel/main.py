@@ -31,15 +31,15 @@ SLOT_FOCUS_X = 4         # turret focus-fire tile (last round's pick)
 SLOT_FOCUS_Y = 5
 SLOT_AXIS = 6            # first observed threat axis: 0 none, 1-4 = NESW
 
-MAX_BUILDERS = 7
+MAX_BUILDERS = 9
 # spawn order -> role. Farmers get the economy up; wardens 3/5/7 arrive at
 # t~6/10/14 so the first sentinel stands by Lorem-time.
-WARDEN_NUMS = (3, 5, 7)
+WARDEN_NUMS = (3, 5, 7, 9)
 
 AMMO_CEILING = 30
 AMMO_RESERVE = 40
 CHAIN_SLACK = 3          # conveyors allowed beyond straight-line distance
-RESPAWN_TI = 400         # bank level that funds extra late farmers
+RESPAWN_TI = 300         # bank level that funds extra late farmers
 
 
 def cardinal_toward(a: Position, b: Position) -> Direction:
@@ -165,8 +165,19 @@ class Player:
         # the lifetime counter never notices deaths - on nordkap the first
         # seven builders went extinct and the citadel froze at bank 24
         # forever. Live-count replacement keeps a minimum crew on any map.
-        want_spawn = (spawned < MAX_BUILDERS
-                      or (ti > RESPAWN_TI and spawned < 12)
+        # enemy SIEGE SENTINELS near home (the wavebot signature) mean the
+        # next 60 Ti is ammo and wall, not farmers - but a mere hunt gunner
+        # (the jav1 signature) must not stop the build-out
+        sent_near = False
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) != my_team
+                    and ct.get_entity_type(b) == EntityType.SENTINEL
+                    and ct.get_position(b).distance_squared(pos) <= 64):
+                sent_near = True
+                break
+        crew_cap = 7 if sent_near else MAX_BUILDERS
+        want_spawn = (spawned < crew_cap
+                      or (ti > RESPAWN_TI and spawned < 14)
                       or (alive < 4
                           and ti >= ct.get_builder_bot_cost() + 10))
         if want_spawn and ti >= ct.get_builder_bot_cost():
@@ -283,9 +294,32 @@ class Player:
                 self._move_to(ct, sh)
                 return
 
-        # 2) harvester duty
+        # 2) harvester duty - or TAP an enemy harvester instead (engine
+        # splits a harvester's output round-robin among ALL adjacent
+        # conveyor chains; jav1's own source calls a single adjacent tap
+        # ~25% of the yield. Their stolen-ore farms sit closer to our core
+        # than their own - short chains, free money, and every coin we
+        # siphon keeps them under their Ti gates: 30 hunt, 120 siege,
+        # 360 respawns.)
         if self.ore_target is None:
             self.ore_target = self._find_free_ore(ct, pos)
+            tap = self._find_tap(ct, pos)
+            if tap is not None:
+                tap_tile, _ = tap
+                if pos.distance_squared(tap_tile) == 1:
+                    if can_act:
+                        face = cardinal_toward(tap_tile, self.core)
+                        if ct.can_build_conveyor(tap_tile, face):
+                            ct.build_conveyor(tap_tile, face)
+                            # hand the rest to the normal chain machinery
+                            self.chain_at = step_pos(tap_tile, face)
+                            dist = (abs(tap_tile.x - self.core.x)
+                                    + abs(tap_tile.y - self.core.y))
+                            self.chain_left = dist + CHAIN_SLACK
+                            self.ore_target = None
+                    return
+                self._move_to(ct, tap_tile)
+                return
         if self.ore_target is not None:
             ore = self.ore_target
             if ct.is_in_vision(ore) and ct.get_tile_building_id(ore) is not None:
@@ -342,6 +376,41 @@ class Player:
                 self.chain_at = c2
                 return
         self._chain_done()
+
+    def _find_tap(self, ct: Controller, pos: Position):
+        """Free tile beside an enemy harvester, none of ours there yet."""
+        my_team = ct.get_team()
+        best, bd = None, 9999
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) == my_team
+                    or ct.get_entity_type(b) != EntityType.HARVESTER):
+                continue
+            hp_ = ct.get_position(b)
+            spot, ours = None, False
+            for d in CARDINALS:
+                t = step_pos(hp_, d)
+                if not (0 <= t.x < self.map_w and 0 <= t.y < self.map_h):
+                    continue
+                if not ct.is_in_vision(t):
+                    continue
+                tb = ct.get_tile_building_id(t)
+                if tb is not None:
+                    if (ct.get_team(tb) == my_team
+                            and ct.get_entity_type(tb)
+                            == EntityType.CONVEYOR):
+                        ours = True      # already tapped
+                        break
+                    continue
+                if (ct.get_tile_env(t) == Environment.EMPTY
+                        and ct.is_tile_passable(t)):
+                    if spot is None:
+                        spot = t
+            if ours or spot is None:
+                continue
+            d2 = self.core.distance_squared(hp_)
+            if d2 < bd:
+                bd, best = d2, (spot, hp_)
+        return best
 
     def _find_free_ore(self, ct: Controller, pos: Position):
         foe = None
@@ -445,7 +514,7 @@ class Player:
                 if pieces <= 1 and units == 0:
                     hurt = False
             if (piece is not None and not hurt
-                    and self.piece_seen >= 15):
+                    and self.piece_seen >= 12):
                 if pos.distance_squared(piece) == 1:
                     if can_act and ct.can_fire(piece):
                         ct.fire(piece)
@@ -574,7 +643,11 @@ class Player:
             s1 = Position(cx + 1, fy)
             g0 = Position(cx - 1 if pd[0] < 0 else cx + 2, fy)
         if self.num in WARDEN_NUMS:
-            spot = [s0, s1, g0][idx]
+            if dd[0] != 0:
+                g1 = Position(s0.x, cy + 2 if g0.y < cy else cy - 1)
+            else:
+                g1 = Position(cx + 2 if g0.x < cx else cx - 1, s0.y)
+            spot = [s0, s1, g0, g1][idx % 4]
             face = d1
         else:
             lane = [d1, perp[0], perp[1]][idx]
@@ -593,7 +666,7 @@ class Player:
         if self.core is None:
             return None
         my_team = ct.get_team()
-        best, bd = None, 21
+        best, bd = None, 33
         for b in ct.get_nearby_buildings():
             if ct.get_team(b) != my_team and ct.get_entity_type(b) in (
                     EntityType.GUNNER, EntityType.SENTINEL):
