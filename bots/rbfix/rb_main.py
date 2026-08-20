@@ -239,7 +239,15 @@ class Player:
                 ct.draw_indicator_line(self.mapPf.teamCore, self.mySpot, 255, 255, 0)
                 myDir = self.mySpot.direction_to(enemyCore)
 
-                if ct.can_build_gunner(self.mySpot, myDir):
+                # STAGED SEATING (kladde autopsy): a lone gunner dies to
+                # 2x-18 before its partner arrives and the heal loop erases
+                # its damage. The FIRST seat waits until the follow-up
+                # gunner's money is already banked; once any of ours stands,
+                # keep flowing.
+                staged = (bool(teamGunners)
+                          or ct.get_global_resources()
+                          >= 2 * ct.get_gunner_cost())
+                if staged and ct.can_build_gunner(self.mySpot, myDir):
                     ct.build_gunner(self.mySpot, myDir)
                 
                 if myLoc.distance_squared(self.mySpot) > 1:
