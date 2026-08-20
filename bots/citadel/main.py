@@ -83,6 +83,7 @@ class Player:
         self.seat_kind = 'sentinel'
         self.seat_built = False
         self.seat_tries = 0      # failed builds at this seat
+        self.piece_seen = 0      # rounds a siege piece has sat near home
 
     # ------------------------------------------------------------------
     def run(self, ct: Controller) -> None:
@@ -335,6 +336,33 @@ class Player:
                         ct.build_gunner(sp, face)
                         return
 
+        # 0.5) sally: an emplaced enemy turret grinding the core will
+        # never be removed by our turrets (their tenders out-heal our dps)
+        # or by emergency builds (no free tiles in a crowded fortress).
+        # Wardens 5/7 walk out and chew it: 2 dmg a turn, 40 hp target,
+        # and builders are the one piece live-count respawn replaces free.
+        if self.num != WARDEN_NUMS[0]:
+            piece = self._siege_piece(ct)
+            self.piece_seen = self.piece_seen + 1 if piece is not None else 0
+            # only sortie from a stable house at a PERSISTENT grind piece -
+            # rushes resolve inside 15 rounds and need the heal corps home
+            # (nordkap t32); grind sieges last forever and must be chewed
+            # off (royale t99 -> t123)
+            hurt = False
+            for b in ct.get_nearby_buildings():
+                if (ct.get_team(b) == ct.get_team()
+                        and ct.get_entity_type(b) == EntityType.CORE
+                        and ct.get_hp(b) < (ct.get_max_hp(b) * 13) // 20):
+                    hurt = True
+                    break
+            if piece is not None and not hurt and self.piece_seen >= 15:
+                if pos.distance_squared(piece) == 1:
+                    if can_act and ct.can_fire(piece):
+                        ct.fire(piece)
+                else:
+                    self._move_to(ct, piece)
+                return
+
         # 1) my sentinel seat (rebuilt every time it dies - a latched
         # seat_built with a dead sentinel is an unmanned wall)
         if (self.seat_built and self.seat is not None
@@ -417,6 +445,21 @@ class Player:
         spot = Position(max(0, min(self.map_w - 1, spot.x)),
                         max(0, min(self.map_h - 1, spot.y)))
         return (spot, lane)
+
+    def _siege_piece(self, ct: Controller):
+        """Nearest enemy turret building emplaced near our core."""
+        if self.core is None:
+            return None
+        my_team = ct.get_team()
+        best, bd = None, 21
+        for b in ct.get_nearby_buildings():
+            if ct.get_team(b) != my_team and ct.get_entity_type(b) in (
+                    EntityType.GUNNER, EntityType.SENTINEL):
+                p = ct.get_position(b)
+                d = p.distance_squared(self.core)
+                if d < bd:
+                    bd, best = d, p
+        return best
 
     def _home_threat(self, ct: Controller):
         if self.core is None:
