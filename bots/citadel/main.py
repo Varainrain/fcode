@@ -27,6 +27,8 @@ SLOT_CORE_X = 0
 SLOT_CORE_Y = 1
 SLOT_SPAWNED = 2
 SLOT_SIEGE = 3           # core sees an enemy -> 1, else 0
+SLOT_FOCUS_X = 4         # turret focus-fire tile (last round's pick)
+SLOT_FOCUS_Y = 5
 
 MAX_BUILDERS = 7
 # spawn order -> role. Farmers get the economy up; wardens 3/5/7 arrive at
@@ -76,6 +78,8 @@ class Player:
         self.chain_at = None     # next chain tile to fill
         self.chain_left = 0      # conveyor budget remaining for this chain
         self.explore_to = None
+        self.shield_at = None    # barrier spot guarding my latest farm
+        self.shield_tries = 0
         self.stuck = 0
         self.last_pos = None
         # warden state
@@ -233,6 +237,28 @@ class Player:
                 return
             # falls through here only when the chain just closed
 
+        # 1.5) shield duty: one barrier on the far side of my harvester
+        # (after the chain - shield-first delayed chains past the pressure
+        # window and zeroed three maps' economies)
+        if self.shield_at is not None:
+            sh = self.shield_at
+            self.shield_tries += 1
+            if (self.shield_tries > 20
+                    or (ct.is_in_vision(sh)
+                        and ct.get_tile_building_id(sh) is not None)):
+                self.shield_at = None
+                self.shield_tries = 0
+            elif pos.distance_squared(sh) == 1:
+                if can_act:
+                    if ct.can_build_barrier(sh):
+                        ct.build_barrier(sh)
+                    self.shield_at = None
+                    self.shield_tries = 0
+                return
+            else:
+                self._move_to(ct, sh)
+                return
+
         # 2) harvester duty
         if self.ore_target is None:
             self.ore_target = self._find_free_ore(ct, pos)
@@ -250,6 +276,11 @@ class Player:
                     dist = abs(ore.x - self.core.x) + abs(ore.y - self.core.y)
                     self.chain_left = dist + CHAIN_SLACK
                     self.ore_target = None
+                    foe = Position(self.map_w - 2 - self.core.x,
+                                   self.map_h - 2 - self.core.y)
+                    fd = cardinal_toward(ore, foe)
+                    if fd != Direction.CENTRE:
+                        self.shield_at = step_pos(ore, fd)
                 return
             self._move_to(ct, ore)
             return
@@ -289,14 +320,22 @@ class Player:
         self._chain_done()
 
     def _find_free_ore(self, ct: Controller, pos: Position):
-        best, bd = None, 9999
+        foe = None
+        if self.core is not None:
+            foe = Position(self.map_w - 2 - self.core.x,
+                           self.map_h - 2 - self.core.y)
+        best, bk = None, (2, 9999)
         for t in ct.get_nearby_tiles():
             if ct.get_tile_env(t) == Environment.ORE_TITANIUM:
                 if ct.get_tile_building_id(t) is not None:
                     continue
-                d = pos.distance_squared(t)
-                if d < bd:
-                    bd, best = d, t
+                risky = 0
+                if foe is not None and self.core is not None:
+                    risky = (1 if t.distance_squared(foe)
+                             < t.distance_squared(self.core) else 0)
+                k = (risky, pos.distance_squared(t))
+                if k < bk:
+                    bk, best = k, t
         return best
 
     def _explore_point(self) -> Position:
@@ -576,12 +615,33 @@ class Player:
                 if bt in (EntityType.GUNNER, EntityType.SENTINEL,
                           EntityType.LAUNCHER):
                     s = 3
+                elif bt == EntityType.HARVESTER:
+                    s = 2
                 elif bt == EntityType.CORE:
                     s = 1
             if s > score:
                 score, best = s, tile
+        # focus fire: prefer last round's shared target if it still holds
+        # a live enemy in MY pattern - split fire never outpaces tenders
+        if best is not None:
+            fx, fy = ct.read_store(SLOT_FOCUS_X), ct.read_store(SLOT_FOCUS_Y)
+            if (fx, fy) != (0, 0) and (fx != best.x or fy != best.y):
+                f = Position(fx, fy)
+                for tile in ct.get_attackable_tiles():
+                    if tile.x == fx and tile.y == fy and ct.is_in_vision(f):
+                        fb = ct.get_tile_building_id(f)
+                        fu = ct.get_tile_builder_bot_id(f)
+                        occupied = ((fu is not None
+                                     and ct.get_team(fu) != my_team)
+                                    or (fb is not None
+                                        and ct.get_team(fb) != my_team))
+                        if occupied:
+                            best = f
+                        break
         if best is not None and ct.can_fire(best):
             ct.fire(best)
+            ct.write_store(SLOT_FOCUS_X, best.x)
+            ct.write_store(SLOT_FOCUS_Y, best.y)
             return
         if (best is None
                 and ct.get_entity_type() == EntityType.GUNNER):
