@@ -26,6 +26,7 @@ CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 SLOT_CORE_X = 0
 SLOT_CORE_Y = 1
 SLOT_SPAWNED = 2
+SLOT_SIEGE = 3           # core sees an enemy -> 1, else 0
 
 MAX_BUILDERS = 7
 # spawn order -> role. Farmers get the economy up; wardens 3/5/7 arrive at
@@ -91,10 +92,35 @@ class Player:
         ct.write_store(SLOT_CORE_X, pos.x)
         ct.write_store(SLOT_CORE_Y, pos.y)
 
+        my_team = ct.get_team()
+        siege = 0
+        for u in ct.get_nearby_units():
+            if (ct.get_team(u) != my_team
+                    and ct.get_position(u).distance_squared(pos) <= 18):
+                siege = 1
+                break
+        if not siege:
+            for b in ct.get_nearby_buildings():
+                if (ct.get_team(b) != my_team
+                        and ct.get_entity_type(b) in (
+                            EntityType.GUNNER, EntityType.SENTINEL,
+                            EntityType.LAUNCHER)
+                        and ct.get_position(b).distance_squared(pos) <= 64):
+                    siege = 1
+                    break
+        ct.write_store(SLOT_SIEGE, siege)
+
         spawned = self.num  # the core reuses .num as its spawn counter
         ti = ct.get_global_resources()
+        # under siege, dead wardens MUST be replaced - a lifetime spawn
+        # counter never refills the wall (the royale bleed-out). Gate on
+        # affording builder AND sentinel so the newborn arrives armed.
         want_spawn = (spawned < MAX_BUILDERS
-                      or (ti > RESPAWN_TI and spawned < 12))
+                      or (ti > RESPAWN_TI and spawned < 12)
+                      or (siege
+                          and ti >= ct.get_builder_bot_cost()
+                             + ct.get_sentinel_cost() + 10
+                          and spawned < 30))
         if want_spawn and ti >= ct.get_builder_bot_cost():
             # write the number FIRST (visible next round, when the new
             # builder takes its first turn), then spawn
@@ -107,7 +133,11 @@ class Player:
                     break
 
         ammo = ct.get_global_ammo()
-        want = min(AMMO_CEILING - ammo, ct.get_global_resources() - AMMO_RESERVE)
+        # the defense fund: conversion must never pin the bank below the
+        # price of a sentinel, or dead seats stay dead (the one-sentinel
+        # wavebot loss - ammo siphon strangled every rebuild)
+        reserve = ct.get_sentinel_cost() + AMMO_RESERVE
+        want = min(AMMO_CEILING - ammo, ct.get_global_resources() - reserve)
         if want > 0 and ct.can_convert_ammo(want):
             ct.convert_ammo(want)
 
@@ -118,7 +148,11 @@ class Player:
         pos = ct.get_position()
         if self.role is None:
             self.num = ct.read_store(SLOT_SPAWNED)
-            self.role = 'ward' if self.num in WARDEN_NUMS else 'farm'
+            self.role = ('ward' if (self.num in WARDEN_NUMS
+                                    or (self.num > MAX_BUILDERS
+                                        and self.num % 2 == 1)
+                                    or ct.read_store(SLOT_SIEGE) == 1)
+                         else 'farm')
         if self.core is None or (self.core.x == 0 and self.core.y == 0):
             self.core = Position(ct.read_store(SLOT_CORE_X),
                                  ct.read_store(SLOT_CORE_Y))
@@ -262,18 +296,33 @@ class Player:
         if self.seat is None and self.core is not None:
             self.seat = self._my_seat()
 
-        # 0) emergency: enemy near home -> a gunner facing it beats all else
+        # 0) emergency: enemy near home -> answering turret NOW, wherever
+        # we stand. Sentinel if we can pay (indirect, outranges the siege
+        # pieces that killed us on royale); gunner as the poverty fallback.
         threat = self._home_threat(ct)
-        if (threat is not None and can_act
-                and ct.get_global_resources() >= ct.get_gunner_cost() + 10):
-            for d in CARDINALS:
-                sp = step_pos(pos, d)
-                face = cardinal_toward(sp, threat)
-                if face != Direction.CENTRE and ct.can_build_gunner(sp, face):
-                    ct.build_gunner(sp, face)
-                    return
+        if threat is not None and can_act:
+            if ct.get_global_resources() >= ct.get_sentinel_cost():
+                for d in CARDINALS:
+                    sp = step_pos(pos, d)
+                    face = cardinal_toward(sp, threat)
+                    if (face != Direction.CENTRE
+                            and ct.can_build_sentinel(sp, face)):
+                        ct.build_sentinel(sp, face)
+                        return
+            elif ct.get_global_resources() >= ct.get_gunner_cost() + 10:
+                for d in CARDINALS:
+                    sp = step_pos(pos, d)
+                    face = cardinal_toward(sp, threat)
+                    if face != Direction.CENTRE and ct.can_build_gunner(sp, face):
+                        ct.build_gunner(sp, face)
+                        return
 
-        # 1) my sentinel seat
+        # 1) my sentinel seat (rebuilt every time it dies - a latched
+        # seat_built with a dead sentinel is an unmanned wall)
+        if (self.seat_built and self.seat is not None
+                and ct.is_in_vision(self.seat[0])
+                and ct.get_tile_building_id(self.seat[0]) is None):
+            self.seat_built = False
         if not self.seat_built and self.seat is not None:
             spot, face = self.seat
             if ct.is_in_vision(spot) and ct.get_tile_building_id(spot) is not None:
@@ -311,8 +360,9 @@ class Player:
                 else [Direction.EAST, Direction.WEST])
         lane = [d1, perp[0], perp[1]][idx]
         side = perp[idx % 2] if lane == d1 else d1
+        ring = 2 if self.num in WARDEN_NUMS else 3
         spot = self.core
-        for _ in range(2):
+        for _ in range(ring):
             spot = step_pos(spot, lane)
         # one lateral step so the seat sits OFF the cardinal approach lane -
         # chains and seats were fighting for the same tiles
@@ -325,13 +375,14 @@ class Player:
         if self.core is None:
             return None
         my_team = ct.get_team()
-        best, bd = None, 37
+        best, bd = None, 19
         for u in ct.get_nearby_units():
             if ct.get_team(u) != my_team:
                 p = ct.get_position(u)
                 d = p.distance_squared(self.core)
                 if d < bd:
                     bd, best = d, p
+        bd = max(bd, 37)
         for b in ct.get_nearby_buildings():
             if ct.get_team(b) != my_team and ct.get_entity_type(b) in (
                     EntityType.GUNNER, EntityType.SENTINEL, EntityType.LAUNCHER):
