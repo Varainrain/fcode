@@ -25,6 +25,7 @@ from mapPathfinding import CARDINALS, DIRECTIONS
 import eco
 
 BAN_TURNS = 20        # a target whose HP rose is being healed: leave it alone
+SENT_TI = 90          # sentinel siege gate once the gunner path is dead
 TI_WINDOW = 5         # "titanium seen on them in the past 5 turns"
 GUN_TI = 70           # step 2: place a gunner to help kill a building above this
 SIEGE_TI = 250        # step 3: place a core-siege gunner above this
@@ -267,11 +268,10 @@ class AttackBot:
         """Gunner seats on their core that no enemy turret can hit, even by
         rotating (allowRotCov=False), ranked by real PATH weight.
 
-        fp11: HEAL-STALL GUARD. The ban list only ever gated break_trunk -
-        a tended core (hp flat or rising while our gunners fire) kept
-        eating seats and ammo forever (kladde healed back 665/714/833 of
-        exactly this). Track core hp here; on a stalled grind, decline the
-        step so the queue falls through to sentinel siege instead."""
+        fp11: on a heal-stalled grind (core hp flat 25+ turns under our
+        fire) decline and raise gunsDead, unlocking the sentinel siege -
+        sentinels are the only unit measured to damage cores through the
+        top-meta's barrier+tender kit."""
         if ct.get_global_resources() <= SIEGE_TI:
             return False
         ec = self.mapPf.enemyCorePos
@@ -283,10 +283,11 @@ class AttackBot:
                 prev = getattr(self, 'siegeCoreHp', None)
                 anchor = getattr(self, 'siegeAnchor', None)
                 if prev is None or hp < prev:
-                    self.siegeAnchor = curRound     # progress - reset clock
+                    self.siegeAnchor = curRound
                 elif anchor is not None and curRound - anchor > 25                         and self._atk_any_gun_near(ct, myTeam, ec):
                     self.siegeCoreHp = hp
-                    return False                    # stalled: stop feeding it
+                    self.gunsDead = True
+                    return False
                 self.siegeCoreHp = hp
         seats, seen = [], set()
         for corner in self._atk_core_tiles():
@@ -310,8 +311,6 @@ class AttackBot:
         return self._atk_walk_adjacent(ct, myLoc, spot)
 
     def _atk_any_gun_near(self, ct: Controller, myTeam, ec) -> bool:
-        """At least one of OUR gunners within firing reach of the core - the
-        stall clock only counts while we are actually shooting."""
         for b in ct.get_nearby_buildings():
             if ct.get_team(b) != myTeam:
                 continue
@@ -345,8 +344,25 @@ class AttackBot:
         gunner siege declined - which is exactly the walled/heal-tanked case:
         sentinel fire is INDIRECT (no barrier blocks it) and one seat's
         18-per-2-turns out-paces a tender pair's heal where a lone gunner's
-        7 cannot. Reach: 5 cardinal / 4 diagonal from the target tile."""
-        if ct.get_global_resources() <= SIEGE_TI:
+        7 cannot. Reach: 5 cardinal / 4 diagonal from the target tile.
+
+        CONDITIONAL: sentinels are pricier dps than gunners in the open
+        field (ambient sentinel-first was a measured in-family tax, double
+        REJECT) - they deploy only when the gunner path is proven dead:
+        the heal-stall flag, or rich with no gunner seat (walled core)."""
+        if not getattr(self, 'gunsDead', False):
+            rich = ct.get_global_resources() > SIEGE_TI + 50
+            if not rich:
+                return False
+            probe = None
+            for corner in self._atk_core_tiles():
+                probe = self.find_gun_seat(ct, corner, myLoc, myTeam, False)
+                if probe is not None:
+                    break
+            if probe is not None:
+                return False    # gunner seats exist - let them work
+            self.gunsDead = True
+        if ct.get_global_resources() <= SENT_TI:
             return False
         seats = []
         for corner in self._atk_core_tiles():
