@@ -23,6 +23,7 @@ first, then converts surplus (<=20/round) toward a 60 buffer.
 """
 
 from fcode import Controller, Direction, EntityType, Environment, Position
+from mapPathfinding import MapPathfinder
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIR8 = [Direction.NORTH, Direction.NORTHEAST, Direction.EAST,
@@ -59,6 +60,7 @@ def cheb(a, b):
 
 class Player:
     def __init__(self):
+        self.mapPf = MapPathfinder()
         self.core = None
         self.foe = None
         self.foe_seen = False
@@ -169,6 +171,7 @@ class Player:
 
     def _spear(self, ct):
         pos = ct.get_position()
+        self.mapPf.setupMap(ct)
         self._latch(ct, pos)
         can_act = ct.get_action_cooldown() == 0
         my = ct.get_team()
@@ -305,22 +308,6 @@ class Player:
 
     # ------------------------------------------------------------------
     def _go(self, ct, pos, target):
-        if ct.get_move_cooldown() != 0:
-            return
-        here = pos.distance_squared(target)
-        opts = []
-        for d in CARDINALS:
-            n = step(pos, d)
-            if not (0 <= n.x < self.w and 0 <= n.y < self.h):
-                continue
-            if not ct.is_tile_passable(n):
-                continue
-            nd = n.distance_squared(target)
-            # equal-distance steps only under pressure: freely allowed they
-            # create A-B-A-B orbits the stuck counter never sees
-            if nd < here or (nd == here and self.stuck >= 1) \
-                    or self.stuck > 2:
-                opts.append((nd, d))
-        if opts:
-            opts.sort(key=lambda o: o[0])
-            ct.move(opts[0][1])
+        # real pathfinding (fp's Dial's-algorithm mover) - three separate
+        # greedy-orbit bugs earned this transplant
+        self.mapPf.moveTo(ct, target)
