@@ -70,7 +70,7 @@ class AttackBot:
         self.atk_observe(ct, myTeam)
         for step in (self.atk_deny, self.atk_break_trunk,
                      self.atk_siege, self.atk_sent_siege,
-                     self.atk_approach, self.atk_breach):
+                     self.atk_seal, self.atk_approach, self.atk_breach):
             if step(ct, myLoc, myTeam):
                 return
 
@@ -372,6 +372,53 @@ class AttackBot:
                 return True
             return False
         return self._atk_walk_adjacent(ct, myLoc, spot)
+
+    # ---------------------------------------------------- 3.7 heal-seat seal
+
+    def atk_seal(self, ct: Controller, myLoc, myTeam) -> bool:
+        """Bean counters' masterstroke, ported: barrier the enemy core's
+        orthogonal perimeter (dB1) so tender builders have NO tile to
+        stand on and heal from - the heal race is won by REMOVING the
+        seats, not out-DPSing them. Safe for us because our core damage
+        is sentinel-based and sentinel fire is indirect: our own barriers
+        never block it. Runs only once a sentinel of ours stands near
+        their core (before that, the money belongs to the siege)."""
+        ec = self.mapPf.enemyCorePos
+        if ec is None:
+            return False
+        have_sent = False
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) == myTeam
+                    and ct.get_entity_type(b) == EntityType.SENTINEL
+                    and _manh(ct.get_position(b), ec) <= 7):
+                have_sent = True
+                break
+        if not have_sent:
+            return False
+        if ct.get_global_resources() < ct.get_barrier_cost() + 40:
+            return False
+        ring = []
+        for a2 in (0, 1):
+            ring.append(Position(ec.x + a2, ec.y - 1))
+            ring.append(Position(ec.x + a2, ec.y + 2))
+            ring.append(Position(ec.x - 1, ec.y + a2))
+            ring.append(Position(ec.x + 2, ec.y + a2))
+        ring = [t for t in ring
+                if 0 <= t.x < self.mapW and 0 <= t.y < self.mapH]
+        ring.sort(key=lambda t: _manh(t, myLoc))
+        for t in ring:
+            if ct.is_in_vision(t):
+                if ct.get_tile_building_id(t) is not None:
+                    continue
+                if ct.get_tile_builder_bot_id(t) is not None:
+                    continue
+            if myLoc.distance_squared(t) == 1:
+                if ct.can_build_barrier(t):
+                    ct.build_barrier(t)
+                    return True
+                continue
+            return self._atk_walk_adjacent(ct, myLoc, t)
+        return False
 
     # ------------------------------------------------------------ 4. approach
 
