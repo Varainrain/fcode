@@ -25,11 +25,15 @@ first, then converts surplus (<=20/round) toward a 60 buffer.
 from fcode import Controller, Direction, EntityType, Environment, Position
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
+DIR8 = [Direction.NORTH, Direction.NORTHEAST, Direction.EAST,
+        Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTHWEST,
+        Direction.WEST, Direction.NORTHWEST]
 
 SLOT_CX = 0
 SLOT_CY = 1
 SLOT_N = 2
-SLOT_BUILT = 3      # sentinels placed so far (builder writes)
+SLOT_BUILT = 3
+CANARY = True      # sentinels placed so far (builder writes)
 
 AMMO_BUF = 60
 
@@ -127,6 +131,10 @@ class Player:
             self.stuck = 0
         self.last = pos
 
+    def _foe_tiles(self):
+        f = self.foe
+        return [Position(f.x + a, f.y + b) for a in (0, 1) for b in (0, 1)]
+
     def _slots(self):
         """Four ray tiles: cardinal d5, d4 on the major axis (our side),
         then approach-side diagonal d4, d3. Fallbacks walk closer on the
@@ -183,51 +191,63 @@ class Player:
         # BUILD PHASE: attempt a slot every turn while fewer than 4 stand
         # (or rebuild below 3)
         want_build = (self.built < 4) or (sents < 3)
+        ct.write_store(12, self.built)
+        if not (want_build and can_act):
+            ct.write_store(10, 5)
+        elif ct.get_global_resources() < ct.get_sentinel_cost():
+            ct.write_store(10, 1)
+            ct.write_store(8, min(4000000000, ct.get_sentinel_cost()))
+            ct.write_store(7, ct.get_global_resources())
         if want_build and can_act \
                 and ct.get_global_resources() >= ct.get_sentinel_cost():
-            for (t, kind) in self._slots():
-                if ct.is_in_vision(t):
-                    bid = ct.get_tile_building_id(t)
-                    if bid is not None:
-                        continue
-                    bb = ct.get_tile_builder_bot_id(t)
-                    if bb is not None and bb != ct.get_id():
-                        continue
-                if pos.x == t.x and pos.y == t.y:
-                    # NEVER stand on a slot tile (spec) - it becomes
-                    # unbuildable under our own feet. Step off sideways.
-                    for d in CARDINALS:
-                        n = step(pos, d)
-                        if (0 <= n.x < self.w and 0 <= n.y < self.h
-                                and ct.is_tile_passable(n)
-                                and ct.get_move_cooldown() == 0):
-                            ct.move(d)
-                            return
-                    return
-                if pos.distance_squared(t) == 1:
-                    face = dir8_toward(t, self.foe)
-                    if face is not None \
-                            and ct.can_build_sentinel(t, face):
-                        ct.build_sentinel(t, face)
-                        self.built += 1
-                        ct.write_store(SLOT_BUILT, self.built)
-                        return
-                    continue
-                # walk to a NEIGHBOR of the slot, never the slot itself
-                best_n, bd = None, 10 ** 9
-                for d in CARDINALS:
-                    n = step(t, d)
-                    if not (0 <= n.x < self.w and 0 <= n.y < self.h):
-                        continue
-                    if (ct.is_in_vision(n)
-                            and ct.get_tile_building_id(n) is not None):
-                        continue
-                    dn = pos.distance_squared(n)
-                    if dn < bd:
-                        bd, best_n = dn, n
-                if best_n is not None:
-                    self._go(ct, pos, best_n)
-                    return
+            # fp14-proven ray scan: walk each of 8 rays outward from each
+            # enemy-core tile; the FIRST adjacent-and-buildable ray tile
+            # gets the sentinel (facing back up the ray). Terrain handles
+            # itself: unbuildable tiles simply fail can_build and the scan
+            # moves on. If nothing is adjacent, walk at the nearest
+            # candidate seen this turn.
+            walk_to = None
+            walk_d = 10 ** 9
+            for t in self._foe_tiles():
+                for d8 in DIR8:
+                    dd = d8.delta()
+                    reach = 5 if 0 in (dd[0], dd[1]) else 4
+                    for k in range(2, reach + 1):
+                        x = t.x + dd[0] * k
+                        y = t.y + dd[1] * k
+                        if not (0 <= x < self.w and 0 <= y < self.h):
+                            break
+                        s = Position(x, y)
+                        if ct.is_in_vision(s):
+                            if ct.get_tile_building_id(s) is not None:
+                                continue
+                            if ct.get_tile_builder_bot_id(s) is not None:
+                                continue
+                        if pos.distance_squared(s) == 1:
+                            back = dir8_toward(s, t)
+                            if back is not None \
+                                    and ct.can_build_sentinel(s, back):
+                                ct.build_sentinel(s, back)
+                                self.built += 1
+                                ct.write_store(SLOT_BUILT, self.built)
+                                return
+                        else:
+                            ds = pos.distance_squared(s)
+                            if ds < walk_d:
+                                walk_d, walk_to = ds, s
+                        break       # first free tile per ray only
+            if walk_to is not None:
+                self._go(ct, pos, walk_to)
+                return
+
+        # ACT-XOR-MOVE LOCK: moving resets the action cooldown, so a
+        # builder that walks every turn can never build again (sentinel 1
+        # only ever landed because a money-wait forced idle turns). When a
+        # build is wanted and funded but the cooldown blocks it: STAND
+        # STILL and let it clear.
+        if want_build and not can_act \
+                and ct.get_global_resources() >= ct.get_sentinel_cost():
+            return
 
         # ESCORT: heal the lowest adjacent sentinel; else hug the
         # frontline one (closest to the enemy core)
@@ -296,7 +316,10 @@ class Player:
             if not ct.is_tile_passable(n):
                 continue
             nd = n.distance_squared(target)
-            if nd < here or nd == here or self.stuck > 2:
+            # equal-distance steps only under pressure: freely allowed they
+            # create A-B-A-B orbits the stuck counter never sees
+            if nd < here or (nd == here and self.stuck >= 1) \
+                    or self.stuck > 2:
                 opts.append((nd, d))
         if opts:
             opts.sort(key=lambda o: o[0])
