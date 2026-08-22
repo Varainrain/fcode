@@ -53,6 +53,37 @@ def _we_cover(ct: Controller, myTeam, tile: Position) -> bool:
     return False
 
 
+
+def _gun_seat_dead(bot, ct, spot) -> bool:
+    """Refuse a gunner seat we have already fed twice, and keep a loose global
+    backstop. MEASURED (v197 vs I Stone, game 2, a 1000-turn loss on titanium):
+    from turn 300 to the end we rebuilt a gunner every four turns and built
+    NOTHING else - 170 of them, no conveyor, no harvester, no builder. The
+    siege and counter-battery seat searches are deterministic, so when an
+    opponent kills a gunner for free we re-pick the same doomed tile forever
+    while they farm us to death. Every v197 loss was a 1000-turn titanium
+    race; every win was a core kill. This is the spear's grave memory: a
+    seat gets one retry, then it is dead to us. Total count is NOT capped
+    tightly on purpose - a game we won built 54 gunners, so the thing to
+    stop is the repetition, not the volume."""
+    key = (spot.x, spot.y)
+    seats = getattr(bot, 'gunSeats', None)
+    if seats is None:
+        seats = bot.gunSeats = {}
+    if seats.get(key, 0) >= 2:
+        return True
+    return getattr(bot, 'gunsBuilt', 0) >= 12 + ct.get_current_round() // 60
+
+
+def _gun_seat_used(bot, spot) -> None:
+    key = (spot.x, spot.y)
+    seats = getattr(bot, 'gunSeats', None)
+    if seats is None:
+        seats = bot.gunSeats = {}
+    seats[key] = seats.get(key, 0) + 1
+    bot.gunsBuilt = getattr(bot, 'gunsBuilt', 0) + 1
+
+
 class AttackBot:
     """The single attacker. Mixed into Player, so all state is `self.*`."""
 
@@ -281,11 +312,15 @@ class AttackBot:
             seats.append(seat)
         if not seats:
             return False
+        seats = [s for s in seats if not _gun_seat_dead(self, ct, s[0])]
+        if not seats:
+            return False
         seats.sort(key=lambda s: self._atk_path_cost(ct, s[0]))
         spot, facing = seats[0]
         if myLoc.distance_squared(spot) == 1:
             if ct.can_build_gunner(spot, facing):
                 ct.build_gunner(spot, facing)
+                _gun_seat_used(self, spot)
                 return True
             return False
         return self._atk_walk_adjacent(ct, myLoc, spot)

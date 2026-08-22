@@ -30,7 +30,12 @@ F_FLOOR = 0.05      # falloff floor (step 8)
 LEASH_MUL = 4.0
 WARD_R2 = 64
 DEFEND_TI = 100      # counter-gunner state needs this much
-HARV_TI = 100        # a NEW harvester needs this much
+HARV_TI = 45         # a NEW harvester needs this much. Was 100: a
+                     # POVERTY TRAP - while a siege or a defence keeps the
+                     # bank under 100 no harvester is ever started. Juusto
+                     # beat us with 9-22 harvesters against our 2-9 in
+                     # every scrim loss; a harvester costs ~20 and repays
+                     # itself, so 45 keeps a chain float and still farms.
 HOME_TTL = 20      # rounds a damage report stays fresh
 HOME_R2 = 25       # already-home radius, where step_heal takes over     # steeper leash once this bot finished a super project
 
@@ -69,6 +74,37 @@ def _we_cover(ct: Controller, myTeam, tile: Position) -> bool:
     return False
 
 
+
+def _gun_seat_dead(bot, ct, spot) -> bool:
+    """Refuse a gunner seat we have already fed twice, and keep a loose global
+    backstop. MEASURED (v197 vs I Stone, game 2, a 1000-turn loss on titanium):
+    from turn 300 to the end we rebuilt a gunner every four turns and built
+    NOTHING else - 170 of them, no conveyor, no harvester, no builder. The
+    siege and counter-battery seat searches are deterministic, so when an
+    opponent kills a gunner for free we re-pick the same doomed tile forever
+    while they farm us to death. Every v197 loss was a 1000-turn titanium
+    race; every win was a core kill. This is the spear's grave memory: a
+    seat gets one retry, then it is dead to us. Total count is NOT capped
+    tightly on purpose - a game we won built 54 gunners, so the thing to
+    stop is the repetition, not the volume."""
+    key = (spot.x, spot.y)
+    seats = getattr(bot, 'gunSeats', None)
+    if seats is None:
+        seats = bot.gunSeats = {}
+    if seats.get(key, 0) >= 2:
+        return True
+    return getattr(bot, 'gunsBuilt', 0) >= 12 + ct.get_current_round() // 60
+
+
+def _gun_seat_used(bot, spot) -> None:
+    key = (spot.x, spot.y)
+    seats = getattr(bot, 'gunSeats', None)
+    if seats is None:
+        seats = bot.gunSeats = {}
+    seats[key] = seats.get(key, 0) + 1
+    bot.gunsBuilt = getattr(bot, 'gunsBuilt', 0) + 1
+
+
 class EcoBot:
     """Mixed into Player, so all per-unit state is self.* and is created in one
     place: Player.__init__ in main.py."""
@@ -89,11 +125,11 @@ class EcoBot:
                         if u != myId and ct.get_team(u) == myTeam
                         and ct.get_entity_type(u) == EntityType.BUILDER_BOT]
 
-        for step in (self.step_unseal,
-                     self.step_core_siege,
+        for step in (self.step_core_siege,
                      self.step_relay_alarm,
                      self.step_ring,
                      self.step_counter_turret,
+                     self.step_deny_seats,
                      self.step_heal,
                      self.step_home,
                      self.step_repair,
@@ -337,54 +373,6 @@ class EcoBot:
 
     # --------------------------------------------------- 3. counter a turret
 
-    def step_unseal(self, ct: Controller, myLoc, myTeam) -> bool:
-        """Break an enemy CAGE off our own core's perimeter.
-
-        The eight tiles orthogonally touching the 2x2 footprint are the
-        only tiles from which anything can heal the core, and the only
-        tiles a conveyor can deliver into it from. O(1) bricked all eight
-        of ours (match 0b94fc90 game 1, turns 32-91): our build rate
-        collapsed from 28 per 50 turns to 2, nothing could reach the core,
-        and it died at t180 without us ever touching the cage. A barrier is
-        30hp and a builder chews 2/turn, so opening ONE tile restores
-        healing, delivery and the spawn ring - this outranks all economy."""
-        core = self.mapPf.teamCore
-        if core is None:
-            return False
-        ring = []
-        for a in (0, 1):
-            ring.append(Position(core.x + a, core.y - 1))
-            ring.append(Position(core.x + a, core.y + 2))
-            ring.append(Position(core.x - 1, core.y + a))
-            ring.append(Position(core.x + 2, core.y + a))
-        best, bd, walled = None, None, 0
-        for t in ring:
-            if not (0 <= t.x < self.mapW and 0 <= t.y < self.mapH):
-                continue
-            if not ct.is_in_vision(t):
-                continue
-            bId = ct.get_tile_building_id(t)
-            if bId is None or ct.get_team(bId) == myTeam:
-                continue
-            walled += 1
-            d = myLoc.distance_squared(t)
-            if bd is None or d < bd:
-                bd, best = d, t
-        # A REAL cage, not one stray barrier. Reacting to a single enemy
-        # tile pulled builders off work and cost us games we otherwise won
-        # 100% (93% vs the cager once this step fired on strays). Three or
-        # more occupied ring tiles is a deliberate seal.
-        if best is None or walled < 3:
-            return False
-        before = _snapshot(ct)
-        if myLoc.distance_squared(best) == 1:
-            if ct.can_fire(best):
-                ct.fire(best)
-                return True
-            return False
-        self._walk_adjacent(ct, myLoc, best)
-        return _acted(ct, before)
-
     def step_core_siege(self, ct: Controller, myLoc, myTeam) -> bool:
         """EMERGENCY: our core is being shot RIGHT NOW.
 
@@ -500,6 +488,84 @@ class EcoBot:
                     return True
         return False
 
+    def step_deny_seats(self, ct: Controller, myLoc, myTeam) -> bool:
+        """SEAT DENIAL. An enemy sentinel has to stand on a straight ray to
+        our core, 2-5 tiles out, to hit it - and a tile that already holds a
+        building cannot be built on. A conveyor costs 3 titanium and is
+        PASSABLE, so paving those tiles denies the whole spear meta a place
+        to stand without walling ourselves in. Cheapest defence in the game
+        if it holds."""
+        core = self.mapPf.teamCore
+        if core is None:
+            return False
+        if ct.get_global_resources() < 120:
+            return False        # never at the cost of the real economy
+        if ct.get_current_round() > 260:
+            return False
+        # ONLY AGAINST AN ACTUAL SPEAR. Paving by default is 90% vs a spear
+        # but 12% in-family - the titanium and the builder-turns have to
+        # come from somewhere. The tell is an enemy BUILDER loitering near
+        # our core with no economy of its own, or a sentinel already up.
+        # THE TELL MUST BE A SENTINEL, NOT A VISITOR. Triggering on any
+        # enemy builder within 9 tiles fired on turn 3 of nearly every game
+        # - measured in the Focalground loss: 24 of our 31 conveyors went
+        # up within 4 tiles of our core, we finished with THREE harvesters
+        # and died at t48. Pave only when a spear is actually assembling,
+        # and never more than six tiles' worth.
+        if getattr(self, 'paved', 0) >= 6:
+            return False
+        threat = False
+        for b in ct.get_nearby_buildings():
+            if (ct.get_team(b) != myTeam
+                    and ct.get_entity_type(b) == EntityType.SENTINEL
+                    and _man(ct.get_position(b), core) <= 10):
+                threat = True
+                break
+        if not threat and ct.get_current_round() >= 40:
+            for u in ct.get_nearby_units():
+                if ct.get_team(u) != myTeam                         and _man(ct.get_position(u), core) <= 5:
+                    threat = True
+                    break
+        if not threat:
+            return False
+        best, bd = None, None
+        for cx, cy in ((core.x, core.y), (core.x + 1, core.y),
+                       (core.x, core.y + 1), (core.x + 1, core.y + 1)):
+            for dx, dy in ((0, -1), (1, -1), (1, 0), (1, 1),
+                           (0, 1), (-1, 1), (-1, 0), (-1, -1)):
+                reach = 4 if (dx == 0 or dy == 0) else 3
+                for k in range(2, reach + 1):
+                    t = Position(cx + dx * k, cy + dy * k)
+                    if not (0 <= t.x < self.mapW and 0 <= t.y < self.mapH):
+                        break
+                    if not ct.is_in_vision(t):
+                        continue
+                    if ct.get_tile_env(t) != Environment.EMPTY:
+                        continue
+                    if ct.get_tile_building_id(t) is not None:
+                        continue
+                    if ct.get_tile_builder_bot_id(t) is not None:
+                        continue
+                    d = myLoc.distance_squared(t)
+                    if bd is None or d < bd:
+                        bd, best = d, t
+        if best is None:
+            return False
+        before = _snapshot(ct)
+        if myLoc.distance_squared(best) == 1:
+            face = CARDINALS[0]
+            for d in CARDINALS:
+                if best.add(d).distance_squared(core) <                         best.distance_squared(core):
+                    face = d
+                    break
+            if ct.can_build_conveyor(best, face):
+                ct.build_conveyor(best, face)
+                self.paved = getattr(self, 'paved', 0) + 1
+                return True
+            return False
+        self._walk_adjacent(ct, myLoc, best)
+        return _acted(ct, before)
+
     def step_counter_turret(self, ct: Controller, myLoc, myTeam) -> bool:
         """STEP 3: every enemy GUNNER/SENTINEL in vision plus any decoded from
         slot 7, so a bot that cannot see the turret still responds. Any turret
@@ -529,10 +595,13 @@ class EcoBot:
         if seat is None:
             return False
         spot, facing = seat
+        if _gun_seat_dead(self, ct, spot):
+            return False
         before = _snapshot(ct)
         if myLoc.distance_squared(spot) == 1:
             if ct.can_build_gunner(spot, facing):
                 ct.build_gunner(spot, facing)
+                _gun_seat_used(self, spot)
         else:
             self._walk_adjacent(ct, myLoc, spot)
         return _acted(ct, before)

@@ -198,7 +198,13 @@ class GunnerBot:
             bbId = ct.get_tile_builder_bot_id(t)
             if bbId is not None and ct.get_team(bbId) == myTeam:
                 continue        # our own builder is standing there - see _gun_enemy
-            rank = 0        # a builder bot is not a good target
+            # SNIPER EXPERIMENT: builders are the linchpin of every bot we
+            # have decoded - they heal cores and turrets, rebuild seats and
+            # lay economy. The stock table calls them "not a good target"
+            # because they self-heal +4 against our 7 and walk away; this
+            # variant tests the opposite bet, that killing the tender beats
+            # chipping what the tender maintains.
+            rank = 6 if bbId is not None else 0
             if bId is not None:
                 bType = ct.get_entity_type(bId)
                 if bType == EntityType.HARVESTER:

@@ -162,26 +162,15 @@ class Player(eco.EcoBot, attack.AttackBot, gunner.GunnerBot):
         # away after a wipe and the team is dead long before.
         if ct.get_unit_count() < 4:
             return ct.get_global_resources() >= ct.get_builder_bot_cost()
-        # ECONOMY FLOOR (measured across 15 games of our closest ladder
-        # losses - Focalground, Leviathan, Lorem Ipsum): in EVERY loss we
-        # fielded 1-5 harvesters and 13-40 conveyors while they fielded
-        # 9-13 harvesters and 78-117 conveyors, then their sentinel mass
-        # finished us. Two of those games we ran a 300+ turn match on ONE
-        # harvester. The 349 gate is the cause: siege spending keeps the
-        # bank under it, so the crew never grows and the economy never
-        # starts. While the farm is this thin, builders are the best
-        # possible use of titanium.
-        # LATE only. Applying this floor from turn 1 costs the opening
-        # fight outright (measured 17% and 22% head-to-head: builders
-        # instead of military loses to anything that sieges). It exists
-        # solely for the long game the ladder losses were - by t100 a
-        # one-harvester economy is not a tempo choice, it is a dead bot.
+        # LATE CREW FLOOR: by t100 a two-harvester economy is not a tempo
+        # choice, it is a dead bot (g1 of the Juusto set: 2 harvesters, we
+        # lost at t977). Applying this from t1 costs the opening fight, so
+        # it fires only once the game is long.
         if ct.get_current_round() > 100:
             harv = 0
             myTeam = ct.get_team()
             for b in ct.get_nearby_buildings():
-                if ct.get_team(b) == myTeam \
-                        and ct.get_entity_type(b) == EntityType.HARVESTER:
+                if ct.get_team(b) == myTeam                         and ct.get_entity_type(b) == EntityType.HARVESTER:
                     harv += 1
             if harv < 4 and ct.get_global_resources() > 200:
                 return True
