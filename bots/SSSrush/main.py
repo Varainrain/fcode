@@ -215,6 +215,9 @@ class Player:
                 for d8 in DIR8:
                     dd = d8.delta()
                     reach = 5 if 0 in (dd[0], dd[1]) else 4
+                    # closest-first: standoff-first swept holmgang but
+                    # pooled-REJECTED 3x (slower volley, blocked outer
+                    # rays elsewhere) - single-seed trap, again
                     for k in range(2, reach + 1):
                         x = t.x + dd[0] * k
                         y = t.y + dd[1] * k
