@@ -36,6 +36,25 @@ def ring(t, cx, cy, r, val=1, gaps=()):
 def maps():
     M = {}
 
+    # ---- 0: SHORT-DISTANCE BAND. Added after measuring both pools: the
+    # league pool runs core distances 12,12,16,16,16,20,20,22,24,24,28,30,
+    # 30,44,48 (median 22) while this file's first draft started at 24 and
+    # ran to 52 (median 36). That made "finals maps" a synonym for "long
+    # maps", and any bot that simply likes long marches - the spear, the
+    # hybrid's spear mode - looked versatile when it was just being handed
+    # its favourite geometry. A finals pool has to span the range, not one
+    # end of it.
+    M['rush_tiny'] = (16, 16, {(4, 7): 2, (7, 4): 2, (6, 6): 2}, (5, 5))
+    M['rush_close'] = (20, 20, {(4, 9): 2, (9, 4): 2, (7, 7): 2, (3, 6): 2}, (6, 6))
+    M['short_ore'] = (22, 22, {(5, 5): 2, (7, 4): 2, (4, 7): 2, (8, 8): 2}, (6, 6))
+    t = {}
+    for y in range(20):
+        if y not in (9, 10):
+            t[(10, y)] = 1
+    t.update({(4, 5): 2, (6, 3): 2, (3, 8): 2})
+    M['short_choke'] = (20, 20, t, (5, 6))
+    M['short_open'] = (24, 24, {(6, 10): 2, (10, 6): 2, (8, 8): 2, (4, 12): 2}, (7, 7))
+
     # ---- 1-3: CORE DISTANCE SWEEP on an open field. The single axis our
     # hybrid dispatches on (it switches to the spear past distance 26), so
     # the finals must be probed either side of that line.
