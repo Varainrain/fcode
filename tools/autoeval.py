@@ -79,6 +79,29 @@ def active_version():
     return m.group(1) if m else None
 
 
+def named_teams(names, us="Erebus"):
+    """Resolve EXACT opponents by name. The finals prize money is decided
+    against a specific short list - not adgato, Pantheon, Leviathan, Clankers,
+    Lorem Ipsum - and 'top N' drifts as the ladder moves, so a run aimed at
+    those five has to name them."""
+    data = jrun(["fcode", "ladder", "--limit", "40", "--json"])
+    rows = data if isinstance(data, list) else (data or {}).get("teams", [])
+    byname = {}
+    for r in rows:
+        nm = r.get("name") or r.get("teamName")
+        tid = r.get("id") or r.get("teamId")
+        if nm and tid:
+            byname[nm.strip().lower()] = (nm, tid)
+    out = []
+    for want in names:
+        hit = byname.get(want.strip().lower())
+        if hit:
+            out.append(hit)
+        else:
+            print(f"   ! could not resolve team '{want}'", flush=True)
+    return out
+
+
 def top_teams(n, us="Erebus"):
     data = jrun(["fcode", "ladder", "--limit", str(n + 3), "--json"])
     rows = data if isinstance(data, list) else (data or {}).get("teams", [])
@@ -126,12 +149,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--versions", nargs="+", required=True)
     ap.add_argument("--top", type=int, default=5)
+    ap.add_argument("--teams", nargs="+", default=None,
+                    help="exact opponent names (overrides --top)")
     ap.add_argument("--until", default="10:30", help="local HH:MM to stop by")
     ap.add_argument("--margin", type=int, default=45,
                     help="minutes of headroom required before --until")
     ap.add_argument("--final", default=None,
                     help="version to leave ACTIVE at the end (default: first)")
     ap.add_argument("--cycle", type=int, default=20, help="minutes per window")
+    ap.add_argument("--chunk", type=int, default=5,
+                    help="requests per rate-limit window")
+    ap.add_argument("--chunk-gap", type=int, default=10,
+                    help="minutes between request chunks")
     a = ap.parse_args()
 
     final = a.final or a.versions[0]
@@ -144,7 +173,7 @@ def main():
         print(f"refusing to start: less than {a.margin} min before {a.until}")
         return
 
-    teams = top_teams(a.top)
+    teams = named_teams(a.teams) if a.teams else top_teams(a.top)
     if not teams:
         print("could not read the ladder")
         return
@@ -161,19 +190,32 @@ def main():
     i = 0
     while dt.datetime.now() < stop - dt.timedelta(minutes=a.margin):
         ver = a.versions[i % len(a.versions)]
-        i += 1
         if not activate(ver):
             print(f"could not activate v{ver}; stopping", flush=True)
             break
         print(f"[{dt.datetime.now():%H:%M}] v{ver} active", flush=True)
+        # CHUNKED REQUESTS. The cap is 5 unrated per ACCOUNT per window, so a
+        # 20-minute cycle against the top 10 fits as 5 now and 5 after the
+        # window rolls. Requesting all ten back-to-back just burns five of
+        # them on refusals.
         pending = []
-        for name, tid in teams:
-            mid, limited = request(tid)
-            if limited:
-                print("   ~ rate limited (5 per 20 min per ACCOUNT)", flush=True)
-                break
-            if mid:
-                pending.append((name, mid))
+        limited_first = False
+        for chunk_i in range(0, len(teams), a.chunk):
+            if chunk_i:
+                time.sleep(a.chunk_gap * 60)
+            for name, tid in teams[chunk_i:chunk_i + a.chunk]:
+                mid, limited = request(tid)
+                if limited:
+                    limited_first = not pending
+                    print("   ~ rate limited", flush=True)
+                    break
+                if mid:
+                    pending.append((name, mid))
+        # Do NOT burn this version's turn on a window where we got nothing:
+        # a rate-limited cycle used to advance the rotation, handing the other
+        # candidate an extra window and skewing the A/B.
+        if not limited_first:
+            i += 1
         time.sleep(150)
         for name, mid in pending:
             res = None
@@ -200,8 +242,9 @@ def main():
                       f"  ({100*t[0]/n:.0f}% matches,"
                       f" {100*t[2]/max(1,t[2]+t[3]):.0f}% games)", flush=True)
         left = (stop - dt.timedelta(minutes=a.margin) - dt.datetime.now())
-        if left.total_seconds() > a.cycle * 60:
-            time.sleep(a.cycle * 60)
+        rest = a.chunk_gap * 60 if len(teams) > a.chunk else a.cycle * 60
+        if left.total_seconds() > rest:
+            time.sleep(rest)
 
     fh.close()
     print(f"\nactivating final v{final}", flush=True)
